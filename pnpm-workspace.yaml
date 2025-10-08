@@ -1,0 +1,7 @@
+packages:
+  # Apps
+  - 'apps/*'
+  # Shared packages
+  - 'packages/*'
+  # Tools and configurations
+  - 'tools/*'
