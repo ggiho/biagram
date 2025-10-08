@@ -72,6 +72,9 @@ importers:
       '@biagram/dbml-parser':
         specifier: workspace:*
         version: link:../../packages/dbml-parser
+      '@biagram/ddl-converter':
+        specifier: workspace:*
+        version: link:../../packages/ddl-converter
       '@biagram/diagram-engine':
         specifier: workspace:*
         version: link:../../packages/diagram-engine
@@ -221,6 +224,28 @@ importers:
       '@vitest/coverage-v8':
         specifier: ^1.0.0
         version: 1.6.1(vitest@1.6.1)
+      eslint:
+        specifier: ^8.55.0
+        version: 8.57.1
+      tsup:
+        specifier: ^8.0.0
+        version: 8.5.0(typescript@5.9.2)
+      typescript:
+        specifier: ^5.3.0
+        version: 5.9.2
+      vitest:
+        specifier: ^1.0.0
+        version: 1.6.1(@types/node@20.19.17)
+
+  packages/ddl-converter:
+    dependencies:
+      '@biagram/shared':
+        specifier: workspace:*
+        version: link:../shared
+    devDependencies:
+      '@types/node':
+        specifier: ^20.10.0
+        version: 20.19.17
       eslint:
         specifier: ^8.55.0
         version: 8.57.1

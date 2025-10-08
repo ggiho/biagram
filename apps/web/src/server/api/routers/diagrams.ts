@@ -1,5 +1,6 @@
 import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
+import { convertDDLtoDBMLAuto } from '@biagram/ddl-converter';
 
 import { createTRPCRouter, publicProcedure } from '@/server/api/trpc';
 
@@ -70,6 +71,44 @@ export const diagramRouter = createTRPCRouter({
       };
     }),
 
+  // Convert DDL to DBML
+  convertDDL: publicProcedure
+    .input(z.object({
+      ddl: z.string(),
+      dialect: z.enum(['mysql', 'postgresql', 'auto']).default('auto')
+    }))
+    .mutation(async ({ input }) => {
+      try {
+        console.log('🔄 SERVER: convertDDL called with dialect:', input.dialect);
+
+        const result = convertDDLtoDBMLAuto(input.ddl);
+
+        if (!result.success) {
+          return {
+            success: false,
+            dbml: '',
+            errors: result.errors,
+            warnings: result.warnings,
+          };
+        }
+
+        return {
+          success: true,
+          dbml: result.dbml,
+          errors: undefined,
+          warnings: result.warnings,
+        };
+      } catch (error) {
+        console.error('❌ convertDDL error:', error);
+        return {
+          success: false,
+          dbml: '',
+          errors: [error instanceof Error ? error.message : 'Unknown error'],
+          warnings: undefined,
+        };
+      }
+    }),
+
   // Parse DBML content - made more resilient
   parseDBML: publicProcedure
     .input(z.object({ content: z.string() }))
@@ -126,7 +165,8 @@ export const diagramRouter = createTRPCRouter({
 
           // Parse columns from table body
           const columns = [];
-          const columnMatches = Array.from(tableBody.matchAll(/(\w+)\s+(\w+)(?:\s+\[([^\]]+)\])?/gi));
+          // Updated regex to capture type with optional size/precision: varchar(30), decimal(10,2)
+          const columnMatches = Array.from(tableBody.matchAll(/(\w+)\s+([\w]+(?:\([^)]+\))?)(?:\s+\[([^\]]+)\])?/gi));
 
           for (const colMatch of columnMatches) {
             const [, name, type, attributes] = colMatch;

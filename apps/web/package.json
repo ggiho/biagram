@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@biagram/dbml-parser": "workspace:*",
+    "@biagram/ddl-converter": "workspace:*",
     "@biagram/diagram-engine": "workspace:*",
     "@biagram/shared": "workspace:*",
     "@lucia-auth/adapter-drizzle": "^1.0.7",
