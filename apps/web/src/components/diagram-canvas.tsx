@@ -31,7 +31,13 @@ export function DiagramCanvas({ schema, className }: DiagramCanvasProps) {
 
   const [isReady, setIsReady] = useState(false);
   const diagramContext = useDiagramEngine();
-  const { setEngine, showGrid } = diagramContext || { setEngine: () => {}, showGrid: true };
+  const { setEngine, showGrid, selectedEntityId, setSelectedEntityId, highlightedRelationshipId } = diagramContext || {
+    setEngine: () => {},
+    showGrid: true,
+    selectedEntityId: null,
+    setSelectedEntityId: () => {},
+    highlightedRelationshipId: null,
+  };
   const { theme } = useTheme();
   const themeRef = useRef(theme);
 
@@ -99,6 +105,10 @@ export function DiagramCanvas({ schema, className }: DiagramCanvasProps) {
       themeConfig
     );
     console.log('🎨 safeRender: engine.updateData completed');
+
+    // 실제 렌더링 수행
+    console.log('🎯 DiagramEngine viewport listener called');
+    engineRef.current.render();
   }, []); // 빈 dependency - safeRender는 항상 안정적
 
   // 캔버스 리사이즈 핸들러
@@ -192,6 +202,11 @@ export function DiagramCanvas({ schema, className }: DiagramCanvasProps) {
       let isDraggingTable = false;
       let draggedTableId: string | null = null;
       let lastMousePos = { x: 0, y: 0 };
+      let mouseDownPos = { x: 0, y: 0 };
+      let mouseDownTableId: string | null = null;
+      let mouseDownRelationshipId: string | null = null;
+      let hasMoved = false;
+      const DRAG_THRESHOLD = 5; // pixels
 
       // 테이블 히트 테스트
       const findTableAtPosition = (canvasX: number, canvasY: number): string | null => {
@@ -216,31 +231,104 @@ export function DiagramCanvas({ schema, className }: DiagramCanvasProps) {
         return null;
       };
 
+      // 관계선 히트 테스트 - 클릭 지점이 관계선 근처인지 확인
+      const findRelationshipAtPosition = (canvasX: number, canvasY: number): string | null => {
+        const viewport = engine.getViewportManager().getViewport();
+
+        // 스크린 좌표를 월드 좌표로 변환
+        const worldX = (canvasX - viewport.pan.x) / viewport.zoom;
+        const worldY = (canvasY - viewport.pan.y) / viewport.zoom;
+
+        // 클릭 허용 거리 (월드 좌표 기준)
+        const hitThreshold = 10 / viewport.zoom; // 줌에 따라 조정
+
+        // 점과 선분 사이의 거리 계산 (수학적 거리 공식)
+        const distanceToSegment = (px: number, py: number, x1: number, y1: number, x2: number, y2: number): number => {
+          const dx = x2 - x1;
+          const dy = y2 - y1;
+          const lengthSquared = dx * dx + dy * dy;
+
+          if (lengthSquared === 0) {
+            // 선분이 점인 경우
+            return Math.sqrt((px - x1) ** 2 + (py - y1) ** 2);
+          }
+
+          // 선분 상의 가장 가까운 점의 매개변수 t (0 ≤ t ≤ 1)
+          let t = ((px - x1) * dx + (py - y1) * dy) / lengthSquared;
+          t = Math.max(0, Math.min(1, t));
+
+          // 가장 가까운 점의 좌표
+          const nearestX = x1 + t * dx;
+          const nearestY = y1 + t * dy;
+
+          // 거리 계산
+          return Math.sqrt((px - nearestX) ** 2 + (py - nearestY) ** 2);
+        };
+
+        // 모든 관계선 검사
+        for (const rel of relationshipsRef.current) {
+          if (!rel || !rel.path) continue;
+
+          const { start, end } = rel.path;
+          const distance = distanceToSegment(worldX, worldY, start.x, start.y, end.x, end.y);
+
+          if (distance <= hitThreshold) {
+            console.log('🔗 Relationship hit detected:', rel.id, 'distance:', distance);
+            return rel.id;
+          }
+        }
+
+        return null;
+      };
+
       const handleMouseDown = (e: MouseEvent) => {
         const rect = canvas.getBoundingClientRect();
         const canvasX = e.clientX - rect.left;
         const canvasY = e.clientY - rect.top;
 
-        // 테이블 클릭 확인
+        // 테이블 클릭 확인 (테이블 우선)
         const tableId = findTableAtPosition(canvasX, canvasY);
 
+        // 테이블이 없으면 관계선 클릭 확인
+        const relationshipId = tableId ? null : findRelationshipAtPosition(canvasX, canvasY);
+
+        // 초기 상태 기록
+        mouseDownPos = { x: e.clientX, y: e.clientY };
+        mouseDownTableId = tableId;
+        mouseDownRelationshipId = relationshipId;
+        lastMousePos = { x: e.clientX, y: e.clientY };
+        hasMoved = false;
+
         if (tableId && !e.ctrlKey && !e.metaKey && e.button === 0) {
-          // 테이블 드래그 시작
-          isDraggingTable = true;
-          draggedTableId = tableId;
-          lastMousePos = { x: e.clientX, y: e.clientY };
-          canvas.style.cursor = 'move';
+          // 테이블 위에서 마우스다운 - 아직 드래그인지 클릭인지 모름
+          e.preventDefault();
+        } else if (relationshipId && !e.ctrlKey && !e.metaKey && e.button === 0) {
+          // 관계선 위에서 마우스다운 - 클릭으로 처리 (드래그 안 함)
           e.preventDefault();
         } else if (e.button === 0 || e.button === 1 || e.ctrlKey || e.metaKey) {
-          // 캔버스 팬 시작
+          // 캔버스 팬 시작 (테이블도 관계선도 아님)
           isDraggingCanvas = true;
-          lastMousePos = { x: e.clientX, y: e.clientY };
           canvas.style.cursor = 'grabbing';
           e.preventDefault();
         }
       };
 
       const handleMouseMove = (e: MouseEvent) => {
+        // 드래그 임계값 체크
+        if (!hasMoved && mouseDownTableId) {
+          const dx = e.clientX - mouseDownPos.x;
+          const dy = e.clientY - mouseDownPos.y;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+
+          if (distance > DRAG_THRESHOLD) {
+            // 임계값을 넘었으므로 드래그 시작
+            hasMoved = true;
+            isDraggingTable = true;
+            draggedTableId = mouseDownTableId;
+            canvas.style.cursor = 'move';
+          }
+        }
+
         if (isDraggingTable && draggedTableId) {
           // 테이블 드래그: 스크린 delta를 월드 delta로 변환
           const deltaX = e.clientX - lastMousePos.x;
@@ -292,6 +380,8 @@ export function DiagramCanvas({ schema, className }: DiagramCanvasProps) {
                 return {
                   id: schemaRel.id || `rel-${index}`,
                   type: schemaRel.type || 'one-to-many',
+                  fromTable: schemaRel.fromTable,   // 하이라이트용
+                  toTable: schemaRel.toTable,       // 하이라이트용
                   fromColumn: schemaRel.fromColumn,
                   toColumn: schemaRel.toColumn,
                   path: {
@@ -327,6 +417,7 @@ export function DiagramCanvas({ schema, className }: DiagramCanvasProps) {
           lastMousePos = { x: e.clientX, y: e.clientY };
         } else if (isDraggingCanvas) {
           // 캔버스 팬: 기존 방식
+          hasMoved = true; // 캔버스 이동도 드래그로 간주
           const deltaX = e.clientX - lastMousePos.x;
           const deltaY = e.clientY - lastMousePos.y;
           const rect = canvas.getBoundingClientRect();
@@ -352,6 +443,66 @@ export function DiagramCanvas({ schema, className }: DiagramCanvasProps) {
       };
 
       const handleMouseUp = () => {
+        // 클릭인 경우 (드래그하지 않음) - 테이블 선택
+        if (!hasMoved && mouseDownTableId) {
+          console.log('📌 Table clicked:', mouseDownTableId);
+          setSelectedEntityId(mouseDownTableId);
+
+          // isSelected 업데이트하고 재렌더링
+          tablesRef.current = tablesRef.current.map(table => ({
+            ...table,
+            isSelected: table.id === mouseDownTableId,
+          }));
+          safeRender();
+        } else if (!hasMoved && mouseDownRelationshipId) {
+          // 관계선 클릭 - 관계선 선택 (특별한 ID 형식 사용)
+          console.log('🔗 Relationship clicked:', mouseDownRelationshipId);
+          setSelectedEntityId(`rel:${mouseDownRelationshipId}`);
+
+          // 선택된 관계선 찾기
+          const selectedRel = relationshipsRef.current.find((rel: any) => rel.id === mouseDownRelationshipId);
+
+          // 관계와 연결된 테이블들만 하이라이트
+          if (selectedRel) {
+            console.log('🔗 Highlighting tables:', selectedRel.fromTable, selectedRel.toTable);
+            tablesRef.current = tablesRef.current.map(table => ({
+              ...table,
+              isSelected: table.id === selectedRel.fromTable || table.id === selectedRel.toTable,
+            }));
+          } else {
+            // 관계를 찾지 못한 경우 모든 테이블 선택 해제
+            tablesRef.current = tablesRef.current.map(table => ({
+              ...table,
+              isSelected: false,
+            }));
+          }
+
+          // 클릭된 관계선만 선택
+          relationshipsRef.current = relationshipsRef.current.map((rel: any) => ({
+            ...rel,
+            isSelected: rel.id === mouseDownRelationshipId,
+          }));
+          safeRender();
+        } else if (!hasMoved && !mouseDownTableId && !mouseDownRelationshipId) {
+          // 배경 클릭 - 선택 해제
+          console.log('📌 Background clicked - deselect');
+          setSelectedEntityId(null);
+
+          // 모든 테이블 선택 해제
+          tablesRef.current = tablesRef.current.map(table => ({
+            ...table,
+            isSelected: false,
+          }));
+
+          // 모든 관계선 선택 해제
+          relationshipsRef.current = relationshipsRef.current.map((rel: any) => ({
+            ...rel,
+            isSelected: false,
+          }));
+          safeRender();
+        }
+
+        // 드래그 상태 초기화
         if (isDraggingTable) {
           isDraggingTable = false;
           draggedTableId = null;
@@ -360,13 +511,35 @@ export function DiagramCanvas({ schema, className }: DiagramCanvasProps) {
           isDraggingCanvas = false;
           canvas.style.cursor = 'default';
         }
+
+        // 상태 리셋
+        mouseDownTableId = null;
+        hasMoved = false;
+      };
+
+      // 마우스가 캔버스를 벗어날 때 - 드래그만 종료하고 선택은 유지
+      const handleMouseLeave = () => {
+        console.log('🔄 Mouse left canvas - cleaning up drag state only');
+
+        // 드래그 상태 초기화 (선택 상태는 유지)
+        if (isDraggingTable) {
+          isDraggingTable = false;
+          draggedTableId = null;
+          canvas.style.cursor = 'default';
+        } else if (isDraggingCanvas) {
+          isDraggingCanvas = false;
+          canvas.style.cursor = 'default';
+        }
+
+        // 드래그 관련 상태만 리셋 (선택은 유지하므로 mouseDownTableId는 리셋하지 않음)
+        hasMoved = false;
       };
 
       canvas.addEventListener('wheel', handleWheel, { passive: false });
       canvas.addEventListener('mousedown', handleMouseDown);
       canvas.addEventListener('mousemove', handleMouseMove);
       canvas.addEventListener('mouseup', handleMouseUp);
-      canvas.addEventListener('mouseleave', handleMouseUp);
+      canvas.addEventListener('mouseleave', handleMouseLeave);
 
       setIsReady(true);
       console.log('✅ [NEW] DiagramCanvas 준비 완료');
@@ -376,7 +549,7 @@ export function DiagramCanvas({ schema, className }: DiagramCanvasProps) {
         canvas.removeEventListener('mousedown', handleMouseDown);
         canvas.removeEventListener('mousemove', handleMouseMove);
         canvas.removeEventListener('mouseup', handleMouseUp);
-        canvas.removeEventListener('mouseleave', handleMouseUp);
+        canvas.removeEventListener('mouseleave', handleMouseLeave);
         resizeObserver.disconnect();
         engine.dispose();
         engineRef.current = null;
@@ -530,6 +703,8 @@ export function DiagramCanvas({ schema, className }: DiagramCanvasProps) {
         return {
           id: rel.id || `rel-${index}`,
           type: rel.type || 'one-to-many',
+          fromTable: rel.fromTable,   // 하이라이트용 - 어느 테이블에서 시작
+          toTable: rel.toTable,       // 하이라이트용 - 어느 테이블로 끝
           fromColumn: rel.fromColumn, // 하이라이트용
           toColumn: rel.toColumn,     // 하이라이트용
           path: {
@@ -652,6 +827,106 @@ export function DiagramCanvas({ schema, className }: DiagramCanvasProps) {
       engineRef.current.setShowGrid(showGrid);
     }
   }, [showGrid, isReady]);
+
+  // selectedEntityId 변경 시 isSelected 업데이트
+  useEffect(() => {
+    if (!isReady || !engineRef.current || tablesRef.current.length === 0) return;
+
+    console.log('📌 selectedEntityId changed:', selectedEntityId);
+
+    // 관계선 선택인지 테이블 선택인지 구분
+    const isRelationshipSelection = selectedEntityId?.startsWith('rel:');
+    const relationshipId = isRelationshipSelection && selectedEntityId ? selectedEntityId.replace('rel:', '') : null;
+
+    if (isRelationshipSelection && relationshipId) {
+      // 관계선 선택: 해당 관계선의 fromTable과 toTable 모두 하이라이트
+      const selectedRel = relationshipsRef.current.find((r: any) => r.id === relationshipId) as any;
+
+      if (selectedRel && selectedRel.fromTable && selectedRel.toTable) {
+        console.log('🔗 Relationship selected, highlighting tables:',
+          selectedRel.fromTable, '←→', selectedRel.toTable);
+
+        // 연결된 테이블들 하이라이트
+        tablesRef.current = tablesRef.current.map(table => ({
+          ...table,
+          isSelected: table.id === selectedRel.fromTable || table.id === selectedRel.toTable,
+        }));
+
+        // 선택된 관계선만 하이라이트
+        relationshipsRef.current = relationshipsRef.current.map((rel: any) => ({
+          ...rel,
+          isSelected: rel.id === relationshipId,
+        }));
+      }
+    } else {
+      // 테이블 선택: 기존 로직
+      tablesRef.current = tablesRef.current.map(table => ({
+        ...table,
+        isSelected: table.id === selectedEntityId,
+      }));
+
+      // 선택된 테이블과 연결된 관계선 하이라이트
+      relationshipsRef.current = relationshipsRef.current.map((rel: any) => ({
+        ...rel,
+        isSelected: selectedEntityId ?
+          (rel.fromTable === selectedEntityId || rel.toTable === selectedEntityId) :
+          false,
+      }));
+
+      console.log('🔗 Highlighted relationships:',
+        relationshipsRef.current.filter((r: any) => r.isSelected).length);
+    }
+
+    safeRender();
+  }, [selectedEntityId, isReady, safeRender]);
+
+  // highlightedRelationshipId 변경 시 관련 없는 테이블 dim 처리
+  useEffect(() => {
+    if (!isReady || !engineRef.current || tablesRef.current.length === 0) return;
+
+    console.log('🔦 highlightedRelationshipId changed:', highlightedRelationshipId);
+
+    if (highlightedRelationshipId) {
+      // 하이라이트된 관계선 찾기
+      const highlightedRel = relationshipsRef.current.find((r: any) => r.id === highlightedRelationshipId);
+
+      if (highlightedRel) {
+        console.log('🔦 Dimming tables not connected to:', highlightedRel.fromTable, '↔', highlightedRel.toTable);
+
+        // 연결된 테이블 ID 세트
+        const connectedTableIds = new Set([highlightedRel.fromTable, highlightedRel.toTable]);
+
+        // 모든 테이블에 opacity 속성 추가 (연결되지 않은 테이블은 0.3)
+        tablesRef.current = tablesRef.current.map(table => ({
+          ...table,
+          // @ts-ignore - Adding opacity property not in schema
+          opacity: connectedTableIds.has(table.id) ? 1.0 : 0.3,
+        }));
+
+        // 하이라이트된 관계선만 선택 상태로 표시
+        relationshipsRef.current = relationshipsRef.current.map((rel: any) => ({
+          ...rel,
+          isSelected: rel.id === highlightedRelationshipId,
+        }));
+      }
+    } else {
+      // 하이라이트 해제: 모든 테이블 opacity 복원
+      console.log('🔦 Restoring all tables to full opacity');
+      tablesRef.current = tablesRef.current.map(table => ({
+        ...table,
+        // @ts-ignore - Removing opacity property
+        opacity: 1.0,
+      }));
+
+      // 모든 관계선 선택 해제
+      relationshipsRef.current = relationshipsRef.current.map((rel: any) => ({
+        ...rel,
+        isSelected: false,
+      }));
+    }
+
+    safeRender();
+  }, [highlightedRelationshipId, isReady, safeRender]);
 
   return (
     <div

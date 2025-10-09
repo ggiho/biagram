@@ -12,6 +12,10 @@ interface DiagramContextType {
   setSelectedTool: (tool: DiagramTool) => void;
   showGrid: boolean;
   setShowGrid: (show: boolean) => void;
+  selectedEntityId: string | null;
+  setSelectedEntityId: (id: string | null) => void;
+  highlightedRelationshipId: string | null;
+  setHighlightedRelationshipId: (id: string | null) => void;
   onUndo?: () => void;
   onRedo?: () => void;
   canUndo?: boolean;
@@ -25,6 +29,10 @@ const DiagramContext = createContext<DiagramContextType>({
   setSelectedTool: () => {},
   showGrid: true,
   setShowGrid: () => {},
+  selectedEntityId: null,
+  setSelectedEntityId: () => {},
+  highlightedRelationshipId: null,
+  setHighlightedRelationshipId: () => {},
   onUndo: undefined,
   onRedo: undefined,
   canUndo: false,
@@ -51,6 +59,8 @@ export const DiagramProvider = ({ children, onUndo, onRedo, canUndo, canRedo }: 
   const [engine, setEngine] = useState<DiagramEngine | null>(null);
   const [selectedTool, setSelectedTool] = useState<DiagramTool>('select');
   const [showGrid, setShowGrid] = useState(true);
+  const [selectedEntityId, setSelectedEntityId] = useState<string | null>(null);
+  const [highlightedRelationshipId, setHighlightedRelationshipId] = useState<string | null>(null);
 
   return (
     <DiagramContext.Provider value={{
@@ -60,6 +70,10 @@ export const DiagramProvider = ({ children, onUndo, onRedo, canUndo, canRedo }: 
       setSelectedTool,
       showGrid,
       setShowGrid,
+      selectedEntityId,
+      setSelectedEntityId,
+      highlightedRelationshipId,
+      setHighlightedRelationshipId,
       onUndo,
       onRedo,
       canUndo,

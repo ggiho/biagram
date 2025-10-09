@@ -5,11 +5,11 @@ import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import { Save, Settings, Download, Share } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
-import { CodeEditor } from '@/components/code-editor';
+import { CodeEditor, type CodeEditorRef } from '@/components/code-editor';
 import DiagramCanvas from '@/components/diagram-canvas';
 import { DiagramToolbar } from '@/components/diagram-toolbar';
 import { DiagramSidebar } from '@/components/diagram-sidebar';
-import { DiagramProvider } from '@/contexts/diagram-context';
+import { DiagramProvider, useDiagramEngine } from '@/contexts/diagram-context';
 import { trpc } from '@/lib/trpc/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -48,13 +48,14 @@ Ref: follows.followed_user_id > users.id // many-to-one
 // Use any type to match DiagramCanvas expectations
 type ParsedSchema = any;
 
-export function DiagramEditor() {
+function DiagramEditorContent() {
   const [code, setCode] = useState(SAMPLE_DBML);
   const [parsedSchema, setParsedSchema] = useState<ParsedSchema | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const parseTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isParsingRef = useRef(false);
+  const codeEditorRef = useRef<CodeEditorRef>(null);
 
   // Undo/Redo history
   const [history, setHistory] = useState<string[]>([SAMPLE_DBML]);
@@ -63,6 +64,7 @@ export function DiagramEditor() {
 
   const { toast } = useToast();
   const parseDBML = trpc.diagrams.parseDBML.useMutation();
+  const { selectedEntityId, setSelectedEntityId } = useDiagramEngine();
 
   const handleCodeChange = useCallback((value: string) => {
     console.log('Code changed, new length:', value.length);
@@ -134,6 +136,28 @@ export function DiagramEditor() {
     });
   }, [toast]);
 
+  // BIDIRECTIONAL SYNC: Canvas → Code
+  // When a table is selected in the canvas, scroll the code editor to that table
+  useEffect(() => {
+    if (selectedEntityId && codeEditorRef.current) {
+      console.log('🔄 Canvas selected:', selectedEntityId, '→ scrolling code editor');
+      codeEditorRef.current.scrollToTable(selectedEntityId);
+    }
+  }, [selectedEntityId]);
+
+  // BIDIRECTIONAL SYNC: Code → Canvas
+  // When cursor moves in code editor, select the corresponding table in canvas
+  const handleCursorPositionChange = useCallback((line: number, column: number, tableName: string | null) => {
+    if (tableName && tableName !== selectedEntityId) {
+      console.log('🔄 Code cursor in table:', tableName, '→ selecting in canvas');
+      setSelectedEntityId(tableName);
+    } else if (!tableName && selectedEntityId) {
+      // Cursor is outside any table, deselect
+      console.log('🔄 Code cursor outside tables → deselecting');
+      setSelectedEntityId(null);
+    }
+  }, [selectedEntityId, setSelectedEntityId]);
+
   // AUTO-PARSE FUNCTIONALITY
   console.log('✅ AUTO-PARSE: Enabled with working tRPC');
 
@@ -174,13 +198,7 @@ export function DiagramEditor() {
 
 
   return (
-    <DiagramProvider
-      onUndo={handleUndo}
-      onRedo={handleRedo}
-      canUndo={historyIndex > 0}
-      canRedo={historyIndex < history.length - 1}
-    >
-      <div className="flex h-screen flex-col bg-background">
+    <div className="flex h-screen flex-col bg-background">
         {/* Header */}
         <div className="flex h-14 items-center justify-between border-b px-4">
           <div className="flex items-center gap-2">
@@ -234,8 +252,10 @@ export function DiagramEditor() {
                 </div>
                 <div className="flex-1">
                   <CodeEditor
+                    ref={codeEditorRef}
                     value={code}
                     onChange={handleCodeChange}
+                    onCursorPositionChange={handleCursorPositionChange}
                     language="dbml"
                     options={{
                       minimap: { enabled: false },
@@ -272,6 +292,13 @@ export function DiagramEditor() {
           </PanelGroup>
         </div>
       </div>
+  );
+}
+
+export function DiagramEditor() {
+  return (
+    <DiagramProvider>
+      <DiagramEditorContent />
     </DiagramProvider>
   );
 }

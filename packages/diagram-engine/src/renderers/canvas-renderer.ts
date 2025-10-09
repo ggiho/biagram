@@ -193,12 +193,18 @@ export class CanvasRenderer {
     const { bounds, style, isSelected, isHovered } = table;
     const { x, y, width, height } = bounds;
 
+    // Get opacity from table (default to 1.0 if not set)
+    const opacity = (table as any).opacity ?? 1.0;
+
     // Level of detail based on zoom
     const showDetails = zoom > 0.5;
     const showIcons = zoom > 0.8;
 
     // Draw table background with shadow
     this.ctx.save();
+
+    // Apply opacity for dimming effect
+    this.ctx.globalAlpha = opacity;
 
     // Shadow
     if (style.shadowBlur > 0) {
@@ -356,9 +362,15 @@ export class CanvasRenderer {
 
     if (isSelected) {
       strokeColor = style.selectedColor;
-      lineWidth = style.width + 1;
+      lineWidth = style.width + 2; // 더 굵게
+
+      // 선택된 관계선에 glow 효과 추가
+      this.ctx.shadowColor = style.selectedColor;
+      this.ctx.shadowBlur = 12;
     } else if (isHovered) {
       strokeColor = style.hoveredColor;
+      this.ctx.shadowColor = style.hoveredColor;
+      this.ctx.shadowBlur = 6;
     }
 
     this.ctx.strokeStyle = strokeColor;
@@ -389,7 +401,9 @@ export class CanvasRenderer {
 
     this.ctx.stroke();
 
-    // Reset line dash
+    // Reset shadow and line dash
+    this.ctx.shadowColor = 'transparent';
+    this.ctx.shadowBlur = 0;
     this.ctx.setLineDash([]);
 
     // Draw animated flowing dots along the line
