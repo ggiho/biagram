@@ -64,7 +64,7 @@ function DiagramEditorContent() {
 
   const { toast } = useToast();
   const parseDBML = trpc.diagrams.parseDBML.useMutation();
-  const { selectedEntityId, setSelectedEntityId } = useDiagramEngine();
+  const { selectedEntityId, setSelectedEntityId, setHighlightedRelationshipId } = useDiagramEngine();
 
   const handleCodeChange = useCallback((value: string) => {
     console.log('Code changed, new length:', value.length);
@@ -151,12 +151,14 @@ function DiagramEditorContent() {
     if (tableName && tableName !== selectedEntityId) {
       console.log('🔄 Code cursor in table:', tableName, '→ selecting in canvas');
       setSelectedEntityId(tableName);
+      setHighlightedRelationshipId(null); // 관계 하이라이트 초기화
     } else if (!tableName && selectedEntityId) {
       // Cursor is outside any table, deselect
       console.log('🔄 Code cursor outside tables → deselecting');
       setSelectedEntityId(null);
+      setHighlightedRelationshipId(null); // 관계 하이라이트 초기화
     }
-  }, [selectedEntityId, setSelectedEntityId]);
+  }, [selectedEntityId, setSelectedEntityId, setHighlightedRelationshipId]);
 
   // AUTO-PARSE FUNCTIONALITY
   console.log('✅ AUTO-PARSE: Enabled with working tRPC');

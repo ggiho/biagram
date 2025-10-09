@@ -362,15 +362,10 @@ export class CanvasRenderer {
 
     if (isSelected) {
       strokeColor = style.selectedColor;
-      lineWidth = style.width + 2; // 더 굵게
-
-      // 선택된 관계선에 glow 효과 추가
-      this.ctx.shadowColor = style.selectedColor;
-      this.ctx.shadowBlur = 12;
+      lineWidth = style.width + 2; // Make highlighted relationships thicker
     } else if (isHovered) {
       strokeColor = style.hoveredColor;
-      this.ctx.shadowColor = style.hoveredColor;
-      this.ctx.shadowBlur = 6;
+      lineWidth = style.width + 1;
     }
 
     this.ctx.strokeStyle = strokeColor;
@@ -401,9 +396,7 @@ export class CanvasRenderer {
 
     this.ctx.stroke();
 
-    // Reset shadow and line dash
-    this.ctx.shadowColor = 'transparent';
-    this.ctx.shadowBlur = 0;
+    // Reset line dash
     this.ctx.setLineDash([]);
 
     // Draw animated flowing dots along the line

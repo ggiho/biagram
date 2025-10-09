@@ -31,12 +31,13 @@ export function DiagramCanvas({ schema, className }: DiagramCanvasProps) {
 
   const [isReady, setIsReady] = useState(false);
   const diagramContext = useDiagramEngine();
-  const { setEngine, showGrid, selectedEntityId, setSelectedEntityId, highlightedRelationshipId } = diagramContext || {
+  const { setEngine, showGrid, selectedEntityId, setSelectedEntityId, highlightedRelationshipId, setHighlightedRelationshipId } = diagramContext || {
     setEngine: () => {},
     showGrid: true,
     selectedEntityId: null,
     setSelectedEntityId: () => {},
     highlightedRelationshipId: null,
+    setHighlightedRelationshipId: () => {},
   };
   const { theme } = useTheme();
   const themeRef = useRef(theme);
@@ -447,6 +448,7 @@ export function DiagramCanvas({ schema, className }: DiagramCanvasProps) {
         if (!hasMoved && mouseDownTableId) {
           console.log('📌 Table clicked:', mouseDownTableId);
           setSelectedEntityId(mouseDownTableId);
+          setHighlightedRelationshipId(null); // 관계 하이라이트 초기화
 
           // isSelected 업데이트하고 재렌더링
           tablesRef.current = tablesRef.current.map(table => ({

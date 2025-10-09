@@ -94,10 +94,8 @@ export function DiagramSidebar({ schema }: DiagramSidebarProps) {
     );
   }
 
-  // Check if viewing entity detail (table or relationship)
-  const isRelationshipSelected = selectedEntityId?.startsWith('rel:');
-  const relationshipId = isRelationshipSelected && selectedEntityId ? selectedEntityId.replace('rel:', '') : null;
-  const isTableSelected = selectedEntityId && !isRelationshipSelected;
+  // Check if viewing table detail
+  const isTableSelected = selectedEntityId && !selectedEntityId.startsWith('rel:');
 
   // Render detailed table view
   if (isTableSelected) {
@@ -215,84 +213,6 @@ export function DiagramSidebar({ schema }: DiagramSidebarProps) {
     );
   }
 
-  // Render detailed relationship view
-  if (isRelationshipSelected && relationshipId) {
-    const selectedRel = schema.relationships.find(r => (r.id || `rel-${schema.relationships.indexOf(r)}`) === relationshipId);
-    if (!selectedRel) {
-      return renderSchemaOverview();
-    }
-
-    const fromTable = schema.tables.find(t => t.name === selectedRel.fromTable);
-    const toTable = schema.tables.find(t => t.name === selectedRel.toTable);
-
-    return (
-      <div className="h-full w-full border-l bg-background flex flex-col">
-        <div className="border-b p-4">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="mb-2 h-auto p-1"
-            onClick={() => setSelectedEntityId(null)}
-          >
-            ← Back to Overview
-          </Button>
-          <h3 className="text-sm font-medium">Relationship Details</h3>
-        </div>
-
-        <div className="flex-1 overflow-y-auto">
-          {/* Relationship Info */}
-          <div className="border-b p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <Link className="h-5 w-5 text-primary" />
-              <h4 className="font-semibold text-base">{selectedRel.type}</h4>
-            </div>
-            <div className="text-sm mt-2">
-              <div className="font-medium">{selectedRel.fromTable}.{selectedRel.fromColumn}</div>
-              <div className="text-muted-foreground my-1">↓</div>
-              <div className="font-medium">{selectedRel.toTable}.{selectedRel.toColumn}</div>
-            </div>
-          </div>
-
-          {/* From Table */}
-          <div className="border-b">
-            <div className="p-3 bg-muted/50">
-              <h5 className="text-xs font-medium uppercase text-muted-foreground">From Table</h5>
-            </div>
-            <div className="px-4 py-3">
-              <div className="font-medium text-sm mb-2">{selectedRel.fromTable}</div>
-              {fromTable && (
-                <div className="text-xs text-muted-foreground">
-                  {fromTable.columns.length} columns
-                </div>
-              )}
-              <div className="text-xs font-medium text-primary mt-2">
-                Column: {selectedRel.fromColumn}
-              </div>
-            </div>
-          </div>
-
-          {/* To Table */}
-          <div>
-            <div className="p-3 bg-muted/50">
-              <h5 className="text-xs font-medium uppercase text-muted-foreground">To Table</h5>
-            </div>
-            <div className="px-4 py-3">
-              <div className="font-medium text-sm mb-2">{selectedRel.toTable}</div>
-              {toTable && (
-                <div className="text-xs text-muted-foreground">
-                  {toTable.columns.length} columns
-                </div>
-              )}
-              <div className="text-xs font-medium text-primary mt-2">
-                Column: {selectedRel.toColumn}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   // Render schema overview (default)
   return renderSchemaOverview();
 
@@ -397,16 +317,32 @@ export function DiagramSidebar({ schema }: DiagramSidebarProps) {
 
           {expandedSections.relationships && (
             <div className="pb-2">
-              {schema.relationships.map((rel, index) => (
-                <div key={index} className="px-4 py-2 border-l-2 border-l-transparent hover:border-l-primary hover:bg-muted/50">
-                  <div className="text-xs font-medium">
-                    {rel.fromTable}.{rel.fromColumn} → {rel.toTable}.{rel.toColumn}
+              {schema.relationships.map((rel, index) => {
+                const relationshipId = rel.id || `rel-${index}`;
+                const isHighlighted = highlightedRelationshipId === relationshipId;
+
+                return (
+                  <div
+                    key={index}
+                    className={`px-4 py-2 border-l-2 cursor-pointer transition-colors ${
+                      isHighlighted
+                        ? 'bg-primary/10 border-l-primary'
+                        : 'border-l-transparent hover:border-l-primary hover:bg-muted/50'
+                    }`}
+                    onClick={() => {
+                      console.log('🔗 Relationship clicked from overview:', relationshipId);
+                      setHighlightedRelationshipId(isHighlighted ? null : relationshipId);
+                    }}
+                  >
+                    <div className={`text-xs font-medium ${isHighlighted ? 'text-primary' : ''}`}>
+                      {rel.fromTable}.{rel.fromColumn} → {rel.toTable}.{rel.toColumn}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {rel.type}
+                    </div>
                   </div>
-                  <div className="text-xs text-muted-foreground">
-                    {rel.type}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
               {schema.relationships.length === 0 && (
                 <div className="px-4 py-2 text-xs text-muted-foreground">
                   No relationships defined
