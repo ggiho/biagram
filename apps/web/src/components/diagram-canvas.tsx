@@ -151,6 +151,11 @@ export function DiagramCanvas({ schema, className }: DiagramCanvasProps) {
         setEngine(engine);
       }
 
+      // Expose engine to window for testing
+      if (typeof window !== 'undefined') {
+        (window as any).__diagramEngine = engine;
+      }
+
       // 뷰포트 변경 시 항상 현재 데이터로 재렌더링
       engine.getViewportManager().onViewportChanged(() => {
         console.log('📡 viewport changed listener triggered');
@@ -416,31 +421,9 @@ export function DiagramCanvas({ schema, className }: DiagramCanvasProps) {
           }
 
           lastMousePos = { x: e.clientX, y: e.clientY };
-        } else if (isDraggingCanvas) {
-          // 캔버스 팬: 기존 방식
-          hasMoved = true; // 캔버스 이동도 드래그로 간주
-          const deltaX = e.clientX - lastMousePos.x;
-          const deltaY = e.clientY - lastMousePos.y;
-          const rect = canvas.getBoundingClientRect();
-
-          engine.getViewportManager().handleEvent({
-            type: 'drag',
-            position: {
-              x: e.clientX - rect.left,
-              y: e.clientY - rect.top,
-            },
-            delta: { x: deltaX, y: deltaY },
-            button: e.button,
-            modifiers: {
-              ctrl: e.ctrlKey,
-              shift: e.shiftKey,
-              alt: e.altKey,
-              meta: e.metaKey,
-            },
-          });
-
-          lastMousePos = { x: e.clientX, y: e.clientY };
         }
+        // Canvas panning is now handled by InteractionManager automatically
+        // Removed duplicate pan handling to fix 2x pan multiplier bug
       };
 
       const handleMouseUp = () => {

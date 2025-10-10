@@ -87,15 +87,10 @@ export class ViewportManager {
    * Zoom at a specific screen point
    */
   zoomAt(screenPoint: Position2D, factor: number, animate = true): void {
-    console.log('🔍 ViewportManager.zoomAt called:', { screenPoint, factor, currentZoom: this.viewport.zoom, animate });
-
     const worldPoint = this.screenToWorld(screenPoint);
     const newZoom = this.clampZoom(this.viewport.zoom * factor);
 
-    console.log('🔍 zoomAt: worldPoint:', worldPoint, 'newZoom:', newZoom);
-
     if (Math.abs(newZoom - this.viewport.zoom) < 0.0001) {
-      console.log('⚠️ zoomAt: No significant change, early return');
       return; // No significant change
     }
 
@@ -109,13 +104,9 @@ export class ViewportManager {
       pan: this.clampPan(newPan, newZoom),
     };
 
-    console.log('🔍 zoomAt: targetViewport:', targetViewport, 'animate:', animate);
-
     if (animate) {
-      console.log('🔍 zoomAt: Calling animateToViewport');
       this.animateToViewport(targetViewport);
     } else {
-      console.log('🔍 zoomAt: Calling updateViewport directly');
       this.updateViewport(targetViewport);
     }
   }
@@ -124,15 +115,12 @@ export class ViewportManager {
    * Zoom to specific level
    */
   zoomTo(zoom: number, animate = true): void {
-    console.log('🔍 ViewportManager.zoomTo called:', { from: this.viewport.zoom, to: zoom, animate });
-
     const center = {
       x: this.viewport.bounds.width / 2,
       y: this.viewport.bounds.height / 2,
     };
 
     const factor = zoom / this.viewport.zoom;
-    console.log('🔍 Zoom factor:', factor, 'center:', center);
     this.zoomAt(center, factor, animate);
   }
 
@@ -278,10 +266,7 @@ export class ViewportManager {
    * Animate to target viewport
    */
   private animateToViewport(target: Partial<ViewportState>): void {
-    console.log('🎬 animateToViewport called with target:', target);
-
     if (this.animationId) {
-      console.log('🎬 Canceling previous animation:', this.animationId);
       cancelAnimationFrame(this.animationId);
     }
 
@@ -291,7 +276,6 @@ export class ViewportManager {
     };
     this.animationStartTime = performance.now();
 
-    console.log('🎬 Starting animation, targetViewport:', this.targetViewport);
     this.animate();
   }
 
@@ -334,16 +318,11 @@ export class ViewportManager {
    * Update viewport state and force immediate re-render
    */
   private updateViewport(changes: Partial<ViewportState>): void {
-    console.log('🔄 updateViewport called with changes:', changes);
-
     // Apply changes
     Object.assign(this.viewport, changes);
 
-    console.log('🔄 viewport updated to:', this.viewport);
-
     // Immediately notify for synchronous updates
     this.notifyViewportChange();
-    console.log('🔄 notifyViewportChange called');
   }
 
   /**
