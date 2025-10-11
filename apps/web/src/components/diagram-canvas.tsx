@@ -140,6 +140,7 @@ export function DiagramCanvas({ schema, className }: DiagramCanvasProps) {
     try {
       const engine = new DiagramEngine(canvasRef.current, {
         enableSVGOverlay: false,
+        disableInteractionManager: true, // DiagramCanvas handles all interactions
         initialViewport: {
           zoom: 1,
           pan: { x: 0, y: 0 },
@@ -159,6 +160,8 @@ export function DiagramCanvas({ schema, className }: DiagramCanvasProps) {
       // 뷰포트 변경 시 항상 현재 데이터로 재렌더링
       engine.getViewportManager().onViewportChanged(() => {
         console.log('📡 viewport changed listener triggered');
+        // Trigger engine render for viewport changes
+        engine.render();
         safeRender();
       });
 
@@ -314,12 +317,15 @@ export function DiagramCanvas({ schema, className }: DiagramCanvasProps) {
         } else if (e.button === 0 || e.button === 1 || e.ctrlKey || e.metaKey) {
           // 캔버스 팬 시작 (테이블도 관계선도 아님)
           isDraggingCanvas = true;
+          console.log(`🔍 DiagramCanvas handleMouseDown: isDraggingCanvas set to TRUE, button=${e.button}`);
           canvas.style.cursor = 'grabbing';
           e.preventDefault();
         }
       };
 
       const handleMouseMove = (e: MouseEvent) => {
+        console.log(`🔍 DiagramCanvas handleMouseMove called, isDraggingCanvas=${isDraggingCanvas}, mouseDownTableId=${mouseDownTableId}`);
+
         // 드래그 임계값 체크
         if (!hasMoved && mouseDownTableId) {
           const dx = e.clientX - mouseDownPos.x;
@@ -421,9 +427,33 @@ export function DiagramCanvas({ schema, className }: DiagramCanvasProps) {
           }
 
           lastMousePos = { x: e.clientX, y: e.clientY };
+        } else if (isDraggingCanvas) {
+          // Canvas panning (InteractionManager disabled, DiagramCanvas handles all events)
+          hasMoved = true;
+          const deltaX = e.clientX - lastMousePos.x;
+          const deltaY = e.clientY - lastMousePos.y;
+          const rect = canvas.getBoundingClientRect();
+
+          console.log(`🔍 DiagramCanvas handleMouseMove: canvas pan, delta=(${deltaX}, ${deltaY})`);
+
+          engine.getViewportManager().handleEvent({
+            type: 'drag',
+            position: {
+              x: e.clientX - rect.left,
+              y: e.clientY - rect.top,
+            },
+            delta: { x: deltaX, y: deltaY },
+            button: e.button,
+            modifiers: {
+              ctrl: e.ctrlKey,
+              shift: e.shiftKey,
+              alt: e.altKey,
+              meta: e.metaKey,
+            },
+          });
+
+          lastMousePos = { x: e.clientX, y: e.clientY };
         }
-        // Canvas panning is now handled by InteractionManager automatically
-        // Removed duplicate pan handling to fix 2x pan multiplier bug
       };
 
       const handleMouseUp = () => {

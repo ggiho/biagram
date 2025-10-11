@@ -580,19 +580,27 @@ export class CanvasRenderer {
     if (viewport.zoom < 0.5) return; // Don't show grid at low zoom
 
     const gridSize = 20;
-    const { bounds } = viewport;
 
     this.ctx.save();
     this.ctx.strokeStyle = theme?.colors.border || '#e5e7eb';
     this.ctx.lineWidth = 0.5 / viewport.zoom; // Adjust line width for zoom level
     this.ctx.globalAlpha = 0.3;
 
+    // Convert screen space bounds to world space coordinates
+    // This accounts for pan and zoom transformations
+    const worldBounds = {
+      x: -viewport.pan.x / viewport.zoom,
+      y: -viewport.pan.y / viewport.zoom,
+      width: viewport.bounds.width / viewport.zoom,
+      height: viewport.bounds.height / viewport.zoom,
+    };
+
     // Calculate visible area with some padding for smooth panning
     const padding = gridSize * 2;
-    const minX = bounds.x - padding;
-    const maxX = bounds.x + bounds.width + padding;
-    const minY = bounds.y - padding;
-    const maxY = bounds.y + bounds.height + padding;
+    const minX = worldBounds.x - padding;
+    const maxX = worldBounds.x + worldBounds.width + padding;
+    const minY = worldBounds.y - padding;
+    const maxY = worldBounds.y + worldBounds.height + padding;
 
     // Vertical lines
     const startX = Math.floor(minX / gridSize) * gridSize;

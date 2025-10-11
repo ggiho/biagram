@@ -49,7 +49,7 @@ export class DiagramEngine {
   private canvas: HTMLCanvasElement;
   private renderer: CanvasRenderer;
   private viewportManager: ViewportManager;
-  private interactionManager: InteractionManager;
+  private interactionManager?: InteractionManager;
 
   // Current data
   private tables: TableRenderData[] = [];
@@ -60,6 +60,7 @@ export class DiagramEngine {
   constructor(canvas: HTMLCanvasElement, options?: {
     enableSVGOverlay?: boolean;
     initialViewport?: Partial<ViewportState>;
+    disableInteractionManager?: boolean;
   }) {
     this.canvas = canvas;
 
@@ -70,7 +71,10 @@ export class DiagramEngine {
 
     this.viewportManager = new ViewportManager(canvas, options?.initialViewport);
 
-    this.interactionManager = new InteractionManager(canvas, this.viewportManager);
+    // Only create InteractionManager if not disabled
+    if (!options?.disableInteractionManager) {
+      this.interactionManager = new InteractionManager(canvas, this.viewportManager);
+    }
 
     // Setup viewport change handler - this is CRITICAL for zoom/pan to work
     this.viewportManager.onViewportChanged((viewport) => {
@@ -91,7 +95,9 @@ export class DiagramEngine {
       this.theme = theme;
     }
     this.renderer.invalidate(); // Mark renderer as dirty to force re-render
-    this.interactionManager.updateRenderData(tables, relationships);
+    if (this.interactionManager) {
+      this.interactionManager.updateRenderData(tables, relationships);
+    }
     this.render();
   }
 
@@ -134,7 +140,7 @@ export class DiagramEngine {
   /**
    * Get interaction manager
    */
-  getInteractionManager(): InteractionManager {
+  getInteractionManager(): InteractionManager | undefined {
     return this.interactionManager;
   }
 
@@ -190,7 +196,9 @@ export class DiagramEngine {
   dispose(): void {
     this.renderer.dispose();
     this.viewportManager.dispose();
-    this.interactionManager.dispose();
+    if (this.interactionManager) {
+      this.interactionManager.dispose();
+    }
   }
 }
 

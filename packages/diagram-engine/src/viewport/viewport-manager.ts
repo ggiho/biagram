@@ -26,8 +26,8 @@ export class ViewportManager {
   private animationStartTime?: number;
   private animationDuration = 300; // ms
 
-  // Event callbacks
-  private onViewportChange?: (viewport: ViewportState) => void;
+  // Event callbacks (support multiple listeners)
+  private onViewportChangeListeners: Array<(viewport: ViewportState) => void> = [];
 
   constructor(canvas: HTMLCanvasElement, initialViewport?: Partial<ViewportState>) {
     this.canvas = canvas;
@@ -57,10 +57,11 @@ export class ViewportManager {
   }
 
   /**
-   * Set viewport change callback
+   * Add viewport change callback (supports multiple listeners)
    */
   onViewportChanged(callback: (viewport: ViewportState) => void): void {
-    this.onViewportChange = callback;
+    console.log('📝 ViewportManager.onViewportChanged: Callback registered!');
+    this.onViewportChangeListeners.push(callback);
   }
 
   /**
@@ -128,6 +129,8 @@ export class ViewportManager {
    * Pan by delta
    */
   panBy(delta: Position2D): void {
+    console.log(`🔧 ViewportManager.panBy called with delta=(${delta.x}, ${delta.y})`);
+
     const newPan = {
       x: this.viewport.pan.x + delta.x,
       y: this.viewport.pan.y + delta.y,
@@ -250,6 +253,8 @@ export class ViewportManager {
    * Handle interaction events
    */
   handleEvent(event: InteractionEvent): boolean {
+    console.log(`🔧 ViewportManager.handleEvent called, type=${event.type}, delta=${event.delta ? `(${event.delta.x}, ${event.delta.y})` : 'undefined'}`);
+
     switch (event.type) {
       case 'wheel':
         return this.handleWheel(event);
@@ -377,23 +382,41 @@ export class ViewportManager {
    * Handle drag events for panning
    */
   private handleDrag(event: InteractionEvent): boolean {
+    console.log(`🔧 ViewportManager.handleDrag called, event.delta=${event.delta ? `(${event.delta.x}, ${event.delta.y})` : 'undefined'}`);
+
     if (!event.delta) {
+      console.log(`⚠️ ViewportManager.handleDrag: event.delta is undefined, returning false`);
       return false;
     }
 
+    console.log(`🔧 ViewportManager.handleDrag: About to call panBy with delta=(${event.delta.x}, ${event.delta.y})`);
     this.panBy(event.delta);
     return true;
   }
 
   /**
-   * Notify viewport change
+   * Notify all viewport change listeners
    */
   private notifyViewportChange(): void {
-    if (this.onViewportChange) {
-      // Create a clean copy of the viewport
-      const cleanViewport = { ...this.viewport };
-      this.onViewportChange(cleanViewport);
+    console.log(`🔔 ViewportManager.notifyViewportChange called, listeners=${this.onViewportChangeListeners.length}`);
+    if (this.onViewportChangeListeners.length === 0) {
+      console.warn(`⚠️ ViewportManager: No viewport change listeners registered!`);
+      return;
     }
+
+    // Create a clean copy of the viewport once
+    const cleanViewport = { ...this.viewport };
+
+    // Call all listeners
+    this.onViewportChangeListeners.forEach((callback, index) => {
+      try {
+        console.log(`🔔 ViewportManager: Calling listener ${index + 1}/${this.onViewportChangeListeners.length}`);
+        callback(cleanViewport);
+        console.log(`✅ ViewportManager: Listener ${index + 1} completed successfully`);
+      } catch (error) {
+        console.error(`❌ ViewportManager: Listener ${index + 1} threw error:`, error);
+      }
+    });
   }
 
   /**
