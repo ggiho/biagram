@@ -175,7 +175,7 @@ export const CodeEditor = forwardRef<CodeEditorRef, CodeEditorProps>(({
         for (let i = 0; i < lineNumber; i++) {
           const match = lines[i]?.match(tableRegex);
           if (match) {
-            currentTable = match[1];
+            currentTable = match[1] ?? null;
           } else if (lines[i]?.trim() === '}' && currentTable) {
             // Check if we're past the closing brace
             if (i < lineNumber - 1) {

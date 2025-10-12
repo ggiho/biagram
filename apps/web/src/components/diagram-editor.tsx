@@ -2,13 +2,14 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
-import { Save, Settings, Download, Share } from 'lucide-react';
+import { Save, Settings, Download, Share, Upload } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { CodeEditor, type CodeEditorRef } from '@/components/code-editor';
 import DiagramCanvas from '@/components/diagram-canvas';
 import { DiagramToolbar } from '@/components/diagram-toolbar';
 import { DiagramSidebar } from '@/components/diagram-sidebar';
+import { DDLImportDialog } from '@/components/ddl-import-dialog';
 import { DiagramProvider, useDiagramEngine } from '@/contexts/diagram-context';
 import { trpc } from '@/lib/trpc/client';
 import { useToast } from '@/hooks/use-toast';
@@ -53,6 +54,7 @@ function DiagramEditorContent() {
   const [parsedSchema, setParsedSchema] = useState<ParsedSchema | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
   const parseTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isParsingRef = useRef(false);
   const codeEditorRef = useRef<CodeEditorRef>(null);
@@ -95,7 +97,10 @@ function DiagramEditorContent() {
       isUndoRedoRef.current = true;
       const newIndex = historyIndex - 1;
       setHistoryIndex(newIndex);
-      setCode(history[newIndex]);
+      const prevCode = history[newIndex];
+      if (prevCode !== undefined) {
+        setCode(prevCode);
+      }
       console.log('Undo to index:', newIndex);
     }
   }, [historyIndex, history]);
@@ -105,7 +110,10 @@ function DiagramEditorContent() {
       isUndoRedoRef.current = true;
       const newIndex = historyIndex + 1;
       setHistoryIndex(newIndex);
-      setCode(history[newIndex]);
+      const nextCode = history[newIndex];
+      if (nextCode !== undefined) {
+        setCode(nextCode);
+      }
       console.log('Redo to index:', newIndex);
     }
   }, [historyIndex, history]);
@@ -133,6 +141,15 @@ function DiagramEditorContent() {
     toast({
       title: 'Share',
       description: 'Share functionality coming soon',
+    });
+  }, [toast]);
+
+  const handleImportSuccess = useCallback((dbml: string) => {
+    console.log('📥 DDL imported successfully, updating code');
+    setCode(dbml);
+    toast({
+      title: 'Import Successful',
+      description: 'DDL converted to DBML successfully',
     });
   }, [toast]);
 
@@ -220,6 +237,14 @@ function DiagramEditorContent() {
             <Button
               variant="outline"
               size="sm"
+              onClick={() => setImportDialogOpen(true)}
+            >
+              <Upload className="mr-2 h-4 w-4" />
+              Import
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
               onClick={handleExport}
             >
               <Download className="mr-2 h-4 w-4" />
@@ -293,6 +318,13 @@ function DiagramEditorContent() {
             )}
           </PanelGroup>
         </div>
+
+        {/* Import DDL Dialog */}
+        <DDLImportDialog
+          open={importDialogOpen}
+          onOpenChange={setImportDialogOpen}
+          onImportSuccess={handleImportSuccess}
+        />
       </div>
   );
 }

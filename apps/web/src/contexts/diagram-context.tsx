@@ -33,10 +33,6 @@ const DiagramContext = createContext<DiagramContextType>({
   setSelectedEntityId: () => {},
   highlightedRelationshipId: null,
   setHighlightedRelationshipId: () => {},
-  onUndo: undefined,
-  onRedo: undefined,
-  canUndo: false,
-  canRedo: false,
 });
 
 export const useDiagramEngine = () => {
@@ -74,10 +70,10 @@ export const DiagramProvider = ({ children, onUndo, onRedo, canUndo, canRedo }: 
       setSelectedEntityId,
       highlightedRelationshipId,
       setHighlightedRelationshipId,
-      onUndo,
-      onRedo,
-      canUndo,
-      canRedo,
+      ...(onUndo && { onUndo }),
+      ...(onRedo && { onRedo }),
+      ...(canUndo !== undefined && { canUndo }),
+      ...(canRedo !== undefined && { canRedo }),
     }}>
       {children}
     </DiagramContext.Provider>

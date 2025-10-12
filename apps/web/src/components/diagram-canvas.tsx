@@ -475,7 +475,7 @@ export function DiagramCanvas({ schema, className }: DiagramCanvasProps) {
           setSelectedEntityId(`rel:${mouseDownRelationshipId}`);
 
           // 선택된 관계선 찾기
-          const selectedRel = relationshipsRef.current.find((rel: any) => rel.id === mouseDownRelationshipId);
+          const selectedRel: any = relationshipsRef.current.find((rel: any) => rel.id === mouseDownRelationshipId);
 
           // 관계와 연결된 테이블들만 하이라이트
           if (selectedRel) {
@@ -903,7 +903,7 @@ export function DiagramCanvas({ schema, className }: DiagramCanvasProps) {
 
     if (highlightedRelationshipId) {
       // 하이라이트된 관계선 찾기
-      const highlightedRel = relationshipsRef.current.find((r: any) => r.id === highlightedRelationshipId);
+      const highlightedRel: any = relationshipsRef.current.find((r: any) => r.id === highlightedRelationshipId);
 
       if (highlightedRel) {
         console.log('🔦 Dimming tables not connected to:', highlightedRel.fromTable, '↔', highlightedRel.toTable);
