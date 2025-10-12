@@ -13,6 +13,7 @@ import { DDLImportDialog } from '@/components/ddl-import-dialog';
 import { DiagramProvider, useDiagramEngine } from '@/contexts/diagram-context';
 import { trpc } from '@/lib/trpc/client';
 import { useToast } from '@/hooks/use-toast';
+import { saveDraft, loadDraft } from '@/lib/storage';
 
 const SAMPLE_DBML = `// Sample database schema
 Table users {
@@ -63,6 +64,9 @@ function DiagramEditorContent() {
   const [history, setHistory] = useState<string[]>([SAMPLE_DBML]);
   const [historyIndex, setHistoryIndex] = useState(0);
   const isUndoRedoRef = useRef(false);
+
+  // Table positions for caching
+  const [tablePositions, setTablePositions] = useState<Record<string, { x: number; y: number }>>({});
 
   const { toast } = useToast();
   const parseDBML = trpc.diagrams.parseDBML.useMutation();
@@ -118,7 +122,39 @@ function DiagramEditorContent() {
     }
   }, [historyIndex, history]);
 
+  // Draft restoration on component mount
+  useEffect(() => {
+    const draft = loadDraft();
+    if (draft) {
+      console.log('📂 Restoring draft from localStorage');
+      setCode(draft.code);
+      setHistory(draft.history);
+      setHistoryIndex(draft.historyIndex);
+      if (draft.tablePositions) {
+        setTablePositions(draft.tablePositions);
+      }
 
+      // Show user feedback
+      toast({
+        title: 'Draft Restored',
+        description: 'Your previous work has been restored from cache',
+      });
+    }
+  }, [toast]); // Run only once on mount
+
+  // Auto-save with debounce
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      saveDraft({
+        code,
+        history,
+        historyIndex,
+        tablePositions,
+      });
+    }, 1000); // 1 second debounce
+
+    return () => clearTimeout(timeoutId);
+  }, [code, history, historyIndex, tablePositions]);
 
   const handleSave = useCallback(async () => {
     // TODO: Implement save functionality
@@ -302,7 +338,12 @@ function DiagramEditorContent() {
               <div className="flex h-full flex-col">
                 <DiagramToolbar />
                 <div className="flex-1 bg-gray-50 dark:bg-gray-900 relative">
-                  <DiagramCanvas schema={parsedSchema} className="absolute inset-0 w-full h-full" />
+                  <DiagramCanvas
+                    schema={parsedSchema}
+                    className="absolute inset-0 w-full h-full"
+                    initialTablePositions={tablePositions}
+                    onTablePositionsChange={setTablePositions}
+                  />
                 </div>
               </div>
             </Panel>

@@ -9,6 +9,8 @@ import { useTheme } from '@/contexts/theme-context';
 interface DiagramCanvasProps {
   schema: any | null;
   className?: string;
+  initialTablePositions?: Record<string, { x: number; y: number }>;
+  onTablePositionsChange?: (positions: Record<string, { x: number; y: number }>) => void;
 }
 
 /**
@@ -18,7 +20,7 @@ interface DiagramCanvasProps {
  * 3. 리사이즈/뷰포트 변경 시에도 데이터는 React에 안전하게 보관
  * 4. 모든 렌더링은 React의 현재 데이터를 사용
  */
-export function DiagramCanvas({ schema, className }: DiagramCanvasProps) {
+export function DiagramCanvas({ schema, className, initialTablePositions, onTablePositionsChange }: DiagramCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const engineRef = useRef<DiagramEngine | null>(null);
@@ -522,6 +524,16 @@ export function DiagramCanvas({ schema, className }: DiagramCanvasProps) {
           isDraggingTable = false;
           draggedTableId = null;
           canvas.style.cursor = 'default';
+
+          // 테이블 위치 저장 (드래그 종료 시)
+          if (onTablePositionsChange) {
+            const positions: Record<string, { x: number; y: number }> = {};
+            tablesRef.current.forEach(table => {
+              positions[table.id] = { x: table.bounds.x, y: table.bounds.y };
+            });
+            onTablePositionsChange(positions);
+            console.log('📍 Table positions saved to localStorage');
+          }
         } else if (isDraggingCanvas) {
           isDraggingCanvas = false;
           canvas.style.cursor = 'default';
@@ -604,15 +616,25 @@ export function DiagramCanvas({ schema, className }: DiagramCanvasProps) {
       });
 
       // 테이블 데이터 생성
-      const tables: TableRenderData[] = (schema.tables || []).map((table: any, index: number) => ({
-        id: table.name,
-        name: table.name,
-        bounds: {
-          x: 50 + (index % 3) * 250,
-          y: 50 + Math.floor(index / 3) * 200,
-          width: 200,
-          height: Math.max(100, (table.columns?.length || 0) * 25 + 50),
-        },
+      const tables: TableRenderData[] = (schema.tables || []).map((table: any, index: number) => {
+        // 저장된 위치가 있으면 사용, 없으면 기본 레이아웃 적용
+        const savedPosition = initialTablePositions?.[table.name];
+        const defaultX = 50 + (index % 3) * 250;
+        const defaultY = 50 + Math.floor(index / 3) * 200;
+
+        if (savedPosition) {
+          console.log(`📍 Restoring position for table ${table.name}:`, savedPosition);
+        }
+
+        return {
+          id: table.name,
+          name: table.name,
+          bounds: {
+            x: savedPosition?.x ?? defaultX,
+            y: savedPosition?.y ?? defaultY,
+            width: 200,
+            height: Math.max(100, (table.columns?.length || 0) * 25 + 50),
+          },
         columns: (table.columns || []).map((column: any) => {
           const isConnected = connectedColumns.get(table.name)?.has(column.name) || false;
           return {
@@ -675,7 +697,8 @@ export function DiagramCanvas({ schema, className }: DiagramCanvasProps) {
         },
         isSelected: false,
         isHovered: false,
-      }));
+      };
+    });
 
       // 관계 데이터 생성
       const tablePositions = new Map();
