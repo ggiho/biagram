@@ -1,0 +1,202 @@
+🚀 Starting Playwright test for zoom bugs...
+
+🌐 Navigating to http://localhost:3000/editor...
+📝 🔄 updateViewport called with changes: {zoom: 0.9995795592194884, pan: Object}
+📝 🔄 updateViewport called with changes: {zoom: 0.9736614651490442, pan: Object}
+📝 🔄 updateViewport called with changes: {zoom: 0.8894239986104043, pan: Object}
+📝 🔄 updateViewport called with changes: {zoom: 0.7821538209838371, pan: Object}
+📝 🔄 updateViewport called with changes: {zoom: 0.6880946792872973, pan: Object}
+📝 🔄 updateViewport called with changes: {zoom: 0.6265004177146073, pan: Object}
+📝 🔄 updateViewport called with changes: {zoom: 0.5958001447252005, pan: Object}
+📝 🔄 updateViewport called with changes: {zoom: 0.5838287667458933, pan: Object}
+📝 🔄 updateViewport called with changes: {zoom: 0.5803344244588411, pan: Object}
+📝 🔄 updateViewport called with changes: {zoom: 0.5795592006922747, pan: Object}
+📝 🔄 updateViewport called with changes: {zoom: 0.5794349485776517, pan: Object}
+📝 🔄 updateViewport called with changes: {zoom: 0.5794207795294338, pan: Object}
+📝 🔄 updateViewport called with changes: {zoom: 0.5794196993505861, pan: Object}
+📝 🔄 updateViewport called with changes: {zoom: 0.5794196445674303, pan: Object}
+📝 🔄 updateViewport called with changes: {zoom: 0.5794196428859489, pan: Object}
+📝 🔄 updateViewport called with changes: {zoom: 0.5794196428573757, pan: Object}
+📝 🔄 updateViewport called with changes: {zoom: 0.5794196428571435, pan: Object}
+📝 🔄 updateViewport called with changes: {zoom: 0.5794196428571429, pan: Object}
+📝 🔄 updateViewport called with changes: {zoom: 0.5794196428571429, pan: Object}
+📝 🔄 updateViewport called with changes: {zoom: 0.5794196428571429, pan: Object}
+
+✅ Page loaded
+
+📊 Found canvases: [
+  {
+    index: 0,
+    width: 14,
+    height: 625,
+    rect: {
+      x: 491,
+      y: 95,
+      width: 14,
+      height: 625,
+      top: 95,
+      right: 505,
+      bottom: 720,
+      left: 491
+    }
+  },
+  {
+    index: 1,
+    width: 0,
+    height: 625,
+    rect: {
+      x: 2,
+      y: 95,
+      width: 0,
+      height: 625,
+      top: 95,
+      right: 2,
+      bottom: 720,
+      left: 2
+    }
+  },
+  {
+    index: 2,
+    width: 0,
+    height: 625,
+    rect: {
+      x: 2,
+      y: 95,
+      width: 0,
+      height: 625,
+      top: 95,
+      right: 2,
+      bottom: 720,
+      left: 2
+    }
+  },
+  {
+    index: 3,
+    width: 505,
+    height: 616,
+    rect: {
+      x: 513.6015625,
+      y: 104,
+      width: 505.59375,
+      height: 616,
+      top: 104,
+      right: 1019.1953125,
+      bottom: 720,
+      left: 513.6015625
+    }
+  }
+]
+🎯 Using canvas index 3 (largest by area)
+📐 Canvas bounds: { x: 513.6015625, y: 104, width: 505.59375, height: 616 }
+
+⏳ Waiting for zoomToFit animation to complete...
+📊 Initial state: {
+  zoom: 0.5794196428571429,
+  pan: { x: 21.02901785714286, y: 221.08705357142856 }
+}
+
+🧪 BUG 1 TEST: Pan immediately after load (no zoom)...
+🖱️  Dragging 100px from (564, 154) to (664, 254)
+📝 🔄 updateViewport called with changes: {pan: Object}
+📝 🔄 updateViewport called with changes: {pan: Object}
+📝 🔄 updateViewport called with changes: {pan: Object}
+📝 🔄 updateViewport called with changes: {pan: Object}
+📝 🔄 updateViewport called with changes: {pan: Object}
+📝 🔄 updateViewport called with changes: {pan: Object}
+📝 🔄 updateViewport called with changes: {pan: Object}
+📝 🔄 updateViewport called with changes: {pan: Object}
+📝 🔄 updateViewport called with changes: {pan: Object}
+📝 🔄 updateViewport called with changes: {pan: Object}
+📝 🔄 updateViewport called with changes: {pan: Object}
+📝 🔄 updateViewport called with changes: {pan: Object}
+📝 🔄 updateViewport called with changes: {pan: Object}
+📝 🔄 updateViewport called with changes: {pan: Object}
+📝 🔄 updateViewport called with changes: {pan: Object}
+📝 🔄 updateViewport called with changes: {pan: Object}
+📝 🔄 updateViewport called with changes: {pan: Object}
+📝 🔄 updateViewport called with changes: {pan: Object}
+📝 🔄 updateViewport called with changes: {pan: Object}
+📝 🔄 updateViewport called with changes: {pan: Object}
+📝 🔄 updateViewport called with changes: {pan: Object}
+📝 🔄 updateViewport called with changes: {pan: Object}
+📝 🔄 updateViewport called with changes: {pan: Object}
+📝 🔄 updateViewport called with changes: {pan: Object}
+📝 🔄 updateViewport called with changes: {pan: Object}
+📝 🔄 updateViewport called with changes: {pan: Object}
+📝 🔄 updateViewport called with changes: {pan: Object}
+📝 🔄 updateViewport called with changes: {pan: Object}
+📝 🔄 updateViewport called with changes: {pan: Object}
+📝 🔄 updateViewport called with changes: {pan: Object}
+📊 After first pan: {
+  zoom: 0.5794196428571429,
+  pan: { x: 221.02901785714286, y: 421.08705357142856 }
+}
+📏 Pan delta: (200.0, 200.0) - Expected: ~100px
+⚠️  Pan multiplier: 2.00x
+
+🧪 BUG 2 TEST: Zoom in, then pan...
+📝 🔍 ViewportManager.zoomAt called: {screenPoint: Object, factor: 1.1, currentZoom: 1, animate: false}
+📝 🔍 zoomAt: Calling updateViewport directly
+📝 🔄 updateViewport called with changes: {zoom: 1.1, pan: Object}
+📝 🔍 ViewportManager.zoomAt called: {screenPoint: Object, factor: 1.1, currentZoom: 0.5794196428571429, animate: false}
+📝 🔍 zoomAt: Calling updateViewport directly
+📝 🔄 updateViewport called with changes: {zoom: 0.6373616071428572, pan: Object}
+📝 🔍 ViewportManager.zoomAt called: {screenPoint: Object, factor: 1.1, currentZoom: 0.6373616071428572, animate: false}
+📝 🔍 zoomAt: Calling updateViewport directly
+📝 🔄 updateViewport called with changes: {zoom: 0.701097767857143, pan: Object}
+📊 After zoom: {
+  zoom: 0.701097767857143,
+  pan: { x: 214.44143973214287, y: 444.83533482142855 }
+}
+🖱️  Dragging 100px from (564, 154) to (664, 254)
+📝 🔄 updateViewport called with changes: {pan: Object}
+📝 🔄 updateViewport called with changes: {pan: Object}
+📝 🔄 updateViewport called with changes: {pan: Object}
+📝 🔄 updateViewport called with changes: {pan: Object}
+📝 🔄 updateViewport called with changes: {pan: Object}
+📝 🔄 updateViewport called with changes: {pan: Object}
+📝 🔄 updateViewport called with changes: {pan: Object}
+📝 🔄 updateViewport called with changes: {pan: Object}
+📝 🔄 updateViewport called with changes: {pan: Object}
+📝 🔄 updateViewport called with changes: {pan: Object}
+📝 🔄 updateViewport called with changes: {pan: Object}
+📝 🔄 updateViewport called with changes: {pan: Object}
+📝 🔄 updateViewport called with changes: {pan: Object}
+📝 🔄 updateViewport called with changes: {pan: Object}
+📝 🔄 updateViewport called with changes: {pan: Object}
+📝 🔄 updateViewport called with changes: {pan: Object}
+📝 🔄 updateViewport called with changes: {pan: Object}
+📝 🔄 updateViewport called with changes: {pan: Object}
+📝 🔄 updateViewport called with changes: {pan: Object}
+📝 🔄 updateViewport called with changes: {pan: Object}
+📝 🔄 updateViewport called with changes: {pan: Object}
+📝 🔄 updateViewport called with changes: {pan: Object}
+📝 🔄 updateViewport called with changes: {pan: Object}
+📝 🔄 updateViewport called with changes: {pan: Object}
+📝 🔄 updateViewport called with changes: {pan: Object}
+📝 🔄 updateViewport called with changes: {pan: Object}
+📝 🔄 updateViewport called with changes: {pan: Object}
+📝 🔄 updateViewport called with changes: {pan: Object}
+📝 🔄 updateViewport called with changes: {pan: Object}
+📝 🔄 updateViewport called with changes: {pan: Object}
+📊 After second pan: {
+  zoom: 0.701097767857143,
+  pan: { x: 414.44143973214284, y: 644.8353348214285 }
+}
+📏 Pan delta: (200.0, 200.0) - Expected: ~100px
+⚠️  Pan multiplier: 2.00x
+
+============================================================
+📋 SUMMARY
+============================================================
+BUG 1 (Initial pan):
+  Zoom: 0.5794 → 0.5794 (✅ SAME)
+  Pan multiplier: 2.00x (expected: ~1.0x)
+
+BUG 2 (Pan after zoom):
+  Zoom: 0.7011 → 0.7011 (✅ SAME)
+  Pan multiplier: 2.00x (expected: ~1.0x)
+============================================================
+
+⏸️  Browser will stay open for 30 seconds for manual inspection...
+🎥 Video is being recorded to ./test-videos/
