@@ -10,6 +10,7 @@ import DiagramCanvas from '@/components/diagram-canvas';
 import { DiagramToolbar } from '@/components/diagram-toolbar';
 import { DiagramSidebar } from '@/components/diagram-sidebar';
 import { DDLImportDialog } from '@/components/ddl-import-dialog';
+import { ExportDialog } from '@/components/export-dialog';
 import { DiagramProvider, useDiagramEngine } from '@/contexts/diagram-context';
 import { trpc } from '@/lib/trpc/client';
 import { useToast } from '@/hooks/use-toast';
@@ -56,6 +57,7 @@ function DiagramEditorContent() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const parseTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isParsingRef = useRef(false);
   const codeEditorRef = useRef<CodeEditorRef>(null);
@@ -164,13 +166,9 @@ function DiagramEditorContent() {
     });
   }, [toast]);
 
-  const handleExport = useCallback(async () => {
-    // TODO: Implement export functionality
-    toast({
-      title: 'Export',
-      description: 'Export functionality coming soon',
-    });
-  }, [toast]);
+  const handleExport = useCallback(() => {
+    setExportDialogOpen(true);
+  }, []);
 
   const handleShare = useCallback(async () => {
     // TODO: Implement share functionality
@@ -365,6 +363,14 @@ function DiagramEditorContent() {
           open={importDialogOpen}
           onOpenChange={setImportDialogOpen}
           onImportSuccess={handleImportSuccess}
+        />
+
+        {/* Export Dialog */}
+        <ExportDialog
+          open={exportDialogOpen}
+          onOpenChange={setExportDialogOpen}
+          code={code}
+          schema={parsedSchema}
         />
       </div>
   );
