@@ -280,9 +280,8 @@ export class CanvasRenderer {
       }
     } else {
       // Low zoom: centered, larger table name
-      // Use schemaColor for colored tables, or dark color for high contrast
-      const schemaColor = (style as any).schemaColor;
-      this.ctx.fillStyle = schemaColor || '#1f2937'; // Dark gray for better visibility
+      // Always use dark color for high contrast on white/light background
+      this.ctx.fillStyle = '#1f2937'; // Dark gray for all tables at low zoom
       const largeFontSize = style.fontSize * 1.5;
       this.ctx.font = `bold ${largeFontSize}px ${style.fontFamily}`;
       this.ctx.textAlign = 'center';
