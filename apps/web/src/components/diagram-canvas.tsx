@@ -522,6 +522,7 @@ export function DiagramCanvas({ schema, className, initialTablePositions, onTabl
           // 배경 클릭 - 선택 해제
           console.log('📌 Background clicked - deselect');
           setSelectedEntityId(null);
+          setHighlightedRelationshipId(null); // 관계 하이라이트도 초기화
 
           // 모든 테이블 선택 해제
           tablesRef.current = tablesRef.current.map(table => ({
