@@ -47,14 +47,21 @@ export const CodeEditor = forwardRef<CodeEditorRef, CodeEditorProps>(({
       const content = model.getValue();
       const lines = content.split('\n');
 
-      // Find the line with "Table tableName" or "table tableName"
-      const tableRegex = new RegExp(`^\\s*[Tt]able\\s+${tableName}\\s*{`, 'i');
+      // Find the line with "Table tableName" or "table tableName" or Table "tableName"
+      // Support both quoted and unquoted table names
+      const escapedName = tableName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const tableRegex = new RegExp(
+        `^\\s*[Tt]able\\s+(?:"${escapedName}"|${escapedName})\\s*{`,
+        'i'
+      );
       const lineNumber = lines.findIndex(line => tableRegex.test(line));
 
       if (lineNumber !== -1) {
         console.log('📜 Scrolling to table:', tableName, 'at line', lineNumber + 1);
         editor.revealLineInCenter(lineNumber + 1);
         editor.setPosition({ lineNumber: lineNumber + 1, column: 1 });
+      } else {
+        console.warn('📜 Table not found:', tableName);
       }
     },
     getEditorInstance: () => editorRef.current,
@@ -148,7 +155,19 @@ export const CodeEditor = forwardRef<CodeEditorRef, CodeEditorProps>(({
   };
 
   const handleEditorChange = (value: string | undefined) => {
+    // Store current cursor position before onChange
+    const editor = editorRef.current;
+    const cursorPosition = editor?.getPosition();
+    
     onChange(value || '');
+    
+    // Restore cursor position after onChange
+    // This prevents cursor jumping to the beginning
+    if (editor && cursorPosition) {
+      setTimeout(() => {
+        editor.setPosition(cursorPosition);
+      }, 0);
+    }
   };
 
   // Handle editor mount - store instance and setup listeners
@@ -169,13 +188,16 @@ export const CodeEditor = forwardRef<CodeEditorRef, CodeEditorProps>(({
         const lines = content.split('\n');
 
         // Find the table that contains this line
+        // Support both quoted and unquoted table names
         let currentTable: string | null = null;
-        const tableRegex = /^\s*[Tt]able\s+(\w+)\s*{/;
+        // Match: Table tableName { or Table "tableName" {
+        const tableRegex = /^\s*[Tt]able\s+(?:"([^"]+)"|([\w]+))\s*{/;
 
         for (let i = 0; i < lineNumber; i++) {
           const match = lines[i]?.match(tableRegex);
           if (match) {
-            currentTable = match[1] ?? null;
+            // match[1] is quoted name, match[2] is unquoted name
+            currentTable = match[1] || match[2] || null;
           } else if (lines[i]?.trim() === '}' && currentTable) {
             // Check if we're past the closing brace
             if (i < lineNumber - 1) {

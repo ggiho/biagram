@@ -12,6 +12,8 @@ interface DiagramContextType {
   setSelectedTool: (tool: DiagramTool) => void;
   showGrid: boolean;
   setShowGrid: (show: boolean) => void;
+  showComments: boolean;
+  setShowComments: (show: boolean) => void;
   selectedEntityId: string | null;
   setSelectedEntityId: (id: string | null) => void;
   highlightedRelationshipId: string | null;
@@ -29,6 +31,8 @@ const DiagramContext = createContext<DiagramContextType>({
   setSelectedTool: () => {},
   showGrid: true,
   setShowGrid: () => {},
+  showComments: true,
+  setShowComments: () => {},
   selectedEntityId: null,
   setSelectedEntityId: () => {},
   highlightedRelationshipId: null,
@@ -55,6 +59,7 @@ export const DiagramProvider = ({ children, onUndo, onRedo, canUndo, canRedo }: 
   const [engine, setEngine] = useState<DiagramEngine | null>(null);
   const [selectedTool, setSelectedTool] = useState<DiagramTool>('select');
   const [showGrid, setShowGrid] = useState(true);
+  const [showComments, setShowComments] = useState(true);
   const [selectedEntityId, setSelectedEntityId] = useState<string | null>(null);
   const [highlightedRelationshipId, setHighlightedRelationshipId] = useState<string | null>(null);
 
@@ -66,6 +71,8 @@ export const DiagramProvider = ({ children, onUndo, onRedo, canUndo, canRedo }: 
       setSelectedTool,
       showGrid,
       setShowGrid,
+      showComments,
+      setShowComments,
       selectedEntityId,
       setSelectedEntityId,
       highlightedRelationshipId,

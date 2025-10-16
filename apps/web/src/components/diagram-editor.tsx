@@ -18,29 +18,35 @@ import { saveDraft, loadDraft } from '@/lib/storage';
 
 const SAMPLE_DBML = `// Sample database schema
 Table users {
-  id integer [primary key]
-  username varchar
-  role varchar
+  id integer [primary key, note: '사용자 고유 ID']
+  username varchar [note: '사용자 이름']
+  role varchar [note: '사용자 역할']
   created_at timestamp
+  
+  Note: '사용자 정보를 저장하는 테이블'
 }
 
 Table posts {
   id integer [primary key]
-  title varchar
-  body text [note: 'Content of the post']
+  title varchar [note: '포스트 제목']
+  body text [note: '포스트 본문 내용']
   user_id integer
   status varchar
   created_at timestamp
+  
+  Note: '블로그 포스트 정보'
 }
 
 Table follows {
-  following_user_id integer
-  followed_user_id integer
+  following_user_id integer [note: '팔로우하는 사용자']
+  followed_user_id integer [note: '팔로우되는 사용자']
   created_at timestamp
 
   indexes {
     (following_user_id, followed_user_id) [pk] // composite primary key
   }
+  
+  Note: '사용자 간 팔로우 관계 정보'
 }
 
 Ref: posts.user_id > users.id // many-to-one

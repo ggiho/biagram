@@ -44,6 +44,7 @@ export const TableStyleSchema = z.object({
   headerHeight: z.number(),
   textColor: ColorSchema,
   typeTextColor: ColorSchema,
+  noteTextColor: ColorSchema.optional(), // Comment/note color
   padding: z.number(),
   rowHeight: z.number(),
   fontSize: z.number(),
@@ -55,6 +56,7 @@ export const TableStyleSchema = z.object({
   iconSpacing: z.number(),
   shadowColor: ColorSchema,
   shadowBlur: z.number(),
+  schemaColor: ColorSchema.optional(), // Schema-based coloring
 });
 
 export type TableStyle = z.infer<typeof TableStyleSchema>;
@@ -143,6 +145,9 @@ export type LayoutResult = z.infer<typeof LayoutResultSchema>;
 export const TableRenderDataSchema = z.object({
   id: z.string(),
   name: z.string(),
+  schema: z.string().optional(), // Schema name for schema.table support
+  displayName: z.string().optional(), // Display name (can include schema prefix)
+  note: z.string().optional(), // Table comment/note
   columns: z.array(z.object({
     id: z.string(),
     name: z.string(),
@@ -151,6 +156,7 @@ export const TableRenderDataSchema = z.object({
     isForeignKey: z.boolean(),
     isSelected: z.boolean(),
     isHovered: z.boolean(),
+    note: z.string().optional(), // Column comment/note
   })),
   bounds: Rectangle2DSchema,
   style: TableStyleSchema,
