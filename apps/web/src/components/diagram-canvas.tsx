@@ -492,6 +492,7 @@ export function DiagramCanvas({ schema, className, initialTablePositions, onTabl
           // 관계선 클릭 - 관계선 선택 (특별한 ID 형식 사용)
           console.log('🔗 Relationship clicked:', mouseDownRelationshipId);
           setSelectedEntityId(`rel:${mouseDownRelationshipId}`);
+          setHighlightedRelationshipId(mouseDownRelationshipId); // 사이드바와 동기화
 
           // 선택된 관계선 찾기
           const selectedRel: any = relationshipsRef.current.find((rel: any) => rel.id === mouseDownRelationshipId);

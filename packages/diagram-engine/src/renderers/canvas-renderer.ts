@@ -256,10 +256,9 @@ export class CanvasRenderer {
     this.ctx.fill();
 
     // Header text - zoom-level adaptive rendering
-    this.ctx.fillStyle = style.headerTextColor;
-
     if (showDetails) {
       // Normal zoom: left-aligned table name
+      this.ctx.fillStyle = style.headerTextColor;
       this.ctx.font = `bold ${style.fontSize}px ${style.fontFamily}`;
       this.ctx.textAlign = 'left';
       this.ctx.textBaseline = 'middle';
@@ -281,6 +280,8 @@ export class CanvasRenderer {
       }
     } else {
       // Low zoom: centered, larger table name
+      // Use schemaColor or textColor for better visibility at low zoom
+      this.ctx.fillStyle = (style as any).schemaColor || style.textColor;
       const largeFontSize = style.fontSize * 1.5;
       this.ctx.font = `bold ${largeFontSize}px ${style.fontFamily}`;
       this.ctx.textAlign = 'center';
