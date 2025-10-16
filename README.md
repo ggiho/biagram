@@ -10,6 +10,11 @@ Modern database diagram tool with a code-first approach. Create beautiful databa
 - **Import/Export**: Import from DDL, export to various formats (PNG, SVG, PDF, SQL)
 - **Interactive Canvas**: Zoom, pan, and interact with your diagrams
 - **Type Safety**: Full TypeScript support throughout the stack
+- **💬 Comment/Note Support**: Add and display table/column descriptions
+- **🎨 Multi-Schema Support**: Full support for `schema.table` notation with color-coding
+- **🌈 Schema Colors**: Automatic color assignment per schema for visual distinction
+- **📏 Dynamic Table Sizing**: Tables automatically resize based on content length
+- **🔤 Quoted Identifiers**: Full support for SQL-style quoted table/column names
 
 ## 🏗️ Architecture
 
@@ -40,7 +45,7 @@ Biagram is built with:
 
 - Node.js 18+
 - pnpm 8+
-- PostgreSQL database
+- PostgreSQL database (optional for local development)
 
 ### Installation
 
@@ -50,29 +55,102 @@ Biagram is built with:
    cd biagram
    ```
 
-2. **Run setup script**
+2. **Install pnpm (if not already installed)**
    ```bash
-   ./scripts/setup.sh
+   npm install -g pnpm
    ```
 
-3. **Configure environment**
+3. **Install dependencies**
    ```bash
-   cp apps/web/.env.example apps/web/.env.local
-   # Edit .env.local with your database URL and other settings
+   # Remove NODE_ENV environment variable if set to 'production'
+   unset NODE_ENV
+   
+   # Clean install all dependencies
+   pnpm install
    ```
 
-4. **Set up database**
+4. **Build required packages**
+   
+   The monorepo packages need to be built before running the web app:
+   ```bash
+   # Build all internal packages
+   pnpm build --filter @biagram/shared --filter @biagram/diagram-engine
+   pnpm build --filter @biagram/dbml-parser --filter @biagram/ddl-converter
+   
+   # Or build all packages at once
+   pnpm build
+   ```
+
+5. **Configure environment (optional)**
+   ```bash
+   # Copy environment example file
+   cp apps/web/.env.example apps/web/.env
+   
+   # The app will work without database for basic features
+   # Edit .env if you want to configure database and other services
+   ```
+
+6. **Start development server**
+   ```bash
+   # Start the web app on port 3000
+   cd apps/web
+   PORT=3000 pnpm dev
+   
+   # Or from the root directory
+   pnpm dev --filter web
+   ```
+
+Visit [http://localhost:3000](http://localhost:3000) to see your application.
+
+### Common Issues
+
+#### Module Not Found Error
+If you see `Module not found: Can't resolve '@biagram/diagram-engine'` or similar errors:
+
+```bash
+# Make sure all packages are built
+pnpm build --filter @biagram/shared --filter @biagram/diagram-engine --filter @biagram/dbml-parser --filter @biagram/ddl-converter
+```
+
+#### Port Already in Use
+If port 3000 is already in use:
+
+```bash
+# Kill the process using port 3000
+lsof -ti:3000 | xargs kill -9
+
+# Or use a different port
+PORT=3001 pnpm dev --filter web
+```
+
+#### NODE_ENV Issues
+If you see errors about devDependencies not being installed:
+
+```bash
+# Unset NODE_ENV and reinstall
+unset NODE_ENV
+pnpm install
+```
+
+### Running with Database
+
+If you want to use database features:
+
+1. **Start PostgreSQL with Docker**
+   ```bash
+   docker-compose up -d postgres
+   ```
+
+2. **Configure database URL in .env**
+   ```bash
+   DATABASE_URL="postgresql://postgres:postgres123@localhost:5432/biagram"
+   ```
+
+3. **Run migrations**
    ```bash
    pnpm db:generate
    pnpm db:migrate
    ```
-
-5. **Start development**
-   ```bash
-   pnpm dev
-   ```
-
-Visit [http://localhost:3000](http://localhost:3000) to see your application.
 
 ## 📖 DBML Syntax
 

@@ -1,6 +1,7 @@
 import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
 import { convertDDLtoDBMLAuto } from '@biagram/ddl-converter';
+import { DBMLParser } from '@biagram/dbml-parser';
 
 import { createTRPCRouter, publicProcedure } from '@/server/api/trpc';
 
@@ -150,73 +151,77 @@ export const diagramRouter = createTRPCRouter({
 
         console.log('parseDBML: Processing content:', input.content.substring(0, 100) + '...');
 
-        // Basic DBML parsing implementation
-        const tables: any[] = [];
-        const relationships: any[] = [];
+        // Use the actual DBML parser
+        const parseResult = DBMLParser.parse(input.content);
+        
+        const tempSchema = parseResult.schema as any;
+        console.log('🔍 SERVER: Parse result:', {
+          success: parseResult.success,
+          tablesCount: tempSchema?.tables?.length || 0,
+          relationshipsCount: tempSchema?.relationships?.length || 0,
+          errors: parseResult.errors,
+        });
 
-        // Parse tables from DBML content
-        const tableMatches = Array.from(input.content.matchAll(/Table\s+(\w+)\s*\{([^}]+)\}/gi));
+        if (!parseResult.success || !parseResult.schema) {
+          console.error('❌ SERVER: Parse failed:', parseResult.errors);
+          return {
+            tables: [],
+            relationships: [],
+            enums: [],
+            success: false,
+            error: parseResult.errors?.[0]?.message || 'Failed to parse DBML',
+            schema: null,
+          };
+        }
 
-        for (const match of tableMatches) {
-          const tableName = match[1];
-          const tableBody = match[2];
+        const schema = parseResult.schema as {
+          tables: any[];
+          relationships: any[];
+          enums?: any[];
+        };
+        
+        // Transform schema to the format expected by the frontend
+        const tables = schema.tables.map((table: any, index: number) => {
+          const columns = table.columns.map((col: any) => ({
+            name: col.name,
+            type: typeof col.type === 'string' ? col.type : col.type?.name || 'unknown',
+            isPrimaryKey: col.primaryKey || false,
+            isNotNull: !col.nullable,
+            isUnique: col.unique || false,
+            note: col.note,
+          }));
 
-          if (!tableName || !tableBody) continue;
-
-          // Parse columns from table body
-          const columns = [];
-          // Updated regex to capture type with optional size/precision: varchar(30), decimal(10,2)
-          const columnMatches = Array.from(tableBody.matchAll(/(\w+)\s+([\w]+(?:\([^)]+\))?)(?:\s+\[([^\]]+)\])?/gi));
-
-          for (const colMatch of columnMatches) {
-            const [, name, type, attributes] = colMatch;
-            columns.push({
-              name,
-              type,
-              isPrimaryKey: attributes?.includes('primary key') || attributes?.includes('pk') || false,
-              isNotNull: attributes?.includes('not null') || false,
-              isUnique: attributes?.includes('unique') || false,
-            });
-          }
-
-          // Use deterministic positioning instead of Math.random() for SuperJSON compatibility
-          const tableIndex = tables.length;
-          tables.push({
-            id: tableName,
-            name: tableName,
+          return {
+            id: table.id,
+            name: table.name,
             columns,
-            x: 50 + (tableIndex % 3) * 250, // Deterministic grid positioning
-            y: 50 + Math.floor(tableIndex / 3) * 200,
-          });
-        }
+            // Use deterministic positioning for SuperJSON compatibility
+            x: table.position?.x ?? (50 + (index % 3) * 250),
+            y: table.position?.y ?? (50 + Math.floor(index / 3) * 200),
+            note: table.note,
+          };
+        });
 
-        // Parse relationships
-        const refMatches = Array.from(input.content.matchAll(/Ref:\s*(\w+)\.(\w+)\s*([<>-]+)\s*(\w+)\.(\w+)/gi));
+        const relationships = schema.relationships.map((rel: any) => ({
+          id: rel.id,
+          fromTable: rel.fromTable,
+          fromColumn: rel.fromColumn,
+          toTable: rel.toTable,
+          toColumn: rel.toColumn,
+          type: rel.type,
+          name: rel.name,
+        }));
 
-        for (const match of refMatches) {
-          const [, fromTable, fromColumn, operator, toTable, toColumn] = match;
-
-          if (!fromTable || !fromColumn || !operator || !toTable || !toColumn) continue;
-
-          relationships.push({
-            id: `${fromTable}_${fromColumn}_${toTable}_${toColumn}`,
-            fromTable,
-            fromColumn,
-            toTable,
-            toColumn,
-            type: operator.includes('>') ? 'one-to-many' : 'many-to-one',
-          });
-        }
-
+        console.log('✅ SERVER: Parsed tables:', tables.map((t: any) => t.name));
         console.log('🔗 SERVER: Parsed relationships:', relationships);
         console.log('🔗 SERVER: Relationships count:', relationships.length);
 
         return {
           tables,
           relationships,
-          enums: [],
+          enums: schema.enums || [],
           success: true,
-          schema: { tables, relationships, enums: [] },
+          schema: { tables, relationships, enums: schema.enums || [] },
         };
       } catch (error) {
         console.error('parseDBML error:', error);

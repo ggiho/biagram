@@ -13,6 +13,7 @@ import {
   Home,
   Moon,
   Sun,
+  MessageSquare,
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -22,7 +23,7 @@ import { useTheme } from '@/contexts/theme-context';
 export function DiagramToolbar() {
   const [currentZoom, setCurrentZoom] = useState(100);
   const [mounted, setMounted] = useState(false);
-  const { engine, selectedTool, setSelectedTool, showGrid, setShowGrid, onUndo, onRedo, canUndo, canRedo } = useDiagramEngine();
+  const { engine, selectedTool, setSelectedTool, showGrid, setShowGrid, showComments, setShowComments, onUndo, onRedo, canUndo, canRedo } = useDiagramEngine();
   const { theme, toggleTheme } = useTheme();
 
   // Prevent hydration mismatch for theme icon
@@ -244,6 +245,17 @@ export function DiagramToolbar() {
           title={showGrid ? 'Hide grid' : 'Show grid'}
         >
           <Grid className="h-4 w-4" />
+        </Button>
+
+        {/* Comments Toggle */}
+        <Button
+          variant={showComments ? 'default' : 'ghost'}
+          size="sm"
+          onClick={() => setShowComments(!showComments)}
+          aria-label={showComments ? 'Hide comments' : 'Show comments'}
+          title={showComments ? 'Hide comments' : 'Show comments'}
+        >
+          <MessageSquare className="h-4 w-4" />
         </Button>
 
         {/* Theme Toggle */}

@@ -33,9 +33,10 @@ export function DiagramCanvas({ schema, className, initialTablePositions, onTabl
 
   const [isReady, setIsReady] = useState(false);
   const diagramContext = useDiagramEngine();
-  const { setEngine, showGrid, selectedEntityId, setSelectedEntityId, highlightedRelationshipId, setHighlightedRelationshipId } = diagramContext || {
+  const { setEngine, showGrid, showComments, selectedEntityId, setSelectedEntityId, highlightedRelationshipId, setHighlightedRelationshipId } = diagramContext || {
     setEngine: () => {},
     showGrid: true,
+    showComments: true,
     selectedEntityId: null,
     setSelectedEntityId: () => {},
     highlightedRelationshipId: null,
@@ -113,6 +114,22 @@ export function DiagramCanvas({ schema, className, initialTablePositions, onTabl
     console.log('🎯 DiagramEngine viewport listener called');
     engineRef.current.render();
   }, []); // 빈 dependency - safeRender는 항상 안정적
+
+  // showGrid 변경 시 엔진에 반영
+  useEffect(() => {
+    if (engineRef.current) {
+      console.log('🔲 Updating showGrid:', showGrid);
+      engineRef.current.setShowGrid(showGrid);
+    }
+  }, [showGrid]);
+
+  // showComments 변경 시 엔진에 반영
+  useEffect(() => {
+    if (engineRef.current) {
+      console.log('💬 Updating showComments:', showComments);
+      engineRef.current.setShowComments(showComments);
+    }
+  }, [showComments]);
 
   // 캔버스 리사이즈 핸들러
   const handleCanvasResize = useCallback((width: number, height: number) => {
@@ -615,49 +632,121 @@ export function DiagramCanvas({ schema, className, initialTablePositions, onTabl
         connectedColumns.get(rel.toTable)?.add(rel.toColumn);
       });
 
+      // 텍스트 너비를 측정하는 헬퍼 함수
+      const measureTextWidth = (text: string, fontSize: number, fontFamily: string, fontWeight: string = 'normal'): number => {
+        if (!canvasRef.current) return text.length * 8; // fallback
+        
+        const ctx = canvasRef.current.getContext('2d');
+        if (!ctx) return text.length * 8;
+        
+        ctx.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
+        return ctx.measureText(text).width;
+      };
+
+      // 스키마별 색상 할당
+      const schemaColors = new Map<string, string>();
+      const colorPalette = [
+        '#3b82f6', // blue
+        '#10b981', // green  
+        '#f59e0b', // amber
+        '#8b5cf6', // violet
+        '#ec4899', // pink
+        '#14b8a6', // teal
+        '#f97316', // orange
+        '#6366f1', // indigo
+      ];
+      
+      let colorIndex = 0;
+      (schema.tables || []).forEach((table: any) => {
+        if (!table.name) return;
+        const parts = table.name.split('.');
+        if (parts.length > 1) {
+          const schemaName = parts[0];
+          if (schemaName && !schemaColors.has(schemaName)) {
+            const color = colorPalette[colorIndex % colorPalette.length];
+            if (color) {
+              schemaColors.set(schemaName, color);
+              colorIndex++;
+            }
+          }
+        }
+      });
+
       // 테이블 데이터 생성
       const tables: TableRenderData[] = (schema.tables || []).map((table: any, index: number) => {
         // 저장된 위치가 있으면 사용, 없으면 기본 레이아웃 적용
         const savedPosition = initialTablePositions?.[table.name];
-        const defaultX = 50 + (index % 3) * 250;
+        const defaultX = 50 + (index % 3) * 300; // 간격 증가
         const defaultY = 50 + Math.floor(index / 3) * 200;
 
         if (savedPosition) {
           console.log(`📍 Restoring position for table ${table.name}:`, savedPosition);
         }
 
+        // 동적 너비 계산
+        const fontSize = 14;
+        const fontFamily = 'Inter, -apple-system, BlinkMacSystemFont, sans-serif';
+        const padding = 12;
+        
+        // 테이블 이름 너비 (bold)
+        const tableNameWidth = measureTextWidth(table.name, fontSize, fontFamily, 'bold');
+        
+        // 모든 컬럼의 최대 너비 계산
+        let maxColumnWidth = tableNameWidth;
+        (table.columns || []).forEach((column: any) => {
+          // 컬럼명 + 타입 문자열
+          const columnText = `${column.name} ${column.type || ''}`;
+          const columnWidth = measureTextWidth(columnText, fontSize, fontFamily);
+          maxColumnWidth = Math.max(maxColumnWidth, columnWidth);
+        });
+        
+        // 패딩과 아이콘 공간 추가 (좌우 패딩 + 아이콘 영역)
+        const calculatedWidth = Math.max(180, maxColumnWidth + padding * 2 + 40);
+
+        // Parse schema.table notation
+        const tableParts = table.name.split('.');
+        const tableSchema = tableParts.length > 1 ? tableParts[0] : undefined;
+        const tableName = tableParts.length > 1 ? tableParts[1] : table.name;
+        const schemaColor = tableSchema ? schemaColors.get(tableSchema) : undefined;
+        
         return {
           id: table.name,
           name: table.name,
+          schema: tableSchema,
+          displayName: table.name, // Full name with schema
+          note: table.note,
           bounds: {
             x: savedPosition?.x ?? defaultX,
             y: savedPosition?.y ?? defaultY,
-            width: 200,
-            height: Math.max(100, (table.columns?.length || 0) * 25 + 50),
+            width: calculatedWidth,
+            // Add extra height for note if it exists
+            height: Math.max(100, (table.columns?.length || 0) * 25 + 50 + (table.note ? 24 : 0)),
           },
-        columns: (table.columns || []).map((column: any) => {
-          const isConnected = connectedColumns.get(table.name)?.has(column.name) || false;
-          return {
-            id: column.name,
-            name: column.name,
-            type: column.type || 'string',
-            isPrimaryKey: column.isPrimaryKey || column.primaryKey || false,
-            isForeignKey: column.isForeignKey || column.foreignKey || false,
-            isConnected: isConnected, // 관계선 연결 정보
-            isSelected: false,
-            isHovered: false,
-          };
-        }),
+          columns: (table.columns || []).map((column: any) => {
+            const isConnected = connectedColumns.get(table.name)?.has(column.name) || false;
+            return {
+              id: column.name,
+              name: column.name,
+              type: column.type || 'string',
+              note: column.note,
+              isPrimaryKey: column.isPrimaryKey || column.primaryKey || false,
+              isForeignKey: column.isForeignKey || column.foreignKey || false,
+              isConnected: isConnected, // 관계선 연결 정보
+              isSelected: false,
+              isHovered: false,
+            };
+          }),
         style: theme === 'dark' ? {
           backgroundColor: '#1f2937',
-          borderColor: '#374151',
-          borderWidth: 1,
+          borderColor: schemaColor || '#374151',
+          borderWidth: schemaColor ? 2 : 1,
           borderRadius: 8,
-          headerBackgroundColor: '#111827',
+          headerBackgroundColor: schemaColor || '#111827',
           headerTextColor: '#f3f4f6',
           headerHeight: 32,
           textColor: '#e5e7eb',
           typeTextColor: '#9ca3af',
+          noteTextColor: '#6b7280',
           padding: 12,
           rowHeight: 24,
           fontSize: 14,
@@ -665,22 +754,24 @@ export function DiagramCanvas({ schema, className, initialTablePositions, onTabl
           fontWeight: 'normal',
           selectedRowColor: '#1e40af',
           hoveredRowColor: '#374151',
-          connectedRowColor: '#1e3a8a',  // 다크 모드: 진한 파란색 배경
-          connectedBorderColor: '#60a5fa',  // 다크 모드: 밝은 파란색 테두리
+          connectedRowColor: '#1e3a8a',
+          connectedBorderColor: '#60a5fa',
           iconSize: 16,
           iconSpacing: 8,
           shadowColor: '#00000040',
           shadowBlur: 4,
+          schemaColor: schemaColor,
         } : {
           backgroundColor: '#ffffff',
-          borderColor: '#e5e7eb',
-          borderWidth: 1,
+          borderColor: schemaColor || '#e5e7eb',
+          borderWidth: schemaColor ? 2 : 1,
           borderRadius: 8,
-          headerBackgroundColor: '#f9fafb',
-          headerTextColor: '#374151',
+          headerBackgroundColor: schemaColor || '#f9fafb',
+          headerTextColor: schemaColor ? '#ffffff' : '#374151',
           headerHeight: 32,
           textColor: '#374151',
           typeTextColor: '#6b7280',
+          noteTextColor: '#9ca3af',
           padding: 12,
           rowHeight: 24,
           fontSize: 14,
@@ -688,12 +779,13 @@ export function DiagramCanvas({ schema, className, initialTablePositions, onTabl
           fontWeight: 'normal',
           selectedRowColor: '#dbeafe',
           hoveredRowColor: '#f3f4f6',
-          connectedRowColor: '#eff6ff',  // 라이트 모드: 연한 파란색 배경
-          connectedBorderColor: '#3b82f6',  // 라이트 모드: 파란색 테두리
+          connectedRowColor: '#eff6ff',
+          connectedBorderColor: '#3b82f6',
           iconSize: 16,
           iconSpacing: 8,
           shadowColor: '#00000020',
           shadowBlur: 4,
+          schemaColor: schemaColor,
         },
         isSelected: false,
         isHovered: false,

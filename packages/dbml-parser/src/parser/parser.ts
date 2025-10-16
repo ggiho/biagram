@@ -166,7 +166,7 @@ export class DBMLParser {
     };
   }
 
-  private parseTableDeclaration(): Table {
+  private parseTableDeclaration(): any {
     const name = this.parseTableName();
     const alias = this.match('identifier') ? this.previous().value : undefined;
 
@@ -174,9 +174,16 @@ export class DBMLParser {
 
     const columns: Column[] = [];
     const indexes: Index[] = [];
+    let tableNote: string | undefined;
 
     while (!this.check('right_brace') && !this.isAtEnd()) {
-      if (this.match('indexes')) {
+      // Check for table-level Note first (before trying to parse as column)
+      if (this.match('note')) {
+        // Parse table-level Note: "Note" keyword
+        this.consume('colon', 'Expected ":" after Note');
+        const noteToken = this.consume('string', 'Expected note text');
+        tableNote = noteToken.value.slice(1, -1); // Remove quotes
+      } else if (this.match('indexes')) {
         indexes.push(...this.parseIndexesBlock());
       } else {
         const column = this.parseColumnDeclaration();
@@ -189,11 +196,12 @@ export class DBMLParser {
     this.consume('right_brace', 'Expected "}" after table body');
 
     return {
+      type: 'table', // Add type field for schema identification
       id: this.generateId(),
       name,
       alias,
       columns,
-      note: undefined,
+      note: tableNote,
       color: undefined,
       headerColor: undefined,
       position: { x: 0, y: 0 },
@@ -202,21 +210,28 @@ export class DBMLParser {
   }
 
   private parseColumnDeclaration(): Column {
-    const name = this.consume('identifier', 'Expected column name').value;
+    // Column name can be either identifier or quoted identifier
+    let name: string;
+    if (this.check('identifier')) {
+      name = this.advance().value;
+    } else {
+      name = this.consume('identifier', 'Expected column name').value;
+    }
+    
     const type = this.parseDataType();
-    const constraints = this.parseColumnConstraints();
+    const constraintData = this.parseColumnConstraints();
 
     return {
       id: this.generateId(),
       name,
       type,
-      nullable: !constraints.includes('not_null'),
-      primaryKey: constraints.includes('primary_key'),
-      unique: constraints.includes('unique'),
-      autoIncrement: constraints.includes('auto_increment'),
-      defaultValue: this.extractDefaultValue(constraints),
-      note: this.extractNote(constraints),
-      references: this.extractReference(constraints),
+      nullable: !constraintData.constraints.includes('not_null'),
+      primaryKey: constraintData.constraints.includes('primary_key'),
+      unique: constraintData.constraints.includes('unique'),
+      autoIncrement: constraintData.constraints.includes('auto_increment'),
+      defaultValue: constraintData.defaultValue,
+      note: constraintData.note,
+      references: constraintData.reference,
     };
   }
 
@@ -247,14 +262,20 @@ export class DBMLParser {
     };
   }
 
-  private parseColumnConstraints(): string[] {
+  private parseColumnConstraints(): { constraints: string[]; note?: string; defaultValue?: any; reference?: any } {
     const constraints: string[] = [];
+    let note: string | undefined;
+    let defaultValue: any;
+    let reference: any;
 
     if (this.match('left_bracket')) {
       while (!this.check('right_bracket') && !this.isAtEnd()) {
-        const constraint = this.parseConstraint();
-        if (constraint) {
-          constraints.push(constraint);
+        const constraintResult = this.parseConstraint();
+        if (constraintResult) {
+          constraints.push(constraintResult.type);
+          if (constraintResult.note) note = constraintResult.note;
+          if (constraintResult.defaultValue) defaultValue = constraintResult.defaultValue;
+          if (constraintResult.reference) reference = constraintResult.reference;
         }
 
         if (!this.check('right_bracket')) {
@@ -265,62 +286,75 @@ export class DBMLParser {
       this.consume('right_bracket', 'Expected "]" after constraints');
     }
 
-    return constraints;
+    return { constraints, note, defaultValue, reference };
   }
 
-  private parseConstraint(): string | null {
+  private parseConstraint(): { type: string; note?: string; defaultValue?: any; reference?: any } | null {
     const token = this.advance();
+    
+    if (!token || !token.value) {
+      return null;
+    }
 
     switch (token.value.toLowerCase()) {
       case 'pk':
       case 'primary':
         if (this.match('identifier') && this.previous().value.toLowerCase() === 'key') {
-          return 'primary_key';
+          return { type: 'primary_key' };
         }
-        return 'primary_key';
+        return { type: 'primary_key' };
 
       case 'unique':
-        return 'unique';
+        return { type: 'unique' };
 
       case 'not':
-        if (this.match('identifier') && this.previous().value.toLowerCase() === 'null') {
-          return 'not_null';
+        // Handle "not null" - null can be either identifier or boolean_literal token
+        if (this.check('identifier') || this.check('boolean_literal')) {
+          const next = this.advance();
+          if (next.value.toLowerCase() === 'null') {
+            return { type: 'not_null' };
+          }
+          // Put it back if it wasn't 'null'
+          this.current--;
         }
         break;
+        
+      case 'null':
+        // Just "null" constraint (nullable)
+        return { type: 'null' };
 
       case 'increment':
       case 'auto_increment':
-        return 'auto_increment';
+        return { type: 'auto_increment' };
 
       case 'default':
         this.consume('colon', 'Expected ":" after default');
-        this.advance(); // consume default value
-        return 'default';
+        const defaultToken = this.advance(); // consume default value
+        return { type: 'default', defaultValue: defaultToken.value };
 
       case 'note':
         this.consume('colon', 'Expected ":" after note');
-        this.consume('string', 'Expected note text');
-        return 'note';
+        const noteToken = this.consume('string', 'Expected note text');
+        // Remove quotes from string
+        const noteValue = noteToken.value.slice(1, -1);
+        return { type: 'note', note: noteValue };
 
       case 'ref':
         this.consume('colon', 'Expected ":" after ref');
-        this.parseReference();
-        return 'reference';
+        const ref = this.parseReference();
+        return { type: 'reference', reference: ref };
 
       default:
-        this.addError(
-          'syntax',
-          'UNKNOWN_CONSTRAINT',
-          `Unknown constraint: ${token.value}`,
-          token.position
-        );
+        // Don't error on unknown constraints, just skip them
+        // This allows for more flexible parsing
+        console.warn(`Unknown constraint: ${token.value}`);
         return null;
     }
 
     return null;
   }
 
-  private parseEnumDeclaration(): Enum {
+  private parseEnumDeclaration(): any {
     const name = this.consume('identifier', 'Expected enum name').value;
 
     this.consume('left_brace', 'Expected "{" after enum name');
@@ -345,6 +379,7 @@ export class DBMLParser {
     this.consume('right_brace', 'Expected "}" after enum body');
 
     return {
+      type: 'enum', // Add type field
       id: this.generateId(),
       name,
       values,
@@ -352,31 +387,34 @@ export class DBMLParser {
     };
   }
 
-  private parseReferenceDeclaration(): Relationship {
+  private parseReferenceDeclaration(): any {
+    // Ref: can have optional colon after it
+    // Ref: table.column > table.column
+    // or
+    // Ref table.column > table.column
+    this.match('colon'); // Optional colon
+    
     const fromRef = this.parseReference();
 
     let relationshipType: any = 'one-to-many';
 
-    // Parse relationship type
-    if (this.check('one_to_one')) {
+    // Parse relationship type operators: <, >, -, <>
+    if (this.match('one_to_one')) {
       relationshipType = 'one-to-one';
-      this.advance();
-    } else if (this.check('one_to_many')) {
+    } else if (this.match('one_to_many')) {
       relationshipType = 'one-to-many';
-      this.advance();
-    } else if (this.check('many_to_one')) {
+    } else if (this.match('many_to_one')) {
       relationshipType = 'many-to-one';
-      this.advance();
-    } else if (this.check('many_to_many')) {
+    } else if (this.match('many_to_many')) {
       relationshipType = 'many-to-many';
-      this.advance();
     }
 
     const toRef = this.parseReference();
 
     return {
+      type: 'relationship', // Add type field
       id: this.generateId(),
-      type: relationshipType,
+      relationshipType, // Keep original type as relationshipType
       fromTable: fromRef.table,
       fromColumn: fromRef.column,
       toTable: toRef.table,
@@ -390,10 +428,22 @@ export class DBMLParser {
   }
 
   private parseReference(): any {
-    const tableColumn = this.consume('identifier', 'Expected table.column reference').value;
+    // Table name or schema name (can be quoted identifier)
+    let tableColumn: string;
+    if (this.check('identifier')) {
+      tableColumn = this.advance().value;
+    } else {
+      tableColumn = this.consume('identifier', 'Expected table.column reference').value;
+    }
 
     if (this.match('dot')) {
-      const column = this.consume('identifier', 'Expected column name after "."').value;
+      // Column name (can also be quoted identifier)
+      let column: string;
+      if (this.check('identifier')) {
+        column = this.advance().value;
+      } else {
+        column = this.consume('identifier', 'Expected column name after "."').value;
+      }
       return { table: tableColumn, column };
     }
 
@@ -443,29 +493,55 @@ export class DBMLParser {
 
   private parseIndexDeclaration(): Index | null {
     // Parse index specification: (column1, column2) [unique]
-    if (!this.match('left_paren')) {
-      this.addError('syntax', 'EXPECTED_PAREN', 'Expected "(" for index columns', this.peek().position);
+    // Also support single column without parentheses for inline indexes
+    
+    const columns: string[] = [];
+    let unique = false;
+    let indexType: any = undefined;
+    let indexName: string | undefined = undefined;
+
+    // Check if it starts with parentheses (composite index) or just a column name
+    if (this.match('left_paren')) {
+      // Composite index: (col1, col2)
+      do {
+        let column: string;
+        if (this.check('identifier')) {
+          column = this.advance().value;
+        } else {
+          column = this.consume('identifier', 'Expected column name').value;
+        }
+        columns.push(column);
+      } while (this.match('comma'));
+
+      this.consume('right_paren', 'Expected ")" after index columns');
+    } else if (this.check('identifier')) {
+      // Single column index without parentheses
+      columns.push(this.advance().value);
+    } else {
+      this.addError('syntax', 'EXPECTED_PAREN', 'Expected "(" or column name for index', this.peek().position);
       return null;
     }
 
-    const columns: string[] = [];
-
-    do {
-      const column = this.consume('identifier', 'Expected column name').value;
-      columns.push(column);
-    } while (this.match('comma'));
-
-    this.consume('right_paren', 'Expected ")" after index columns');
-
-    let unique = false;
-    let indexType: any = undefined;
-
+    // Parse index attributes: [unique, name: "idx_name", pk, etc.]
     if (this.match('left_bracket')) {
       while (!this.check('right_bracket') && !this.isAtEnd()) {
         const attr = this.consume('identifier', 'Expected index attribute').value;
 
         if (attr.toLowerCase() === 'unique') {
           unique = true;
+        } else if (attr.toLowerCase() === 'pk') {
+          indexType = 'primary';
+          unique = true;
+        } else if (attr.toLowerCase() === 'name') {
+          // Parse index name: name: "idx_name"
+          this.consume('colon', 'Expected ":" after name');
+          if (this.check('string')) {
+            indexName = this.advance().value;
+            // Remove quotes from string
+            indexName = indexName.slice(1, -1);
+          } else if (this.check('identifier')) {
+            indexName = this.advance().value;
+          }
         } else {
           indexType = attr;
         }
@@ -478,7 +554,7 @@ export class DBMLParser {
 
     return {
       id: this.generateId(),
-      name: `idx_${columns.join('_')}`,
+      name: indexName || `idx_${columns.join('_')}`,
       tableName: '', // Will be set by parent table
       columns,
       type: indexType,
@@ -507,7 +583,13 @@ export class DBMLParser {
   }
 
   private parseTableName(): string {
-    const name = this.consume('identifier', 'Expected table name').value;
+    // Table name can be either identifier or quoted identifier
+    let name: string;
+    if (this.check('identifier')) {
+      name = this.advance().value;
+    } else {
+      name = this.consume('identifier', 'Expected table name').value;
+    }
 
     // Handle schema.table syntax
     if (this.match('dot')) {
@@ -645,11 +727,13 @@ export class DBMLParser {
 
   private extractDefaultValue(constraints: string[]): any {
     // Extract default value from constraints
+    // This would need to store the value when parsing 'default' constraint
     return undefined;
   }
 
   private extractNote(constraints: string[]): string | undefined {
-    // Extract note from constraints
+    // Note is extracted during constraint parsing
+    // We need to store it separately
     return undefined;
   }
 

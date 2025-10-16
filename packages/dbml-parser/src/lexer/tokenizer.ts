@@ -66,6 +66,8 @@ export class DBMLTokenizer {
     ['integer', 'integer'],
     ['int', 'integer'],
     ['bigint', 'bigint'],
+    ['smallint', 'integer'],
+    ['tinyint', 'integer'],
     ['decimal', 'decimal'],
     ['numeric', 'decimal'],
     ['boolean', 'boolean'],
@@ -78,6 +80,10 @@ export class DBMLTokenizer {
     ['json', 'json'],
     ['jsonb', 'json'],
     ['uuid', 'uuid'],
+    ['binary', 'identifier'], // binary 타입 추가
+    ['float', 'decimal'],
+    ['double', 'decimal'],
+    ['real', 'decimal'],
 
     // Boolean literals
     ['true', 'boolean_literal'],
@@ -297,7 +303,23 @@ export class DBMLTokenizer {
 
       if (char === quote) {
         // End of string
-        this.addToken('string', this.source.substring(start, this.position));
+        const fullValue = this.source.substring(start, this.position);
+        
+        // Double quotes can be either string literals or quoted identifiers
+        // Quoted identifiers (like "TABLE_NAME") should be treated as identifiers
+        if (quote === '"') {
+          // Check if this looks like an identifier (no spaces, special chars, etc.)
+          const innerValue = fullValue.slice(1, -1);
+          const isIdentifier = /^[A-Za-z_][A-Za-z0-9_]*$/.test(innerValue);
+          
+          if (isIdentifier) {
+            // Treat as quoted identifier
+            this.addToken('identifier', innerValue);
+            return;
+          }
+        }
+        
+        this.addToken('string', fullValue);
         return;
       }
 

@@ -74,8 +74,9 @@ export class CanvasRenderer {
     viewport: ViewportState;
     theme?: ThemeConfig;
     showGrid?: boolean;
+    showComments?: boolean;
   }): void {
-    const { tables, relationships, viewport, theme, showGrid = true } = data;
+    const { tables, relationships, viewport, theme, showGrid = true, showComments = true } = data;
 
     console.log('🖼️ CanvasRenderer.render() called with:');
     console.log('🖼️ Tables to render:', tables.length);
@@ -131,7 +132,7 @@ export class CanvasRenderer {
 
     // Render in layers for optimal performance
     this.renderRelationships(relationships, viewport);
-    this.renderTables(tables, viewport);
+    this.renderTables(tables, viewport, showComments);
 
     this.lastViewport = { ...viewport };
     this.isDirty = false;
@@ -170,7 +171,7 @@ export class CanvasRenderer {
   /**
    * Render database tables
    */
-  private renderTables(tables: TableRenderData[], viewport: ViewportState): void {
+  private renderTables(tables: TableRenderData[], viewport: ViewportState, showComments: boolean = true): void {
     console.log('🏢 renderTables() called with:', tables.length, 'tables');
 
     // DISABLE CULLING: Always render all tables to ensure visibility
@@ -182,16 +183,17 @@ export class CanvasRenderer {
 
     for (const table of visibleTables) {
       console.log('🏢 Rendering table:', table.name, 'at bounds:', table.bounds);
-      this.renderTable(table, viewport.zoom);
+      this.renderTable(table, viewport.zoom, showComments);
     }
   }
 
   /**
    * Render a single table
    */
-  private renderTable(table: TableRenderData, zoom: number): void {
+  private renderTable(table: TableRenderData, zoom: number, showComments: boolean = true): void {
     const { bounds, style, isSelected, isHovered } = table;
     const { x, y, width, height } = bounds;
+    const tableNote = (table as any).note;
 
     // Get opacity from table (default to 1.0 if not set)
     const opacity = (table as any).opacity ?? 1.0;
@@ -253,6 +255,20 @@ export class CanvasRenderer {
       this.ctx.textBaseline = 'middle';
       const headerY = y + style.headerHeight / 2;
       this.ctx.fillText(table.name, x + style.padding, headerY);
+
+      // Table note (comment) if enabled and exists
+      if (showComments && tableNote) {
+        const noteY = y + style.headerHeight + 4;
+        this.ctx.font = `italic ${style.fontSize - 2}px ${style.fontFamily}`;
+        this.ctx.fillStyle = (style as any).noteTextColor || style.typeTextColor;
+        this.ctx.textAlign = 'left';
+        this.ctx.textBaseline = 'top';
+        
+        // Wrap text if too long
+        const maxWidth = width - style.padding * 2;
+        const noteText = tableNote.length > 100 ? tableNote.substring(0, 97) + '...' : tableNote;
+        this.ctx.fillText(noteText, x + style.padding, noteY, maxWidth);
+      }
     } else {
       // Low zoom: centered, larger table name
       const largeFontSize = style.fontSize * 1.5;
@@ -266,9 +282,14 @@ export class CanvasRenderer {
     // Columns (only if details should be shown)
     if (showDetails) {
       let currentY = y + style.headerHeight;
+      
+      // Add space for table note if shown
+      if (showComments && tableNote) {
+        currentY += 20; // Extra space for note
+      }
 
       for (const column of table.columns) {
-        this.renderColumn(column, x, currentY, width, style, showIcons);
+        this.renderColumn(column, x, currentY, width, style, showIcons, showComments);
         currentY += style.rowHeight;
       }
     }
@@ -285,7 +306,8 @@ export class CanvasRenderer {
     y: number,
     width: number,
     style: TableStyle,
-    showIcons: boolean
+    showIcons: boolean,
+    showComments: boolean = true
   ): void {
     const { isSelected, isHovered, isConnected } = column;
 

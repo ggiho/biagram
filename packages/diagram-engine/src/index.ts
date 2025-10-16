@@ -56,6 +56,7 @@ export class DiagramEngine {
   private relationships: RelationshipRenderData[] = [];
   private theme?: ThemeConfig;
   private showGrid = true;
+  private showComments = true;
 
   constructor(canvas: HTMLCanvasElement, options?: {
     enableSVGOverlay?: boolean;
@@ -111,6 +112,7 @@ export class DiagramEngine {
       viewport: this.viewportManager.getViewport(),
       theme: this.theme,
       showGrid: this.showGrid,
+      showComments: this.showComments,
     });
   }
 
@@ -128,6 +130,22 @@ export class DiagramEngine {
    */
   getShowGrid(): boolean {
     return this.showGrid;
+  }
+
+  /**
+   * Set comments visibility
+   */
+  setShowComments(show: boolean): void {
+    this.showComments = show;
+    this.renderer.invalidate();
+    this.render();
+  }
+
+  /**
+   * Get comments visibility
+   */
+  getShowComments(): boolean {
+    return this.showComments;
   }
 
   /**
