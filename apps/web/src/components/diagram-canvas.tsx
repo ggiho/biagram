@@ -890,62 +890,67 @@ export function DiagramCanvas({ schema, className, initialTablePositions, onTabl
     if (isReady && engineRef.current && tablesRef.current.length > 0) {
       console.log('🎨 Theme changed, updating table styles');
 
-      // 테이블 스타일 업데이트
-      const darkStyle = {
-        backgroundColor: '#1f2937',
-        borderColor: '#374151',
-        borderWidth: 1,
-        borderRadius: 8,
-        headerBackgroundColor: '#111827',
-        headerTextColor: '#f3f4f6',
-        headerHeight: 32,
-        textColor: '#e5e7eb',
-        typeTextColor: '#9ca3af',
-        padding: 12,
-        rowHeight: 24,
-        fontSize: 14,
-        fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif',
-        fontWeight: 'normal' as const,
-        selectedRowColor: '#1e40af',
-        hoveredRowColor: '#374151',
-        connectedRowColor: '#1e3a8a',
-        connectedBorderColor: '#60a5fa',
-        iconSize: 16,
-        iconSpacing: 8,
-        shadowColor: '#00000040',
-        shadowBlur: 4,
-      };
-
-      const lightStyle = {
-        backgroundColor: '#ffffff',
-        borderColor: '#e5e7eb',
-        borderWidth: 1,
-        borderRadius: 8,
-        headerBackgroundColor: '#f9fafb',
-        headerTextColor: '#374151',
-        headerHeight: 32,
-        textColor: '#374151',
-        typeTextColor: '#6b7280',
-        padding: 12,
-        rowHeight: 24,
-        fontSize: 14,
-        fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif',
-        fontWeight: 'normal' as const,
-        selectedRowColor: '#dbeafe',
-        hoveredRowColor: '#f3f4f6',
-        connectedRowColor: '#eff6ff',
-        connectedBorderColor: '#3b82f6',
-        iconSize: 16,
-        iconSpacing: 8,
-        shadowColor: '#00000020',
-        shadowBlur: 4,
-      };
-
-      // 모든 테이블의 스타일 업데이트
-      tablesRef.current = tablesRef.current.map(table => ({
-        ...table,
-        style: theme === 'dark' ? darkStyle : lightStyle,
-      }));
+      // 모든 테이블의 스타일 업데이트 (schemaColor 유지)
+      tablesRef.current = tablesRef.current.map(table => {
+        const schemaColor = table.style.schemaColor;
+        
+        const baseStyle = theme === 'dark' ? {
+          backgroundColor: '#1f2937',
+          borderColor: schemaColor || '#374151',
+          borderWidth: schemaColor ? 2 : 1,
+          borderRadius: 8,
+          headerBackgroundColor: schemaColor || '#111827',
+          headerTextColor: '#f3f4f6',
+          headerHeight: 32,
+          textColor: '#e5e7eb',
+          typeTextColor: '#9ca3af',
+          noteTextColor: '#6b7280',
+          padding: 12,
+          rowHeight: 24,
+          fontSize: 14,
+          fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif',
+          fontWeight: 'normal' as const,
+          selectedRowColor: '#1e40af',
+          hoveredRowColor: '#374151',
+          connectedRowColor: '#1e3a8a',
+          connectedBorderColor: '#60a5fa',
+          iconSize: 16,
+          iconSpacing: 8,
+          shadowColor: '#00000040',
+          shadowBlur: 4,
+          schemaColor: schemaColor,
+        } : {
+          backgroundColor: '#ffffff',
+          borderColor: schemaColor || '#e5e7eb',
+          borderWidth: schemaColor ? 2 : 1,
+          borderRadius: 8,
+          headerBackgroundColor: schemaColor || '#f9fafb',
+          headerTextColor: schemaColor ? '#ffffff' : '#374151',
+          headerHeight: 32,
+          textColor: '#374151',
+          typeTextColor: '#6b7280',
+          noteTextColor: '#9ca3af',
+          padding: 12,
+          rowHeight: 24,
+          fontSize: 14,
+          fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif',
+          fontWeight: 'normal' as const,
+          selectedRowColor: '#dbeafe',
+          hoveredRowColor: '#f3f4f6',
+          connectedRowColor: '#eff6ff',
+          connectedBorderColor: '#3b82f6',
+          iconSize: 16,
+          iconSpacing: 8,
+          shadowColor: '#00000020',
+          shadowBlur: 4,
+          schemaColor: schemaColor,
+        };
+        
+        return {
+          ...table,
+          style: baseStyle,
+        };
+      });
 
       // 렌더링
       safeRender();
