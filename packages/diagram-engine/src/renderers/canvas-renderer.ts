@@ -280,8 +280,9 @@ export class CanvasRenderer {
       }
     } else {
       // Low zoom: centered, larger table name
-      // Always use dark color for high contrast on white/light background
-      this.ctx.fillStyle = '#1f2937'; // Dark gray for all tables at low zoom
+      // Use appropriate text color based on theme background
+      const isDark = this.currentTheme?.mode === 'dark';
+      this.ctx.fillStyle = isDark ? '#f3f4f6' : '#1f2937'; // Light text for dark mode, dark text for light mode
       const largeFontSize = style.fontSize * 1.5;
       this.ctx.font = `bold ${largeFontSize}px ${style.fontFamily}`;
       this.ctx.textAlign = 'center';
