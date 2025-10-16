@@ -127,9 +127,14 @@ export function DiagramSidebar({ schema }: DiagramSidebarProps) {
           {/* Table Info */}
           <div className="border-b p-4">
             <div className="flex items-center gap-2 mb-2">
-              <Table className="h-5 w-5 text-primary" />
-              <h4 className="font-semibold text-lg">{selectedTable.name}</h4>
+              <Table className="h-4 w-4 text-primary" />
+              <h4 className="font-semibold text-sm">{selectedTable.name}</h4>
             </div>
+            {(selectedTable as any).note && (
+              <p className="text-xs text-muted-foreground mb-2">
+                {(selectedTable as any).note}
+              </p>
+            )}
             <p className="text-xs text-muted-foreground">
               {selectedTable.columns.length} columns
             </p>
@@ -147,10 +152,18 @@ export function DiagramSidebar({ schema }: DiagramSidebarProps) {
                 const isFK = (column as any).references || (column as any).isForeignKey || false;
                 const isNotNull = (column as any).isNotNull || false;
                 const isUnique = (column as any).isUnique || false;
+                const columnNote = (column as any).note;
 
                 return (
                   <div key={column.name} className="px-4 py-2">
-                    <div className="font-medium text-sm">{column.name}</div>
+                    <div className="flex items-baseline gap-2">
+                      <span className="font-medium text-sm">{column.name}</span>
+                      {columnNote && (
+                        <span className="text-xs text-muted-foreground/70">
+                          {columnNote}
+                        </span>
+                      )}
+                    </div>
                     <div className="flex gap-2 items-center mt-1">
                       <span className="text-xs text-muted-foreground">{typeName}</span>
                       {isPK && <span className="text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded">PK</span>}

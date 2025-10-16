@@ -194,6 +194,16 @@ export class CanvasRenderer {
     const { bounds, style, isSelected, isHovered } = table;
     const { x, y, width, height } = bounds;
     const tableNote = (table as any).note;
+    
+    if (table.name === 'users' || tableNote) {
+      console.log('🔍 renderTable:', {
+        name: table.name,
+        note: tableNote,
+        showComments,
+        zoom,
+        showDetails: zoom > 0.5
+      });
+    }
 
     // Get opacity from table (default to 1.0 if not set)
     const opacity = (table as any).opacity ?? 1.0;
@@ -259,7 +269,7 @@ export class CanvasRenderer {
       // Table note (comment) if enabled and exists
       if (showComments && tableNote) {
         const noteY = y + style.headerHeight + 4;
-        this.ctx.font = `italic ${style.fontSize - 2}px ${style.fontFamily}`;
+        this.ctx.font = `normal ${style.fontSize - 2}px ${style.fontFamily}`;
         this.ctx.fillStyle = (style as any).noteTextColor || style.typeTextColor;
         this.ctx.textAlign = 'left';
         this.ctx.textBaseline = 'top';
@@ -351,6 +361,29 @@ export class CanvasRenderer {
 
     const textY = y + style.rowHeight / 2;
     this.ctx.fillText(column.name, iconX, textY);
+
+    // Column note (comment) if enabled and exists
+    if (showComments && column.note) {
+      const columnNameWidth = this.ctx.measureText(column.name).width;
+      const noteX = iconX + columnNameWidth + 8; // 8px gap
+      this.ctx.font = `normal ${style.fontSize - 2}px ${style.fontFamily}`;
+      this.ctx.fillStyle = (style as any).noteTextColor || style.typeTextColor;
+      
+      // Truncate note if too long
+      const maxNoteWidth = width - (noteX - x) - style.padding - 60; // Reserve space for type
+      let noteText = column.note;
+      let noteWidth = this.ctx.measureText(noteText).width;
+      
+      if (noteWidth > maxNoteWidth) {
+        while (noteWidth > maxNoteWidth && noteText.length > 3) {
+          noteText = noteText.substring(0, noteText.length - 1);
+          noteWidth = this.ctx.measureText(noteText + '...').width;
+        }
+        noteText = noteText + '...';
+      }
+      
+      this.ctx.fillText(noteText, noteX, textY);
+    }
 
     // Data type (right-aligned)
     this.ctx.fillStyle = style.typeTextColor;
