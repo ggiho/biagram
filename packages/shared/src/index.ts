@@ -16,6 +16,9 @@ export * from './types/rendering.js';
 // API types
 export * from './types/api.js';
 
+// Specification types (Table Center)
+export * from './types/specification.js';
+
 // Utility types
 export type DeepPartial<T> = {
   [P in keyof T]?: T[P] extends object ? DeepPartial<T[P]> : T[P];
