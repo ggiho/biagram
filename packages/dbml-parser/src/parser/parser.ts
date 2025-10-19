@@ -428,27 +428,38 @@ export class DBMLParser {
   }
 
   private parseReference(): any {
-    // Table name or schema name (can be quoted identifier)
-    let tableColumn: string;
+    // First identifier (schema or table name)
+    let first: string;
     if (this.check('identifier')) {
-      tableColumn = this.advance().value;
+      first = this.advance().value;
     } else {
-      tableColumn = this.consume('identifier', 'Expected table.column reference').value;
+      first = this.consume('identifier', 'Expected table.column reference').value;
     }
 
     if (this.match('dot')) {
-      // Column name (can also be quoted identifier)
-      let column: string;
-      if (this.check('identifier')) {
-        column = this.advance().value;
+      // Second identifier (table name or column name, or 'note' keyword)
+      const nextToken = this.peek();
+      let second: string;
+      if (nextToken.type === 'identifier' || nextToken.type === 'note') {
+        second = this.advance().value;
       } else {
-        column = this.consume('identifier', 'Expected column name after "."').value;
+        second = this.consume('identifier', 'Expected table or column name after "."').value;
       }
-      return { table: tableColumn, column };
+
+      // Check for third part (schema.table.column format)
+      if (this.match('dot')) {
+        // Third identifier (column name)
+        const column = this.consume('identifier', 'Expected column name').value;
+        // schema.table.column format
+        return { table: `${first}.${second}`, column };
+      }
+
+      // table.column format
+      return { table: first, column: second };
     }
 
     // If no dot, assume it's just a column name in current context
-    return { table: '', column: tableColumn };
+    return { table: '', column: first };
   }
 
   private parseTableGroupDeclaration(): TableGroup {

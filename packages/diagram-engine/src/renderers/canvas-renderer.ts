@@ -436,18 +436,14 @@ export class CanvasRenderer {
     this.ctx.beginPath();
     this.ctx.moveTo(path.start.x, path.start.y);
 
-    if (path.controlPoints && path.controlPoints.length >= 2) {
-      // Bezier curve for smooth relationships
-      this.ctx.bezierCurveTo(
-        path.controlPoints[0]?.x || 0,
-        path.controlPoints[0]?.y || 0,
-        path.controlPoints[1]?.x || 0,
-        path.controlPoints[1]?.y || 0,
-        path.end.x,
-        path.end.y
-      );
+    if (path.controlPoints && path.controlPoints.length > 0) {
+      // 🔄 Orthogonal routing: Draw straight line segments through waypoints
+      for (const point of path.controlPoints) {
+        this.ctx.lineTo(point.x, point.y);
+      }
+      this.ctx.lineTo(path.end.x, path.end.y);
     } else {
-      // Straight line
+      // Straight line fallback
       this.ctx.lineTo(path.end.x, path.end.y);
     }
 
@@ -487,24 +483,58 @@ export class CanvasRenderer {
 
       let dotX: number, dotY: number;
 
-      if (path.controlPoints && path.controlPoints.length >= 2) {
-        // Calculate position on Bezier curve
-        const t = offset;
-        const mt = 1 - t;
-        const mt2 = mt * mt;
-        const t2 = t * t;
+      if (path.controlPoints && path.controlPoints.length > 0) {
+        // 🔄 Orthogonal routing: Calculate position along multi-segment path
+        // Build all points in the path
+        const points = [
+          path.start,
+          ...path.controlPoints,
+          path.end,
+        ];
 
-        dotX =
-          mt2 * mt * path.start.x +
-          3 * mt2 * t * (path.controlPoints[0]?.x || 0) +
-          3 * mt * t2 * (path.controlPoints[1]?.x || 0) +
-          t2 * t * path.end.x;
+        // Calculate segment lengths
+        const segmentLengths: number[] = [];
+        let totalLength = 0;
 
-        dotY =
-          mt2 * mt * path.start.y +
-          3 * mt2 * t * (path.controlPoints[0]?.y || 0) +
-          3 * mt * t2 * (path.controlPoints[1]?.y || 0) +
-          t2 * t * path.end.y;
+        for (let j = 0; j < points.length - 1; j++) {
+          const p1 = points[j];
+          const p2 = points[j + 1];
+          if (!p1 || !p2) continue;
+
+          const dx = p2.x - p1.x;
+          const dy = p2.y - p1.y;
+          const length = Math.sqrt(dx * dx + dy * dy);
+          segmentLengths.push(length);
+          totalLength += length;
+        }
+
+        // Find which segment the dot should be on
+        const targetDistance = offset * totalLength;
+        let accumulatedLength = 0;
+        let segmentIndex = 0;
+        let segmentOffset = 0;
+
+        for (let j = 0; j < segmentLengths.length; j++) {
+          const segmentLength = segmentLengths[j] || 0;
+          if (accumulatedLength + segmentLength >= targetDistance) {
+            segmentIndex = j;
+            segmentOffset = (targetDistance - accumulatedLength) / segmentLength;
+            break;
+          }
+          accumulatedLength += segmentLength;
+        }
+
+        // Calculate position within the segment
+        const p1 = points[segmentIndex];
+        const p2 = points[segmentIndex + 1];
+
+        if (p1 && p2) {
+          dotX = p1.x + (p2.x - p1.x) * segmentOffset;
+          dotY = p1.y + (p2.y - p1.y) * segmentOffset;
+        } else {
+          dotX = path.start.x;
+          dotY = path.start.y;
+        }
       } else {
         // Calculate position on straight line
         dotX = path.start.x + (path.end.x - path.start.x) * offset;

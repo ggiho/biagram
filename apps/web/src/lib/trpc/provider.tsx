@@ -35,9 +35,10 @@ export function TRPCProvider({ children }: { children: React.ReactNode }) {
 
   const [trpcClient] = useState(() =>
     trpc.createClient({
+      transformer: superjson,
       links: [
         httpLink({
-          url: typeof window !== 'undefined' 
+          url: typeof window !== 'undefined'
             ? `${window.location.origin}/api/trpc`
             : `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/trpc`,
           // You can pass any HTTP headers you wish here

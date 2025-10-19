@@ -411,10 +411,99 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
                 const fromTable = (schemaRef.current.tables || []).find((t: any) => t.name === schemaRel.fromTable);
                 const toTable = (schemaRef.current.tables || []).find((t: any) => t.name === schemaRel.toTable);
 
-                const startX = fromTableBounds ? fromTableBounds.x + fromTableBounds.width : 150;
-                const startY = fromTableBounds ? getColumnY(fromTable, schemaRel.fromColumn, fromTableBounds) : 100;
-                const endX = toTableBounds ? toTableBounds.x : 300;
-                const endY = toTableBounds ? getColumnY(toTable, schemaRel.toColumn, toTableBounds) : 100;
+                // 🔄 Orthogonal routing: 테이블 중심점 비교하여 연결 방향 결정
+                if (!fromTableBounds || !toTableBounds) {
+                  // Fallback for missing bounds
+                  const startX = fromTableBounds ? fromTableBounds.x + fromTableBounds.width : 150;
+                  const startY = fromTableBounds ? getColumnY(fromTable, schemaRel.fromColumn, fromTableBounds) : 100;
+                  const endX = toTableBounds ? toTableBounds.x : 300;
+                  const endY = toTableBounds ? getColumnY(toTable, schemaRel.toColumn, toTableBounds) : 100;
+
+                  return {
+                    id: schemaRel.id || `rel-${index}`,
+                    type: schemaRel.type || 'one-to-many',
+                    fromTable: schemaRel.fromTable,
+                    toTable: schemaRel.toTable,
+                    fromColumn: schemaRel.fromColumn,
+                    toColumn: schemaRel.toColumn,
+                    path: {
+                      start: { x: startX, y: startY },
+                      end: { x: endX, y: endY },
+                      midpoint: { x: (startX + endX) / 2, y: (startY + endY) / 2 },
+                      direction: 0,
+                    },
+                    style: {
+                      color: '#6b7280',
+                      width: 2,
+                      selectedColor: '#3b82f6',
+                      hoveredColor: '#4b5563',
+                      dashed: false,
+                      arrowSize: 8,
+                      hitWidth: 8,
+                      labelFontSize: 12,
+                      labelPadding: 4,
+                      labelBackgroundColor: '#ffffff',
+                      labelTextColor: '#374151',
+                    },
+                    isSelected: false,
+                    isHovered: false,
+                    label: `${schemaRel.fromTable}.${schemaRel.fromColumn} → ${schemaRel.toTable}.${schemaRel.toColumn}`,
+                  };
+                }
+
+                const fromCenterX = fromTableBounds.x + fromTableBounds.width / 2;
+                const toCenterX = toTableBounds.x + toTableBounds.width / 2;
+
+                // 컬럼의 Y 좌표 계산
+                const startY = getColumnY(fromTable, schemaRel.fromColumn, fromTableBounds);
+                const endY = getColumnY(toTable, schemaRel.toColumn, toTableBounds);
+
+                let startX: number, endX: number;
+                let fromSide: 'left' | 'right', toSide: 'left' | 'right';
+
+                if (fromCenterX < toCenterX) {
+                  // fromTable이 왼쪽에 있음 → 오른쪽에서 나가서 왼쪽으로 들어감
+                  startX = fromTableBounds.x + fromTableBounds.width;
+                  endX = toTableBounds.x;
+                  fromSide = 'right';
+                  toSide = 'left';
+                } else {
+                  // fromTable이 오른쪽에 있음 → 왼쪽에서 나가서 오른쪽으로 들어감
+                  startX = fromTableBounds.x;
+                  endX = toTableBounds.x + toTableBounds.width;
+                  fromSide = 'left';
+                  toSide = 'right';
+                }
+
+                // 🔄 Orthogonal routing: 가로-세로-가로 경로 생성
+                const GAP = 20; // 테이블에서 떨어진 거리
+                const controlPoints: { x: number; y: number }[] = [];
+
+                if (fromSide === 'right' && toSide === 'left') {
+                  // 오른쪽 → 왼쪽
+                  const midX = (startX + endX) / 2;
+                  controlPoints.push(
+                    { x: startX + GAP, y: startY },    // 시작점에서 오른쪽으로
+                    { x: midX, y: startY },            // 중간까지 가로
+                    { x: midX, y: endY },              // 세로로 이동
+                    { x: endX - GAP, y: endY }         // 도착점 근처까지
+                  );
+                } else {
+                  // 왼쪽 → 오른쪽
+                  const midX = (startX + endX) / 2;
+                  controlPoints.push(
+                    { x: startX - GAP, y: startY },    // 시작점에서 왼쪽으로
+                    { x: midX, y: startY },            // 중간까지 가로
+                    { x: midX, y: endY },              // 세로로 이동
+                    { x: endX + GAP, y: endY }         // 도착점 근처까지
+                  );
+                }
+
+                // 화살표 방향 계산 (마지막 세그먼트 방향)
+                const lastSegment = controlPoints[controlPoints.length - 1];
+                const direction = lastSegment
+                  ? Math.atan2(endY - lastSegment.y, endX - lastSegment.x)
+                  : Math.atan2(endY - startY, endX - startX);
 
                 return {
                   id: schemaRel.id || `rel-${index}`,
@@ -426,8 +515,9 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
                   path: {
                     start: { x: startX, y: startY },
                     end: { x: endX, y: endY },
+                    controlPoints, // 🔄 Orthogonal waypoints 추가
                     midpoint: { x: (startX + endX) / 2, y: (startY + endY) / 2 },
-                    direction: 0,
+                    direction,
                   },
                   style: {
                     color: '#6b7280',
@@ -884,10 +974,97 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
             const fromTable = (schema.tables || []).find((t: any) => t.name === rel.fromTable);
             const toTable = (schema.tables || []).find((t: any) => t.name === rel.toTable);
 
-            const startX = fromTableBounds ? fromTableBounds.x + fromTableBounds.width : 150;
-            const startY = fromTableBounds ? getColumnY(fromTable, rel.fromColumn, fromTableBounds) : 100;
-            const endX = toTableBounds ? toTableBounds.x : 300;
-            const endY = toTableBounds ? getColumnY(toTable, rel.toColumn, toTableBounds) : 100;
+            // 🔄 Smart connection points: 테이블 위치 기반 좌/우 선택
+            if (!fromTableBounds || !toTableBounds) {
+              // Fallback for missing bounds
+              return {
+                id: rel.id || `rel-${index}`,
+                type: rel.type || 'one-to-many',
+                fromTable: rel.fromTable,
+                toTable: rel.toTable,
+                fromColumn: rel.fromColumn,
+                toColumn: rel.toColumn,
+                path: {
+                  start: { x: 150, y: 100 },
+                  end: { x: 300, y: 100 },
+                  midpoint: { x: 225, y: 100 },
+                  direction: 0,
+                },
+                style: {
+                  color: '#6b7280',
+                  width: 2,
+                  selectedColor: '#3b82f6',
+                  hoveredColor: '#4b5563',
+                  dashed: false,
+                  arrowSize: 8,
+                  hitWidth: 8,
+                  labelFontSize: 12,
+                  labelPadding: 4,
+                  labelBackgroundColor: '#ffffff',
+                  labelTextColor: '#374151',
+                },
+                isSelected: false,
+                isHovered: false,
+                label: `${rel.fromTable}.${rel.fromColumn} → ${rel.toTable}.${rel.toColumn}`,
+              };
+            }
+
+            const fromColumnY = getColumnY(fromTable, rel.fromColumn, fromTableBounds);
+            const toColumnY = getColumnY(toTable, rel.toColumn, toTableBounds);
+
+            // 테이블 중심점 비교하여 연결 방향 결정
+            const fromCenterX = fromTableBounds.x + fromTableBounds.width / 2;
+            const toCenterX = toTableBounds.x + toTableBounds.width / 2;
+
+            let startX: number, startY: number, endX: number, endY: number;
+            let fromSide: 'left' | 'right', toSide: 'left' | 'right';
+
+            if (fromCenterX < toCenterX) {
+              // fromTable이 왼쪽에 있음 → 오른쪽에서 나가서 왼쪽으로 들어감
+              startX = fromTableBounds.x + fromTableBounds.width;
+              endX = toTableBounds.x;
+              fromSide = 'right';
+              toSide = 'left';
+            } else {
+              // fromTable이 오른쪽에 있음 → 왼쪽에서 나가서 오른쪽으로 들어감
+              startX = fromTableBounds.x;
+              endX = toTableBounds.x + toTableBounds.width;
+              fromSide = 'left';
+              toSide = 'right';
+            }
+
+            startY = fromColumnY;
+            endY = toColumnY;
+
+            // 🔄 Orthogonal routing: 가로-세로-가로 경로 생성
+            const GAP = 20; // 테이블에서 떨어진 거리
+            const controlPoints: { x: number; y: number }[] = [];
+
+            if (fromSide === 'right' && toSide === 'left') {
+              // 오른쪽 → 왼쪽
+              const midX = (startX + endX) / 2;
+              controlPoints.push(
+                { x: startX + GAP, y: startY },    // 시작점에서 오른쪽으로
+                { x: midX, y: startY },            // 중간까지 가로
+                { x: midX, y: endY },              // 세로로 이동
+                { x: endX - GAP, y: endY }         // 도착점 근처까지
+              );
+            } else {
+              // 왼쪽 → 오른쪽
+              const midX = (startX + endX) / 2;
+              controlPoints.push(
+                { x: startX - GAP, y: startY },    // 시작점에서 왼쪽으로
+                { x: midX, y: startY },            // 중간까지 가로
+                { x: midX, y: endY },              // 세로로 이동
+                { x: endX + GAP, y: endY }         // 도착점 근처까지
+              );
+            }
+
+            // 화살표 방향 계산 (마지막 세그먼트 방향)
+            const lastSegment = controlPoints[controlPoints.length - 1];
+            const direction = lastSegment
+              ? Math.atan2(endY - lastSegment.y, endX - lastSegment.x)
+              : Math.atan2(endY - startY, endX - startX);
 
             return {
               id: rel.id || `rel-${index}`,
@@ -899,8 +1076,9 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
               path: {
                 start: { x: startX, y: startY },
                 end: { x: endX, y: endY },
+                controlPoints, // 🔄 Orthogonal waypoints
                 midpoint: { x: (startX + endX) / 2, y: (startY + endY) / 2 },
-                direction: 0,
+                direction,
               },
               style: {
                 color: '#6b7280',

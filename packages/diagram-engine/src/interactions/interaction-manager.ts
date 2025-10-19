@@ -513,8 +513,35 @@ export class InteractionManager {
    */
   private isPointOnRelationship(point: Position2D, relationship: RelationshipRenderData): boolean {
     const { path, style } = relationship;
-    const distance = this.distanceToLine(point, path.start, path.end);
-    return distance <= style.hitWidth;
+
+    // 🔄 Orthogonal routing: Check all segments
+    if (path.controlPoints && path.controlPoints.length > 0) {
+      // Build all points in the path
+      const points = [
+        path.start,
+        ...path.controlPoints,
+        path.end,
+      ];
+
+      // Check distance to each segment
+      for (let i = 0; i < points.length - 1; i++) {
+        const p1 = points[i];
+        const p2 = points[i + 1];
+
+        if (!p1 || !p2) continue;
+
+        const distance = this.distanceToLine(point, p1, p2);
+        if (distance <= style.hitWidth) {
+          return true;
+        }
+      }
+
+      return false;
+    } else {
+      // Fallback to simple straight line
+      const distance = this.distanceToLine(point, path.start, path.end);
+      return distance <= style.hitWidth;
+    }
   }
 
   /**
