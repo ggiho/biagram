@@ -79,7 +79,7 @@ export class DiagramEngine {
 
     // Setup viewport change handler - this is CRITICAL for zoom/pan to work
     this.viewportManager.onViewportChanged((viewport) => {
-      console.log('🎯 DiagramEngine viewport listener called');
+      // console.log('🎯 DiagramEngine viewport listener called');
       // Force immediate re-render when viewport changes
       this.renderer.invalidate();
       this.render();
@@ -199,6 +199,32 @@ export class DiagramEngine {
     };
 
     this.viewportManager.fitToRect(bounds, padding);
+  }
+
+  /**
+   * Pan to a specific table by name
+   */
+  panToTable(tableName: string, animate = true): boolean {
+    console.log('🎯 DiagramEngine.panToTable called for table:', tableName);
+
+    // Find the table by name
+    const table = this.tables.find(t => t.name === tableName);
+
+    if (!table) {
+      console.warn('⚠️ DiagramEngine.panToTable: Table not found:', tableName);
+      return false;
+    }
+
+    // Calculate center position of the table
+    const centerX = table.bounds.x + table.bounds.width / 2;
+    const centerY = table.bounds.y + table.bounds.height / 2;
+
+    console.log('📍 DiagramEngine.panToTable: Panning to position:', { x: centerX, y: centerY });
+
+    // Pan to the table's center
+    this.viewportManager.panTo({ x: centerX, y: centerY }, animate);
+
+    return true;
   }
 
   /**

@@ -60,9 +60,9 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
 
   // 안전한 렌더링 함수 - 항상 최신 데이터 사용
   const safeRender = useCallback(() => {
-    console.log('🎨 safeRender called');
+    // console.log('🎨 safeRender called');
     if (!engineRef.current) {
-      console.log('⚠️ safeRender: engine not ready');
+      // console.log('⚠️ safeRender: engine not ready');
       return;
     }
 
@@ -110,16 +110,16 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
     };
 
     // React가 소유한 최신 데이터로 렌더링
-    console.log('🎨 safeRender: calling engine.updateData');
+    // console.log('🎨 safeRender: calling engine.updateData');
     engineRef.current.updateData(
       tablesRef.current,
       relationshipsRef.current,
       themeConfig
     );
-    console.log('🎨 safeRender: engine.updateData completed');
+    // console.log('🎨 safeRender: engine.updateData completed');
 
     // 실제 렌더링 수행
-    console.log('🎯 DiagramEngine viewport listener called');
+    // console.log('🎯 DiagramEngine viewport listener called');
     engineRef.current.render();
   }, []); // 빈 dependency - safeRender는 항상 안정적
 
@@ -186,7 +186,7 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
 
       // 뷰포트 변경 시 항상 현재 데이터로 재렌더링
       engine.getViewportManager().onViewportChanged(() => {
-        console.log('📡 viewport changed listener triggered');
+        // console.log('📡 viewport changed listener triggered');
         // Trigger engine render for viewport changes
         engine.render();
         safeRender();
@@ -267,7 +267,7 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
         return null;
       };
 
-      // 관계선 히트 테스트 - 클릭 지점이 관계선 근처인지 확인
+      // 관계선 히트 테스트 - Orthogonal routing 지원
       const findRelationshipAtPosition = (canvasX: number, canvasY: number): string | null => {
         const viewport = engine.getViewportManager().getViewport();
 
@@ -275,46 +275,64 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
         const worldX = (canvasX - viewport.pan.x) / viewport.zoom;
         const worldY = (canvasY - viewport.pan.y) / viewport.zoom;
 
-        // 클릭 허용 거리 (월드 좌표 기준)
-        const hitThreshold = 10 / viewport.zoom; // 줌에 따라 조정
+        // Zoom-adjusted hit width (줄인 값)
+        const hitWidth = 10 / viewport.zoom;
 
-        // 점과 선분 사이의 거리 계산 (수학적 거리 공식)
-        const distanceToSegment = (px: number, py: number, x1: number, y1: number, x2: number, y2: number): number => {
-          const dx = x2 - x1;
-          const dy = y2 - y1;
-          const lengthSquared = dx * dx + dy * dy;
+        console.log(`🔍 findRelationshipAtPosition: world=(${worldX.toFixed(1)}, ${worldY.toFixed(1)}), zoom=${viewport.zoom.toFixed(2)}, hitWidth=${hitWidth.toFixed(1)}`);
 
-          if (lengthSquared === 0) {
-            // 선분이 점인 경우
-            return Math.sqrt((px - x1) ** 2 + (py - y1) ** 2);
-          }
-
-          // 선분 상의 가장 가까운 점의 매개변수 t (0 ≤ t ≤ 1)
-          let t = ((px - x1) * dx + (py - y1) * dy) / lengthSquared;
-          t = Math.max(0, Math.min(1, t));
-
-          // 가장 가까운 점의 좌표
-          const nearestX = x1 + t * dx;
-          const nearestY = y1 + t * dy;
-
-          // 거리 계산
-          return Math.sqrt((px - nearestX) ** 2 + (py - nearestY) ** 2);
-        };
-
-        // 모든 관계선 검사
+        // 모든 관계선에 대해 hit test
         for (const rel of relationshipsRef.current) {
-          if (!rel || !rel.path) continue;
+          const relData = rel as any;
 
-          const { start, end } = rel.path;
-          const distance = distanceToSegment(worldX, worldY, start.x, start.y, end.x, end.y);
+          // 관계선의 모든 세그먼트 구성
+          const points: Array<{ x: number; y: number }> = [
+            relData.path.start,
+            ...(relData.path.controlPoints || []),
+            relData.path.end,
+          ];
 
-          if (distance <= hitThreshold) {
-            console.log('🔗 Relationship hit detected:', rel.id, 'distance:', distance);
-            return rel.id;
+          // 각 세그먼트에 대해 거리 계산
+          for (let i = 0; i < points.length - 1; i++) {
+            const p1 = points[i];
+            const p2 = points[i + 1];
+
+            // 점과 선분 사이의 최단 거리 계산
+            const distance = distanceToSegment(worldX, worldY, p1.x, p1.y, p2.x, p2.y);
+
+            if (distance <= hitWidth) {
+              console.log(`🔗 Relationship hit detected: ${relData.id}, segment ${i}, distance=${distance.toFixed(1)}`);
+              return relData.id;
+            }
           }
         }
 
         return null;
+      };
+
+      // 점과 선분 사이의 최단 거리 계산 (helper function)
+      const distanceToSegment = (
+        px: number, py: number,
+        x1: number, y1: number,
+        x2: number, y2: number
+      ): number => {
+        const dx = x2 - x1;
+        const dy = y2 - y1;
+        const lengthSquared = dx * dx + dy * dy;
+
+        if (lengthSquared === 0) {
+          // 선분의 시작점과 끝점이 같은 경우
+          return Math.sqrt((px - x1) * (px - x1) + (py - y1) * (py - y1));
+        }
+
+        // 선분 위의 가장 가까운 점 찾기
+        let t = ((px - x1) * dx + (py - y1) * dy) / lengthSquared;
+        t = Math.max(0, Math.min(1, t)); // 0~1 범위로 제한 (선분 내부)
+
+        const closestX = x1 + t * dx;
+        const closestY = y1 + t * dy;
+
+        // 점과 가장 가까운 점 사이의 거리
+        return Math.sqrt((px - closestX) * (px - closestX) + (py - closestY) * (py - closestY));
       };
 
       const handleMouseDown = (e: MouseEvent) => {
@@ -322,11 +340,13 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
         const canvasX = e.clientX - rect.left;
         const canvasY = e.clientY - rect.top;
 
-        // 테이블 클릭 확인 (테이블 우선)
-        const tableId = findTableAtPosition(canvasX, canvasY);
+        console.log(`🔍 handleMouseDown: canvas=(${canvasX.toFixed(1)}, ${canvasY.toFixed(1)})`);
 
-        // 테이블이 없으면 관계선 클릭 확인
-        const relationshipId = tableId ? null : findRelationshipAtPosition(canvasX, canvasY);
+        // 관계선 클릭 확인 (먼저 체크)
+        const relationshipId = findRelationshipAtPosition(canvasX, canvasY);
+
+        // 관계선이 없으면 테이블 클릭 확인
+        const tableId = relationshipId ? null : findTableAtPosition(canvasX, canvasY);
 
         // 초기 상태 기록
         mouseDownPos = { x: e.clientX, y: e.clientY };
@@ -344,14 +364,14 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
         } else if (e.button === 0 || e.button === 1 || e.ctrlKey || e.metaKey) {
           // 캔버스 팬 시작 (테이블도 관계선도 아님)
           isDraggingCanvas = true;
-          console.log(`🔍 DiagramCanvas handleMouseDown: isDraggingCanvas set to TRUE, button=${e.button}`);
+          // console.log(`🔍 DiagramCanvas handleMouseDown: isDraggingCanvas set to TRUE, button=${e.button}`);
           canvas.style.cursor = 'grabbing';
           e.preventDefault();
         }
       };
 
       const handleMouseMove = (e: MouseEvent) => {
-        console.log(`🔍 DiagramCanvas handleMouseMove called, isDraggingCanvas=${isDraggingCanvas}, mouseDownTableId=${mouseDownTableId}`);
+        // console.log(`🔍 DiagramCanvas handleMouseMove called, isDraggingCanvas=${isDraggingCanvas}, mouseDownTableId=${mouseDownTableId}`);
 
         // 드래그 임계값 체크
         if (!hasMoved && mouseDownTableId) {
@@ -439,7 +459,7 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
                       hoveredColor: '#4b5563',
                       dashed: false,
                       arrowSize: 8,
-                      hitWidth: 8,
+                      hitWidth: 30,
                       labelFontSize: 12,
                       labelPadding: 4,
                       labelBackgroundColor: '#ffffff',
@@ -476,34 +496,36 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
                 }
 
                 // 🔄 Orthogonal routing: 가로-세로-가로 경로 생성
-                const GAP = 20; // 테이블에서 떨어진 거리
+                const GAP = 5; // 테이블에서 떨어진 거리
                 const controlPoints: { x: number; y: number }[] = [];
+
+                let actualStartX: number, actualEndX: number;
 
                 if (fromSide === 'right' && toSide === 'left') {
                   // 오른쪽 → 왼쪽
-                  const midX = (startX + endX) / 2;
+                  actualStartX = startX + GAP;
+                  actualEndX = endX - GAP;
+                  const midX = (actualStartX + actualEndX) / 2;
                   controlPoints.push(
-                    { x: startX + GAP, y: startY },    // 시작점에서 오른쪽으로
                     { x: midX, y: startY },            // 중간까지 가로
-                    { x: midX, y: endY },              // 세로로 이동
-                    { x: endX - GAP, y: endY }         // 도착점 근처까지
+                    { x: midX, y: endY }               // 세로로 이동
                   );
                 } else {
                   // 왼쪽 → 오른쪽
-                  const midX = (startX + endX) / 2;
+                  actualStartX = startX - GAP;
+                  actualEndX = endX + GAP;
+                  const midX = (actualStartX + actualEndX) / 2;
                   controlPoints.push(
-                    { x: startX - GAP, y: startY },    // 시작점에서 왼쪽으로
                     { x: midX, y: startY },            // 중간까지 가로
-                    { x: midX, y: endY },              // 세로로 이동
-                    { x: endX + GAP, y: endY }         // 도착점 근처까지
+                    { x: midX, y: endY }               // 세로로 이동
                   );
                 }
 
                 // 화살표 방향 계산 (마지막 세그먼트 방향)
-                const lastSegment = controlPoints[controlPoints.length - 1];
-                const direction = lastSegment
-                  ? Math.atan2(endY - lastSegment.y, endX - lastSegment.x)
-                  : Math.atan2(endY - startY, endX - startX);
+                const lastControlPoint = controlPoints[controlPoints.length - 1];
+                const direction = lastControlPoint
+                  ? Math.atan2(endY - lastControlPoint.y, actualEndX - lastControlPoint.x)
+                  : Math.atan2(endY - startY, actualEndX - actualStartX);
 
                 return {
                   id: schemaRel.id || `rel-${index}`,
@@ -513,10 +535,10 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
                   fromColumn: schemaRel.fromColumn,
                   toColumn: schemaRel.toColumn,
                   path: {
-                    start: { x: startX, y: startY },
-                    end: { x: endX, y: endY },
-                    controlPoints, // 🔄 Orthogonal waypoints 추가
-                    midpoint: { x: (startX + endX) / 2, y: (startY + endY) / 2 },
+                    start: { x: actualStartX, y: startY },
+                    end: { x: actualEndX, y: endY },
+                    controlPoints, // 🔄 Orthogonal waypoints (중간 포인트만)
+                    midpoint: { x: (actualStartX + actualEndX) / 2, y: (startY + endY) / 2 },
                     direction,
                   },
                   style: {
@@ -526,7 +548,7 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
                     hoveredColor: '#4b5563',
                     dashed: false,
                     arrowSize: 8,
-                    hitWidth: 8,
+                    hitWidth: 30,
                     labelFontSize: 12,
                     labelPadding: 4,
                     labelBackgroundColor: '#ffffff',
@@ -551,7 +573,7 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
           const deltaY = e.clientY - lastMousePos.y;
           const rect = canvas.getBoundingClientRect();
 
-          console.log(`🔍 DiagramCanvas handleMouseMove: canvas pan, delta=(${deltaX}, ${deltaY})`);
+          // console.log(`🔍 DiagramCanvas handleMouseMove: canvas pan, delta=(${deltaX}, ${deltaY})`);
 
           engine.getViewportManager().handleEvent({
             type: 'drag',
@@ -595,12 +617,12 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
           // 선택된 관계선 찾기
           const selectedRel: any = relationshipsRef.current.find((rel: any) => rel.id === mouseDownRelationshipId);
 
-          // 관계와 연결된 테이블들만 하이라이트
+          // 관계와 연결된 테이블들만 하이라이트 (table.name으로 비교)
           if (selectedRel) {
             console.log('🔗 Highlighting tables:', selectedRel.fromTable, selectedRel.toTable);
             tablesRef.current = tablesRef.current.map(table => ({
               ...table,
-              isSelected: table.id === selectedRel.fromTable || table.id === selectedRel.toTable,
+              isSelected: table.name === selectedRel.fromTable || table.name === selectedRel.toTable,
             }));
           } else {
             // 관계를 찾지 못한 경우 모든 테이블 선택 해제
@@ -663,7 +685,7 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
 
       // 마우스가 캔버스를 벗어날 때 - 드래그만 종료하고 선택은 유지
       const handleMouseLeave = () => {
-        console.log('🔄 Mouse left canvas - cleaning up drag state only');
+        // console.log('🔄 Mouse left canvas - cleaning up drag state only');
 
         // 드래그 상태 초기화 (선택 상태는 유지)
         if (isDraggingTable) {
@@ -997,7 +1019,7 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
                   hoveredColor: '#4b5563',
                   dashed: false,
                   arrowSize: 8,
-                  hitWidth: 8,
+                  hitWidth: 30,
                   labelFontSize: 12,
                   labelPadding: 4,
                   labelBackgroundColor: '#ffffff',
@@ -1037,34 +1059,36 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
             endY = toColumnY;
 
             // 🔄 Orthogonal routing: 가로-세로-가로 경로 생성
-            const GAP = 20; // 테이블에서 떨어진 거리
+            const GAP = 5; // 테이블에서 떨어진 거리
             const controlPoints: { x: number; y: number }[] = [];
+
+            let actualStartX: number, actualEndX: number;
 
             if (fromSide === 'right' && toSide === 'left') {
               // 오른쪽 → 왼쪽
-              const midX = (startX + endX) / 2;
+              actualStartX = startX + GAP;
+              actualEndX = endX - GAP;
+              const midX = (actualStartX + actualEndX) / 2;
               controlPoints.push(
-                { x: startX + GAP, y: startY },    // 시작점에서 오른쪽으로
                 { x: midX, y: startY },            // 중간까지 가로
-                { x: midX, y: endY },              // 세로로 이동
-                { x: endX - GAP, y: endY }         // 도착점 근처까지
+                { x: midX, y: endY }               // 세로로 이동
               );
             } else {
               // 왼쪽 → 오른쪽
-              const midX = (startX + endX) / 2;
+              actualStartX = startX - GAP;
+              actualEndX = endX + GAP;
+              const midX = (actualStartX + actualEndX) / 2;
               controlPoints.push(
-                { x: startX - GAP, y: startY },    // 시작점에서 왼쪽으로
                 { x: midX, y: startY },            // 중간까지 가로
-                { x: midX, y: endY },              // 세로로 이동
-                { x: endX + GAP, y: endY }         // 도착점 근처까지
+                { x: midX, y: endY }               // 세로로 이동
               );
             }
 
             // 화살표 방향 계산 (마지막 세그먼트 방향)
-            const lastSegment = controlPoints[controlPoints.length - 1];
-            const direction = lastSegment
-              ? Math.atan2(endY - lastSegment.y, endX - lastSegment.x)
-              : Math.atan2(endY - startY, endX - startX);
+            const lastControlPoint = controlPoints[controlPoints.length - 1];
+            const direction = lastControlPoint
+              ? Math.atan2(endY - lastControlPoint.y, actualEndX - lastControlPoint.x)
+              : Math.atan2(endY - startY, actualEndX - actualStartX);
 
             return {
               id: rel.id || `rel-${index}`,
@@ -1074,10 +1098,10 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
               fromColumn: rel.fromColumn,
               toColumn: rel.toColumn,
               path: {
-                start: { x: startX, y: startY },
-                end: { x: endX, y: endY },
-                controlPoints, // 🔄 Orthogonal waypoints
-                midpoint: { x: (startX + endX) / 2, y: (startY + endY) / 2 },
+                start: { x: actualStartX, y: startY },
+                end: { x: actualEndX, y: endY },
+                controlPoints, // 🔄 Orthogonal waypoints (중간 포인트만)
+                midpoint: { x: (actualStartX + actualEndX) / 2, y: (startY + endY) / 2 },
                 direction,
               },
               style: {
@@ -1087,7 +1111,7 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
                 hoveredColor: '#4b5563',
                 dashed: false,
                 arrowSize: 8,
-                hitWidth: 8,
+                hitWidth: 30,
                 labelFontSize: 12,
                 labelPadding: 4,
                 labelBackgroundColor: '#ffffff',
@@ -1130,7 +1154,7 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
             if (engineRef.current) {
               engineRef.current.zoomToFit(50);
               hasZoomedToFitRef.current = true;
-              console.log('🎯 zoomToFit executed after all processing');
+              // console.log('🎯 zoomToFit executed after all processing');
             }
           }, 50);
         }
