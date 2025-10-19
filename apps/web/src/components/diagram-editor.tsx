@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
-import { Save, Settings, Download, Share, Upload } from 'lucide-react';
+import { Save, Settings, Download, Share, Upload, FileText } from 'lucide-react';
+import Link from 'next/link';
 
 import { Button } from '@/components/ui/button';
 import { CodeEditor, type CodeEditorRef } from '@/components/code-editor';
@@ -271,6 +272,16 @@ function DiagramEditorContent() {
           </div>
 
           <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              asChild
+            >
+              <Link href="/table-center">
+                <FileText className="mr-2 h-4 w-4" />
+                Table Center
+              </Link>
+            </Button>
             <Button
               variant="outline"
               size="sm"
