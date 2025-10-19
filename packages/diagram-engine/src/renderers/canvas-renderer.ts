@@ -78,11 +78,11 @@ export class CanvasRenderer {
   }): void {
     const { tables, relationships, viewport, theme, showGrid = true, showComments = true } = data;
 
-    console.log('🖼️ CanvasRenderer.render() called with:');
-    console.log('🖼️ Tables to render:', tables.length);
-    console.log('🖼️ First table bounds:', tables[0]?.bounds);
-    console.log('🖼️ Viewport:', viewport);
-    console.log('🖼️ Canvas dimensions:', this.canvas.width, 'x', this.canvas.height);
+    // console.log('🖼️ CanvasRenderer.render() called with:');
+    // console.log('🖼️ Tables to render:', tables.length);
+    // console.log('🖼️ First table bounds:', tables[0]?.bounds);
+    // console.log('🖼️ Viewport:', viewport);
+    // console.log('🖼️ Canvas dimensions:', this.canvas.width, 'x', this.canvas.height);
 
     // Force render during viewport changes to prevent disappearing
     const isViewportChanging = this.lastViewport && (
@@ -101,7 +101,7 @@ export class CanvasRenderer {
         this.lastViewport &&
         tables.length > 0 &&
         this.viewportEquals(viewport, this.lastViewport)) {
-      console.log('🖼️ Early exit - no changes detected');
+      // console.log('🖼️ Early exit - no changes detected');
       return;
     }
 
@@ -138,7 +138,7 @@ export class CanvasRenderer {
     this.isDirty = false;
 
     const endTime = performance.now();
-    console.log(`🖼️ Render completed in ${(endTime - startTime).toFixed(2)}ms`);
+    // console.log(`🖼️ Render completed in ${(endTime - startTime).toFixed(2)}ms`);
 
     // Start animation loop if not already running
     if (!this.animationFrameId) {
@@ -172,17 +172,17 @@ export class CanvasRenderer {
    * Render database tables
    */
   private renderTables(tables: TableRenderData[], viewport: ViewportState, showComments: boolean = true): void {
-    console.log('🏢 renderTables() called with:', tables.length, 'tables');
+    // console.log('🏢 renderTables() called with:', tables.length, 'tables');
 
     // DISABLE CULLING: Always render all tables to ensure visibility
     // TODO: Fix frustum culling logic later when coordinate system is stable
     const visibleTables = tables;
 
-    console.log('🏢 Visible tables (culling DISABLED):', visibleTables.length);
-    console.log('🏢 First visible table:', visibleTables[0]?.bounds);
+    // console.log('🏢 Visible tables (culling DISABLED):', visibleTables.length);
+    // console.log('🏢 First visible table:', visibleTables[0]?.bounds);
 
     for (const table of visibleTables) {
-      console.log('🏢 Rendering table:', table.name, 'at bounds:', table.bounds);
+      // console.log('🏢 Rendering table:', table.name, 'at bounds:', table.bounds);
       this.renderTable(table, viewport.zoom, showComments);
     }
   }
@@ -194,16 +194,16 @@ export class CanvasRenderer {
     const { bounds, style, isSelected, isHovered } = table;
     const { x, y, width, height } = bounds;
     const tableNote = (table as any).note;
-    
-    if (table.name === 'users' || tableNote) {
-      console.log('🔍 renderTable:', {
-        name: table.name,
-        note: tableNote,
-        showComments,
-        zoom,
-        showDetails: zoom > 0.5
-      });
-    }
+
+    // if (table.name === 'users' || tableNote) {
+    //   console.log('🔍 renderTable:', {
+    //     name: table.name,
+    //     note: tableNote,
+    //     showComments,
+    //     zoom,
+    //     showDetails: zoom > 0.5
+    //   });
+    // }
 
     // Get opacity from table (default to 1.0 if not set)
     const opacity = (table as any).opacity ?? 1.0;
@@ -257,9 +257,9 @@ export class CanvasRenderer {
 
     // Header text - zoom-level adaptive rendering
     if (showDetails) {
-      // Normal zoom: left-aligned table name
+      // Normal zoom: left-aligned table name (2px larger than columns)
       this.ctx.fillStyle = style.headerTextColor;
-      this.ctx.font = `bold ${style.fontSize}px ${style.fontFamily}`;
+      this.ctx.font = `bold ${style.fontSize + 2}px ${style.fontFamily}`;
       this.ctx.textAlign = 'left';
       this.ctx.textBaseline = 'middle';
       const headerY = y + style.headerHeight / 2;
@@ -283,7 +283,7 @@ export class CanvasRenderer {
       // Use appropriate text color based on theme background
       const isDark = this.currentTheme?.mode === 'dark';
       this.ctx.fillStyle = isDark ? '#f3f4f6' : '#1f2937'; // Light text for dark mode, dark text for light mode
-      const largeFontSize = style.fontSize * 1.5;
+      const largeFontSize = (style.fontSize + 2) * 1.5;
       this.ctx.font = `bold ${largeFontSize}px ${style.fontFamily}`;
       this.ctx.textAlign = 'center';
       this.ctx.textBaseline = 'middle';
@@ -458,10 +458,10 @@ export class CanvasRenderer {
     // Draw arrow
     this.drawArrow(path.end, path.direction, style.arrowSize, strokeColor);
 
-    // Draw label if present
-    if (relationship.label) {
-      this.drawRelationshipLabel(relationship.label, path.midpoint, style);
-    }
+    // Draw label if present (disabled for cleaner view)
+    // if (relationship.label) {
+    //   this.drawRelationshipLabel(relationship.label, path.midpoint, style);
+    // }
 
     this.ctx.restore();
   }
@@ -719,9 +719,9 @@ export class CanvasRenderer {
    * 3. Scale by zoom level
    */
   private applyViewport(viewport: ViewportState): void {
-    console.log('🔧 CanvasRenderer: applyViewport() called');
-    console.log('🔧 Viewport zoom:', viewport.zoom, 'pan:', viewport.pan);
-    console.log('🔧 Device pixel ratio:', this.devicePixelRatio);
+    // console.log('🔧 CanvasRenderer: applyViewport() called');
+    // console.log('🔧 Viewport zoom:', viewport.zoom, 'pan:', viewport.pan);
+    // console.log('🔧 Device pixel ratio:', this.devicePixelRatio);
 
     // Reset to identity matrix first
     this.ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -735,7 +735,7 @@ export class CanvasRenderer {
     // Apply zoom (scale)
     this.ctx.scale(viewport.zoom, viewport.zoom);
 
-    console.log('🔧 Transform applied: translate(', viewport.pan.x, ',', viewport.pan.y, ') scale(', viewport.zoom, ')');
+    // console.log('🔧 Transform applied: translate(', viewport.pan.x, ',', viewport.pan.y, ') scale(', viewport.zoom, ')');
   }
 
   /**

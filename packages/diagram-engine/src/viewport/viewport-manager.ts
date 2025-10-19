@@ -129,7 +129,7 @@ export class ViewportManager {
    * Pan by delta
    */
   panBy(delta: Position2D): void {
-    console.log(`🔧 ViewportManager.panBy called with delta=(${delta.x}, ${delta.y})`);
+    // console.log(`🔧 ViewportManager.panBy called with delta=(${delta.x}, ${delta.y})`);
 
     const newPan = {
       x: this.viewport.pan.x + delta.x,
@@ -253,7 +253,7 @@ export class ViewportManager {
    * Handle interaction events
    */
   handleEvent(event: InteractionEvent): boolean {
-    console.log(`🔧 ViewportManager.handleEvent called, type=${event.type}, delta=${event.delta ? `(${event.delta.x}, ${event.delta.y})` : 'undefined'}`);
+    // console.log(`🔧 ViewportManager.handleEvent called, type=${event.type}, delta=${event.delta ? `(${event.delta.x}, ${event.delta.y})` : 'undefined'}`);
 
     switch (event.type) {
       case 'wheel':
@@ -382,14 +382,14 @@ export class ViewportManager {
    * Handle drag events for panning
    */
   private handleDrag(event: InteractionEvent): boolean {
-    console.log(`🔧 ViewportManager.handleDrag called, event.delta=${event.delta ? `(${event.delta.x}, ${event.delta.y})` : 'undefined'}`);
+    // console.log(`🔧 ViewportManager.handleDrag called, event.delta=${event.delta ? `(${event.delta.x}, ${event.delta.y})` : 'undefined'}`);
 
     if (!event.delta) {
-      console.log(`⚠️ ViewportManager.handleDrag: event.delta is undefined, returning false`);
+      // console.log(`⚠️ ViewportManager.handleDrag: event.delta is undefined, returning false`);
       return false;
     }
 
-    console.log(`🔧 ViewportManager.handleDrag: About to call panBy with delta=(${event.delta.x}, ${event.delta.y})`);
+    // console.log(`🔧 ViewportManager.handleDrag: About to call panBy with delta=(${event.delta.x}, ${event.delta.y})`);
     this.panBy(event.delta);
     return true;
   }
@@ -398,9 +398,9 @@ export class ViewportManager {
    * Notify all viewport change listeners
    */
   private notifyViewportChange(): void {
-    console.log(`🔔 ViewportManager.notifyViewportChange called, listeners=${this.onViewportChangeListeners.length}`);
+    // console.log(`🔔 ViewportManager.notifyViewportChange called, listeners=${this.onViewportChangeListeners.length}`);
     if (this.onViewportChangeListeners.length === 0) {
-      console.warn(`⚠️ ViewportManager: No viewport change listeners registered!`);
+      // console.warn(`⚠️ ViewportManager: No viewport change listeners registered!`);
       return;
     }
 
@@ -410,9 +410,9 @@ export class ViewportManager {
     // Call all listeners
     this.onViewportChangeListeners.forEach((callback, index) => {
       try {
-        console.log(`🔔 ViewportManager: Calling listener ${index + 1}/${this.onViewportChangeListeners.length}`);
+        // console.log(`🔔 ViewportManager: Calling listener ${index + 1}/${this.onViewportChangeListeners.length}`);
         callback(cleanViewport);
-        console.log(`✅ ViewportManager: Listener ${index + 1} completed successfully`);
+        // console.log(`✅ ViewportManager: Listener ${index + 1} completed successfully`);
       } catch (error) {
         console.error(`❌ ViewportManager: Listener ${index + 1} threw error:`, error);
       }

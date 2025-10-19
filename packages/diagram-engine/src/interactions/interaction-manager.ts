@@ -514,6 +514,18 @@ export class InteractionManager {
   private isPointOnRelationship(point: Position2D, relationship: RelationshipRenderData): boolean {
     const { path, style } = relationship;
 
+    // Get current zoom level for adaptive hit width
+    const viewport = this.viewportManager.getViewport();
+    const zoom = viewport.zoom;
+
+    // Adjust hit width based on zoom (smaller zoom = larger hit area in world space)
+    // At zoom 1.0: hitWidth = 30
+    // At zoom 0.5: hitWidth = 60 (easier to click when zoomed out)
+    // At zoom 2.0: hitWidth = 15 (tighter when zoomed in)
+    const adaptiveHitWidth = style.hitWidth / zoom;
+
+    console.log(`🔍 HIT TEST - RelID: ${relationship.id}, Zoom: ${zoom.toFixed(2)}, HitWidth: ${adaptiveHitWidth.toFixed(1)}, ClickPoint: (${point.x.toFixed(1)}, ${point.y.toFixed(1)})`);
+
     // 🔄 Orthogonal routing: Check all segments
     if (path.controlPoints && path.controlPoints.length > 0) {
       // Build all points in the path
@@ -523,6 +535,8 @@ export class InteractionManager {
         path.end,
       ];
 
+      console.log(`  📍 Segments: ${points.length - 1}, Points:`, points.map(p => `(${p.x.toFixed(0)},${p.y.toFixed(0)})`).join(' -> '));
+
       // Check distance to each segment
       for (let i = 0; i < points.length - 1; i++) {
         const p1 = points[i];
@@ -531,21 +545,29 @@ export class InteractionManager {
         if (!p1 || !p2) continue;
 
         const distance = this.distanceToLine(point, p1, p2);
-        if (distance <= style.hitWidth) {
+        const isHit = distance <= adaptiveHitWidth;
+        console.log(`    Seg[${i}]: dist=${distance.toFixed(1)}, hitWidth=${adaptiveHitWidth.toFixed(1)}, HIT=${isHit ? '✅' : '❌'}`);
+
+        if (isHit) {
+          console.log(`🎯 HIT DETECTED on segment ${i}!`);
           return true;
         }
       }
 
+      console.log(`❌ NO HIT on any segment`);
       return false;
     } else {
       // Fallback to simple straight line
       const distance = this.distanceToLine(point, path.start, path.end);
-      return distance <= style.hitWidth;
+      const isHit = distance <= adaptiveHitWidth;
+      console.log(`  📏 Simple line: dist=${distance.toFixed(1)}, HIT=${isHit ? '✅' : '❌'}`);
+      return isHit;
     }
   }
 
   /**
-   * Calculate distance from point to line
+   * Calculate distance from point to line (infinite line, not just segment)
+   * This allows clicking anywhere along the line's length
    */
   private distanceToLine(point: Position2D, lineStart: Position2D, lineEnd: Position2D): number {
     const A = point.x - lineStart.x;
@@ -563,18 +585,10 @@ export class InteractionManager {
 
     const param = dot / lenSq;
 
-    let xx: number, yy: number;
-
-    if (param < 0) {
-      xx = lineStart.x;
-      yy = lineStart.y;
-    } else if (param > 1) {
-      xx = lineEnd.x;
-      yy = lineEnd.y;
-    } else {
-      xx = lineStart.x + param * C;
-      yy = lineStart.y + param * D;
-    }
+    // Always use projection point (no range restriction)
+    // This makes the entire line segment clickable, not just the middle
+    const xx = lineStart.x + param * C;
+    const yy = lineStart.y + param * D;
 
     const dx = point.x - xx;
     const dy = point.y - yy;
