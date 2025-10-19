@@ -49,3 +49,4 @@ test-*.js
 test-*.mjs
 check-*.js
 playwright-test.js
+*.tsbuildinfo
