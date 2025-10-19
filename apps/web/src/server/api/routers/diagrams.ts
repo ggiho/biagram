@@ -164,12 +164,19 @@ export const diagramRouter = createTRPCRouter({
 
         if (!parseResult.success || !parseResult.schema) {
           console.error('❌ SERVER: Parse failed:', parseResult.errors);
+
+          // 🚨 위치 정보를 포함한 상세 에러 메시지 생성
+          const firstError = parseResult.errors?.[0];
+          const errorMessage = firstError
+            ? `Line ${firstError.position?.line || '?'}, Column ${firstError.position?.column || '?'}: ${firstError.message}`
+            : 'Failed to parse DBML';
+
           return {
             tables: [],
             relationships: [],
             enums: [],
             success: false,
-            error: parseResult.errors?.[0]?.message || 'Failed to parse DBML',
+            error: errorMessage,
             schema: null,
           };
         }

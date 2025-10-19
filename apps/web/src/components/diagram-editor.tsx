@@ -60,6 +60,7 @@ type ParsedSchema = any;
 function DiagramEditorContent() {
   const [code, setCode] = useState(SAMPLE_DBML);
   const [parsedSchema, setParsedSchema] = useState<ParsedSchema | null>(null);
+  const [parseError, setParseError] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
@@ -240,13 +241,17 @@ function DiagramEditorContent() {
           if (result?.success && result?.schema) {
             console.log('✅ AUTO-PARSE: Setting schema with', result.schema.tables?.length || 0, 'tables');
             setParsedSchema(result.schema);
+            setParseError(null); // 성공 시 에러 초기화
           } else {
-            console.log('✅ AUTO-PARSE: Parse failed');
+            const errorMsg = (result as any)?.error || 'Failed to parse DBML';
+            console.log('✅ AUTO-PARSE: Parse failed', errorMsg);
             setParsedSchema(null);
+            setParseError(errorMsg); // 에러 메시지 저장
           }
         } catch (error) {
           console.error('✅ AUTO-PARSE: ERROR:', error);
           setParsedSchema(null);
+          setParseError(error instanceof Error ? error.message : 'Unknown parsing error');
         } finally {
           setIsLoading(false);
           isParsingRef.current = false;
@@ -344,6 +349,7 @@ function DiagramEditorContent() {
                 <div className="flex-1 bg-gray-50 dark:bg-gray-900 relative">
                   <DiagramCanvas
                     schema={parsedSchema}
+                    parseError={parseError}
                     className="absolute inset-0 w-full h-full"
                     initialTablePositions={tablePositions}
                     onTablePositionsChange={setTablePositions}

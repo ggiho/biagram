@@ -593,8 +593,16 @@ export class DBMLParser {
 
     // Handle schema.table syntax
     if (this.match('dot')) {
-      const tableName = this.consume('identifier', 'Expected table name after schema').value;
-      return `${name}.${tableName}`;
+      // After schema dot, accept identifier or 'note' keyword as table name
+      // This allows CUSTOMER.NOTE pattern
+      const nextToken = this.peek();
+      if (nextToken.type === 'identifier' || nextToken.type === 'note') {
+        const tableName = this.advance().value;
+        return `${name}.${tableName}`;
+      } else {
+        this.addError('syntax', 'EXPECTED_TABLE_NAME', 'Expected table name after schema', this.peek().position);
+        return name;
+      }
     }
 
     return name;
