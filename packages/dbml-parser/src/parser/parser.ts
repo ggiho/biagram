@@ -576,8 +576,12 @@ export class DBMLParser {
 
   private parseReference(): any {
     // First identifier (schema or table name)
+    // Allow 'note' keyword as table name (e.g., NOTE.CUSTOMER_CASE_ID)
     let first: string;
     if (this.check('identifier')) {
+      first = this.advance().value;
+    } else if (this.check('note')) {
+      // Allow NOTE as table name
       first = this.advance().value;
     } else {
       first = this.consume('identifier', 'Expected table.column reference').value;
@@ -595,8 +599,16 @@ export class DBMLParser {
 
       // Check for third part (schema.table.column format)
       if (this.match('dot')) {
-        // Third identifier (column name)
-        const column = this.consume('identifier', 'Expected column name').value;
+        // Third identifier (column name or 'note' keyword)
+        let column: string;
+        if (this.check('identifier')) {
+          column = this.advance().value;
+        } else if (this.check('note')) {
+          // Allow NOTE as column name
+          column = this.advance().value;
+        } else {
+          column = this.consume('identifier', 'Expected column name').value;
+        }
         // schema.table.column format
         return { table: `${first}.${second}`, column };
       }
@@ -735,7 +747,14 @@ export class DBMLParser {
         
         console.log(`      🔄 Attr loop ${attrLoopCount}, position ${this.current}, token: ${token.type}="${token.value}"`);
         
-        const attr = this.consume('identifier', 'Expected index attribute').value;
+        // Read attribute name (can be identifier or other keywords)
+        let attr: string;
+        if (this.check('identifier')) {
+          attr = this.advance().value;
+        } else {
+          // If not identifier, try to consume it anyway as attribute
+          attr = this.consume('identifier', 'Expected index attribute').value;
+        }
         console.log(`      📌 Processing attribute: "${attr}"`);
 
         if (attr.toLowerCase() === 'unique') {
@@ -757,7 +776,15 @@ export class DBMLParser {
             indexName = this.advance().value;
             console.log(`      ✅ Set index name: "${indexName}"`);
           }
+        } else if (attr.toLowerCase() === 'type') {
+          // Parse index type: type: btree
+          this.consume('colon', 'Expected ":" after type');
+          if (this.check('identifier')) {
+            indexType = this.advance().value;
+            console.log(`      ✅ Set index type from 'type' attribute: "${indexType}"`);
+          }
         } else {
+          // Unknown attribute, treat as index type
           indexType = attr;
           console.log(`      ✅ Set index type: "${attr}"`);
         }
