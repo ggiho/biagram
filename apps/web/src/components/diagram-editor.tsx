@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
-import { Save, Settings, Download, Share, Upload, FileText } from 'lucide-react';
+import { Save, Settings, Download, Share, Upload, FileText, ChevronLeft, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 
 import { Button } from '@/components/ui/button';
@@ -63,6 +63,7 @@ function DiagramEditorContent() {
   const [parsedSchema, setParsedSchema] = useState<ParsedSchema | null>(null);
   const [parseError, setParseError] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [editorOpen, setEditorOpen] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
@@ -343,33 +344,63 @@ function DiagramEditorContent() {
         <div className="flex flex-1 overflow-hidden">
           <PanelGroup direction="horizontal">
             {/* Code Editor Panel */}
-            <Panel defaultSize={40} minSize={30}>
-              <div className="flex h-full flex-col">
-                <div className="border-b p-2">
-                  <h3 className="text-sm font-medium">DBML Code</h3>
-                </div>
-                <div className="flex-1">
-                  <CodeEditor
-                    ref={codeEditorRef}
-                    value={code}
-                    onChange={handleCodeChange}
-                    onCursorPositionChange={handleCursorPositionChange}
-                    language="dbml"
-                    options={{
-                      minimap: { enabled: false },
-                      lineNumbers: 'on',
-                      wordWrap: 'on',
-                      automaticLayout: true,
-                    }}
-                  />
+            {editorOpen && (
+              <>
+                <Panel defaultSize={40} minSize={30}>
+                  <div className="flex h-full flex-col">
+                    <div className="border-b p-2 flex items-center justify-between">
+                      <h3 className="text-sm font-medium">DBML Code</h3>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setEditorOpen(false)}
+                        className="h-6 w-6 p-0"
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <div className="flex-1">
+                      <CodeEditor
+                        ref={codeEditorRef}
+                        value={code}
+                        onChange={handleCodeChange}
+                        onCursorPositionChange={handleCursorPositionChange}
+                        language="dbml"
+                        options={{
+                          minimap: { enabled: false },
+                          lineNumbers: 'on',
+                          wordWrap: 'on',
+                          automaticLayout: true,
+                        }}
+                      />
+                    </div>
+                  </div>
+                </Panel>
+
+                <PanelResizeHandle className="w-2 bg-border hover:bg-muted" />
+              </>
+            )}
+
+            {/* Code Editor Collapsed Button */}
+            {!editorOpen && (
+              <div className="w-12 border-r bg-muted/30 flex flex-col items-center py-4">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setEditorOpen(true)}
+                  className="h-8 w-8 p-0"
+                  title="Show Code Editor"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+                <div className="mt-4 writing-mode-vertical-rl text-xs text-muted-foreground">
+                  DBML Code
                 </div>
               </div>
-            </Panel>
-
-            <PanelResizeHandle className="w-2 bg-border hover:bg-muted" />
+            )}
 
             {/* Diagram Panel */}
-            <Panel defaultSize={sidebarOpen ? 40 : 60} minSize={30}>
+            <Panel defaultSize={editorOpen ? (sidebarOpen ? 40 : 60) : (sidebarOpen ? 80 : 100)} minSize={30}>
               <div className="flex h-full flex-col">
                 <DiagramToolbar />
                 <div className="flex-1 bg-gray-50 dark:bg-gray-900 relative">
