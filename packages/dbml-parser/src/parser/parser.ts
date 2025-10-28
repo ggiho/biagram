@@ -539,7 +539,28 @@ export class DBMLParser {
     // Ref: table.column > table.column
     // or
     // Ref table.column > table.column
-    this.match('colon'); // Optional colon
+    // or
+    // Ref: name: table.column > table.column
+    this.match('colon'); // Optional colon after Ref keyword
+    
+    let refName: string | undefined = undefined;
+    
+    // Check if there's a name before the reference (e.g., "user_posts: posts.user_id > users.id")
+    // Look ahead to see if we have: identifier : (not part of table.column reference)
+    const currentPos = this.current;
+    if (this.check('identifier')) {
+      const possibleName = this.peek().value;
+      this.advance(); // consume identifier
+      
+      if (this.match('colon')) {
+        // This was a reference name!
+        refName = possibleName;
+        console.log(`  📛 Reference name: "${refName}"`);
+      } else {
+        // Not a name, backtrack - this is part of the table reference
+        this.current = currentPos;
+      }
+    }
     
     const fromRef = this.parseReference();
 
@@ -569,7 +590,7 @@ export class DBMLParser {
       cardinality: undefined,
       onUpdate: undefined,
       onDelete: undefined,
-      name: undefined,
+      name: refName,
       note: undefined,
     };
   }

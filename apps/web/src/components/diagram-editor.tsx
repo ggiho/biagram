@@ -50,9 +50,9 @@ Table follows {
   Note: '사용자 간 팔로우 관계 정보'
 }
 
-Ref: posts.user_id > users.id
-Ref: follows.following_user_id > users.id
-Ref: follows.followed_user_id > users.id
+Ref: user_posts: posts.user_id > users.id // many-to-one
+Ref: user_following: follows.following_user_id > users.id // many-to-one
+Ref: user_followed: follows.followed_user_id > users.id // many-to-one
 `;
 
 // Use any type to match DiagramCanvas expectations
