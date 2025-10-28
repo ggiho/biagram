@@ -189,34 +189,55 @@ export class DBMLParser {
   }
 
   private parseDeclaration(): any {
+    const startPosition = this.current;
+    const token = this.peek();
+    
+    // 디버그: 현재 파싱 중인 토큰 확인 (1000개마다 로그)
+    if (this.current % 1000 === 0) {
+      console.log(`🔍 Parsing declaration at position ${this.current}/${this.tokens.length}, token: ${token.type}`);
+    }
+
     if (this.match('project')) {
+      console.log(`📦 Parsing project declaration at position ${startPosition}`);
       return this.parseProjectDeclaration();
     }
 
     if (this.match('table')) {
+      console.log(`📋 Parsing table declaration at position ${startPosition}`);
       return this.parseTableDeclaration();
     }
 
     if (this.match('enum')) {
+      console.log(`🔢 Parsing enum declaration at position ${startPosition}`);
       return this.parseEnumDeclaration();
     }
 
     if (this.match('ref')) {
+      console.log(`🔗 Parsing ref declaration at position ${startPosition}`);
       return this.parseReferenceDeclaration();
     }
 
     if (this.match('tablegroup')) {
+      console.log(`📚 Parsing tablegroup declaration at position ${startPosition}`);
       return this.parseTableGroupDeclaration();
     }
 
     // Skip unknown tokens with error recovery
+    console.warn(`⚠️ Unexpected token at position ${this.current}: type=${token.type}, value="${token.value}"`);
     this.addError(
       'syntax',
       'UNEXPECTED_TOKEN',
-      `Unexpected token: ${this.peek().type}`,
-      this.peek().position
+      `Unexpected token: ${token.type} ("${token.value}")`,
+      token.position
     );
     this.advance();
+    
+    // 무한 루프 방지: 토큰 위치가 변하지 않으면 강제로 다음 토큰으로
+    if (this.current === startPosition) {
+      console.error(`❌ CRITICAL: Parser stuck at position ${startPosition}, forcing advance`);
+      this.advance();
+    }
+    
     return null;
   }
 
@@ -259,24 +280,43 @@ export class DBMLParser {
     while (!this.check('right_brace') && !this.isAtEnd()) {
       this.checkOperationTimeout(); // 타임아웃 체크
       
+      const beforePosition = this.current;
+      const currentToken = this.peek();
+      
       loopCount++;
       if (loopCount > MAX_LOOP_ITERATIONS) {
         throw new Error(`Parser stuck in infinite loop while parsing table "${name}" - exceeded ${MAX_LOOP_ITERATIONS} iterations`);
       }
+      
+      // 매 10번째 루프마다 디버그 로그
+      if (loopCount % 10 === 0) {
+        console.log(`  🔄 Table "${name}" loop ${loopCount}, position ${this.current}, token: ${currentToken.type}="${currentToken.value}"`);
+      }
 
       // Check for table-level Note first (before trying to parse as column)
       if (this.match('note')) {
+        console.log(`  📝 Parsing table-level note for "${name}"`);
         // Parse table-level Note: "Note" keyword
         this.consume('colon', 'Expected ":" after Note');
         const noteToken = this.consume('string', 'Expected note text');
         tableNote = noteToken.value.slice(1, -1); // Remove quotes
       } else if (this.match('indexes')) {
+        console.log(`  🔍 Parsing indexes block for "${name}"`);
         indexes.push(...this.parseIndexesBlock());
       } else {
+        console.log(`  📊 Parsing column at position ${this.current}, token: ${currentToken.type}="${currentToken.value}"`);
         const column = this.parseColumnDeclaration();
         if (column) {
           columns.push(column);
+          console.log(`  ✅ Added column "${column.name}" to table "${name}"`);
         }
+      }
+      
+      // 무한 루프 체크: 토큰 위치가 전혀 변하지 않았다면
+      if (this.current === beforePosition) {
+        console.error(`  ❌ CRITICAL: Parser position didn't advance in table "${name}" at position ${beforePosition}, token: ${currentToken.type}="${currentToken.value}"`);
+        console.error(`  ❌ Forcing skip to next token to prevent infinite loop`);
+        this.advance(); // 강제로 다음 토큰으로
       }
     }
 
@@ -593,17 +633,46 @@ export class DBMLParser {
   }
 
   private parseIndexesBlock(): Index[] {
+    console.log('  🔍 [parseIndexesBlock] Starting to parse indexes block');
     this.consume('left_brace', 'Expected "{" after indexes');
 
     const indexes: Index[] = [];
+    let loopCount = 0;
+    const MAX_LOOP_ITERATIONS = 1000;
 
     while (!this.check('right_brace') && !this.isAtEnd()) {
+      this.checkOperationTimeout();
+      
+      const beforePosition = this.current;
+      const currentToken = this.peek();
+      
+      loopCount++;
+      if (loopCount > MAX_LOOP_ITERATIONS) {
+        throw new Error(`Parser stuck in infinite loop while parsing indexes block - exceeded ${MAX_LOOP_ITERATIONS} iterations`);
+      }
+      
+      if (loopCount % 10 === 0) {
+        console.log(`  🔄 Indexes block loop ${loopCount}, position ${this.current}, token: ${currentToken.type}="${currentToken.value}"`);
+      }
+      
+      console.log(`  🔍 [parseIndexesBlock] Parsing index at position ${this.current}, token: ${currentToken.type}="${currentToken.value}"`);
       const index = this.parseIndexDeclaration();
       if (index) {
         indexes.push(index);
+        console.log(`  ✅ [parseIndexesBlock] Added index: ${index.name}`);
+      } else {
+        console.warn(`  ⚠️ [parseIndexesBlock] parseIndexDeclaration returned null at position ${this.current}`);
+      }
+      
+      // 무한 루프 방지: 토큰 위치가 변하지 않았으면 강제 이동
+      if (this.current === beforePosition) {
+        console.error(`  ❌ CRITICAL: Parser position didn't advance in indexes block at position ${beforePosition}, token: ${currentToken.type}="${currentToken.value}"`);
+        console.error(`  ❌ Forcing skip to next token to prevent infinite loop`);
+        this.advance();
       }
     }
 
+    console.log(`  ✅ [parseIndexesBlock] Completed parsing ${indexes.length} indexes`);
     this.consume('right_brace', 'Expected "}" after indexes block');
 
     return indexes;
@@ -613,6 +682,8 @@ export class DBMLParser {
     // Parse index specification: (column1, column2) [unique]
     // Also support single column without parentheses for inline indexes
     
+    console.log(`    🔍 [parseIndexDeclaration] Starting at position ${this.current}, token: ${this.peek().type}="${this.peek().value}"`);
+    
     const columns: string[] = [];
     let unique = false;
     let indexType: any = undefined;
@@ -620,6 +691,7 @@ export class DBMLParser {
 
     // Check if it starts with parentheses (composite index) or just a column name
     if (this.match('left_paren')) {
+      console.log(`    📝 [parseIndexDeclaration] Parsing composite index`);
       // Composite index: (col1, col2)
       do {
         let column: string;
@@ -629,27 +701,50 @@ export class DBMLParser {
           column = this.consume('identifier', 'Expected column name').value;
         }
         columns.push(column);
+        console.log(`      ➕ Added column: ${column}`);
       } while (this.match('comma'));
 
       this.consume('right_paren', 'Expected ")" after index columns');
     } else if (this.check('identifier')) {
       // Single column index without parentheses
-      columns.push(this.advance().value);
+      const colName = this.advance().value;
+      columns.push(colName);
+      console.log(`    📝 [parseIndexDeclaration] Single column index: ${colName}`);
     } else {
+      console.error(`    ❌ [parseIndexDeclaration] Unexpected token: ${this.peek().type}="${this.peek().value}"`);
       this.addError('syntax', 'EXPECTED_PAREN', 'Expected "(" or column name for index', this.peek().position);
       return null;
     }
 
     // Parse index attributes: [unique, name: "idx_name", pk, etc.]
     if (this.match('left_bracket')) {
+      console.log(`    🔧 [parseIndexDeclaration] Parsing index attributes`);
+      let attrLoopCount = 0;
+      const MAX_ATTR_ITERATIONS = 100;
+      
       while (!this.check('right_bracket') && !this.isAtEnd()) {
+        this.checkOperationTimeout();
+        
+        const beforePos = this.current;
+        const token = this.peek();
+        
+        attrLoopCount++;
+        if (attrLoopCount > MAX_ATTR_ITERATIONS) {
+          throw new Error(`Parser stuck in infinite loop while parsing index attributes - exceeded ${MAX_ATTR_ITERATIONS} iterations`);
+        }
+        
+        console.log(`      🔄 Attr loop ${attrLoopCount}, position ${this.current}, token: ${token.type}="${token.value}"`);
+        
         const attr = this.consume('identifier', 'Expected index attribute').value;
+        console.log(`      📌 Processing attribute: "${attr}"`);
 
         if (attr.toLowerCase() === 'unique') {
           unique = true;
+          console.log(`      ✅ Set unique = true`);
         } else if (attr.toLowerCase() === 'pk') {
           indexType = 'primary';
           unique = true;
+          console.log(`      ✅ Set primary key`);
         } else if (attr.toLowerCase() === 'name') {
           // Parse index name: name: "idx_name"
           this.consume('colon', 'Expected ":" after name');
@@ -657,16 +752,27 @@ export class DBMLParser {
             indexName = this.advance().value;
             // Remove quotes from string
             indexName = indexName.slice(1, -1);
+            console.log(`      ✅ Set index name: "${indexName}"`);
           } else if (this.check('identifier')) {
             indexName = this.advance().value;
+            console.log(`      ✅ Set index name: "${indexName}"`);
           }
         } else {
           indexType = attr;
+          console.log(`      ✅ Set index type: "${attr}"`);
         }
 
         this.match('comma'); // Optional comma
+        
+        // 무한 루프 방지
+        if (this.current === beforePos) {
+          console.error(`      ❌ CRITICAL: Position didn't advance in index attributes at ${beforePos}, token: ${token.type}="${token.value}"`);
+          console.error(`      ❌ Forcing advance to prevent infinite loop`);
+          this.advance();
+        }
       }
 
+      console.log(`    ✅ [parseIndexDeclaration] Completed parsing attributes, closing bracket`);
       this.consume('right_bracket', 'Expected "]" after index attributes');
     }
 
