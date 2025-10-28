@@ -37,6 +37,7 @@ export const ParseOptionsSchema = z.object({
   preserveComments: z.boolean().default(true),
   autoFixErrors: z.boolean().default(false),
   maxErrors: z.number().default(100),
+  timeout: z.number().optional(), // 타임아웃 (밀리초)
 });
 
 export type ParseOptions = z.infer<typeof ParseOptionsSchema>;

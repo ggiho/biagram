@@ -28,6 +28,9 @@ export class DBMLParser {
   private current: number = 0;
   private errors: ParseError[] = [];
   private options: ParseOptions;
+  private timeoutChecker: (() => void) | null = null;
+  private operationCounter: number = 0;
+  private readonly TIMEOUT_CHECK_INTERVAL = 100; // 100번 연산마다 타임아웃 체크
 
   constructor(tokens: Token[], options: Partial<ParseOptions> = {}) {
     this.tokens = tokens.filter(t =>
@@ -37,42 +40,103 @@ export class DBMLParser {
     );
     this.current = 0;
     this.errors = [];
+    this.operationCounter = 0;
     this.options = {
       strict: options.strict ?? false,
       ignoreErrors: options.ignoreErrors ?? false,
       preserveComments: options.preserveComments ?? true,
       autoFixErrors: options.autoFixErrors ?? false,
       maxErrors: options.maxErrors ?? 100,
+      timeout: options.timeout,
     };
+  }
+
+  setTimeoutChecker(checker: () => void): void {
+    this.timeoutChecker = checker;
+  }
+
+  private checkOperationTimeout(): void {
+    this.operationCounter++;
+    if (this.operationCounter % this.TIMEOUT_CHECK_INTERVAL === 0 && this.timeoutChecker) {
+      this.timeoutChecker();
+    }
   }
 
   static parse(source: string, options: Partial<ParseOptions> = {}): ParseResult {
     const startTime = performance.now();
+    const timeout = options.timeout || 30000; // 30초 기본 타임아웃
 
-    // Tokenize
-    const tokenizer = new DBMLTokenizer(source);
-    const { tokens, errors: tokenErrors } = tokenizer.tokenize();
+    console.log('🔧 DBMLParser.parse() started', {
+      sourceLength: source.length,
+      timeout: `${timeout}ms`,
+    });
 
-    // Parse
-    const parser = new DBMLParser(tokens, options);
-    const schema = parser.parseProgram();
-
-    const endTime = performance.now();
-
-    const allErrors = [...tokenErrors, ...parser.errors];
-
-    return {
-      success: allErrors.filter(e => e.severity === 'error').length === 0,
-      schema: allErrors.length === 0 ? schema : undefined,
-      errors: allErrors.filter(e => e.severity === 'error'),
-      warnings: allErrors.filter(e => e.severity === 'warning') as any,
-      metadata: {
-        sourceType: 'dbml',
-        parseTime: endTime - startTime,
-        tokenCount: tokens.length,
-        nodeCount: parser.countNodes(schema as any),
-      },
+    // 타임아웃 체크 함수
+    const checkTimeout = () => {
+      if (performance.now() - startTime > timeout) {
+        throw new Error(`Parsing timeout after ${timeout}ms. Source too large or complex.`);
+      }
     };
+
+    try {
+      // Tokenize
+      console.log('📝 Tokenizing...');
+      const tokenizer = new DBMLTokenizer(source);
+      const { tokens, errors: tokenErrors } = tokenizer.tokenize();
+      console.log('✅ Tokenization complete:', tokens.length, 'tokens');
+      
+      checkTimeout();
+
+      // Parse
+      console.log('🔍 Parsing tokens...');
+      const parser = new DBMLParser(tokens, options);
+      parser.setTimeoutChecker(checkTimeout); // 타임아웃 체커 전달
+      const schema = parser.parseProgram();
+      console.log('✅ Parsing complete');
+      
+      checkTimeout();
+
+      const endTime = performance.now();
+
+      const allErrors = [...tokenErrors, ...parser.errors];
+
+      console.log('✅ DBMLParser.parse() completed in', (endTime - startTime).toFixed(2), 'ms');
+
+      return {
+        success: allErrors.filter(e => e.severity === 'error').length === 0,
+        schema: allErrors.length === 0 ? schema : undefined,
+        errors: allErrors.filter(e => e.severity === 'error'),
+        warnings: allErrors.filter(e => e.severity === 'warning') as any,
+        metadata: {
+          sourceType: 'dbml',
+          parseTime: endTime - startTime,
+          tokenCount: tokens.length,
+          nodeCount: parser.countNodes(schema as any),
+        },
+      };
+    } catch (error) {
+      console.error('❌ DBMLParser.parse() failed:', error);
+      const endTime = performance.now();
+      
+      return {
+        success: false,
+        schema: undefined,
+        errors: [{
+          type: 'syntax',
+          code: 'PARSE_FAILED',
+          message: error instanceof Error ? error.message : 'Unknown parsing error',
+          position: { line: 0, column: 0, offset: 0 },
+          severity: 'error',
+        }],
+        warnings: [],
+        metadata: {
+          sourceType: 'dbml',
+          parseTime: endTime - startTime,
+          tokenCount: 0,
+          nodeCount: 0,
+        },
+      };
+    }
   }
 
   private parseProgram(): DatabaseSchema {
@@ -93,21 +157,34 @@ export class DBMLParser {
       },
     };
 
+    console.log('🔄 Parsing program with', this.tokens.length, 'tokens');
+    let declarationCount = 0;
+
     // Parse top-level declarations
     while (!this.isAtEnd()) {
       try {
+        this.checkOperationTimeout(); // 타임아웃 체크
+        
         const declaration = this.parseDeclaration();
         if (declaration) {
           this.addToSchema(schema, declaration);
+          declarationCount++;
+          
+          // 진행 상황 로깅 (100개마다)
+          if (declarationCount % 100 === 0) {
+            console.log(`📊 Parsed ${declarationCount} declarations so far...`);
+          }
         }
       } catch (error) {
         if (this.errors.length >= this.options.maxErrors!) {
+          console.warn('⚠️ Max errors reached, stopping parse');
           break;
         }
         this.synchronize();
       }
     }
 
+    console.log('✅ Parsed', declarationCount, 'declarations total');
     return schema;
   }
 
@@ -176,7 +253,17 @@ export class DBMLParser {
     const indexes: Index[] = [];
     let tableNote: string | undefined;
 
+    let loopCount = 0;
+    const MAX_LOOP_ITERATIONS = 10000; // 무한 루프 방지
+
     while (!this.check('right_brace') && !this.isAtEnd()) {
+      this.checkOperationTimeout(); // 타임아웃 체크
+      
+      loopCount++;
+      if (loopCount > MAX_LOOP_ITERATIONS) {
+        throw new Error(`Parser stuck in infinite loop while parsing table "${name}" - exceeded ${MAX_LOOP_ITERATIONS} iterations`);
+      }
+
       // Check for table-level Note first (before trying to parse as column)
       if (this.match('note')) {
         // Parse table-level Note: "Note" keyword
@@ -269,7 +356,17 @@ export class DBMLParser {
     let reference: any;
 
     if (this.match('left_bracket')) {
+      let loopCount = 0;
+      const MAX_LOOP_ITERATIONS = 100; // 제약조건 루프 방지
+      
       while (!this.check('right_bracket') && !this.isAtEnd()) {
+        this.checkOperationTimeout(); // 타임아웃 체크
+        
+        loopCount++;
+        if (loopCount > MAX_LOOP_ITERATIONS) {
+          throw new Error(`Parser stuck in infinite loop while parsing constraints - exceeded ${MAX_LOOP_ITERATIONS} iterations`);
+        }
+
         const constraintResult = this.parseConstraint();
         if (constraintResult) {
           constraints.push(constraintResult.type);
@@ -361,7 +458,17 @@ export class DBMLParser {
 
     const values: any[] = [];
 
+    let loopCount = 0;
+    const MAX_LOOP_ITERATIONS = 10000; // 무한 루프 방지
+
     while (!this.check('right_brace') && !this.isAtEnd()) {
+      this.checkOperationTimeout(); // 타임아웃 체크
+      
+      loopCount++;
+      if (loopCount > MAX_LOOP_ITERATIONS) {
+        throw new Error(`Parser stuck in infinite loop while parsing enum "${name}" - exceeded ${MAX_LOOP_ITERATIONS} iterations`);
+      }
+
       const valueName = this.consume('identifier', 'Expected enum value').value;
 
       let note: string | undefined;
@@ -636,7 +743,13 @@ export class DBMLParser {
   }
 
   private advance(): Token {
-    if (!this.isAtEnd()) this.current++;
+    if (!this.isAtEnd()) {
+      this.current++;
+      // 매우 큰 파일에 대한 무한 루프 방지
+      if (this.current > this.tokens.length + 100) {
+        throw new Error('Parser stuck in infinite loop - current position exceeded token count');
+      }
+    }
     return this.previous();
   }
 

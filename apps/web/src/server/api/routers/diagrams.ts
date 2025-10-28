@@ -152,7 +152,17 @@ export const diagramRouter = createTRPCRouter({
         console.log('parseDBML: Processing content:', input.content.substring(0, 100) + '...');
 
         // Use the actual DBML parser
-        const parseResult = DBMLParser.parse(input.content);
+        console.log('🔧 SERVER: Starting DBMLParser.parse()...');
+        let parseResult;
+        try {
+          parseResult = DBMLParser.parse(input.content);
+          console.log('✅ SERVER: DBMLParser.parse() completed');
+        } catch (parseError) {
+          console.error('❌ SERVER: DBMLParser.parse() threw exception:', parseError);
+          console.error('❌ SERVER: Parse error type:', parseError?.constructor?.name);
+          console.error('❌ SERVER: Parse error message:', parseError instanceof Error ? parseError.message : String(parseError));
+          throw parseError;
+        }
         
         const tempSchema = parseResult.schema as any;
         console.log('🔍 SERVER: Parse result:', {
