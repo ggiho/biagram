@@ -241,22 +241,31 @@ function DiagramEditorContent() {
         try {
           const payload = { content: code.trim() };
           console.log('✅ AUTO-PARSE: Parsing DBML...', payload);
+          console.log('✅ AUTO-PARSE: Code length:', code.trim().length);
+          console.log('✅ AUTO-PARSE: Code preview:', code.trim().substring(0, 200));
 
           const result = await parseDBML.mutateAsync(payload);
           console.log('✅ AUTO-PARSE: SUCCESS!', result);
+          console.log('✅ AUTO-PARSE: Result type:', typeof result);
+          console.log('✅ AUTO-PARSE: Result keys:', result ? Object.keys(result) : 'null');
 
           if (result?.success && result?.schema) {
             console.log('✅ AUTO-PARSE: Setting schema with', result.schema.tables?.length || 0, 'tables');
+            console.log('✅ AUTO-PARSE: Tables:', result.schema.tables?.map((t: any) => t.name).join(', '));
             setParsedSchema(result.schema);
             setParseError(null); // 성공 시 에러 초기화
           } else {
             const errorMsg = (result as any)?.error || 'Failed to parse DBML';
             console.log('✅ AUTO-PARSE: Parse failed', errorMsg);
+            console.log('✅ AUTO-PARSE: Full result:', JSON.stringify(result, null, 2));
             setParsedSchema(null);
             setParseError(errorMsg); // 에러 메시지 저장
           }
         } catch (error) {
           console.error('✅ AUTO-PARSE: ERROR:', error);
+          console.error('✅ AUTO-PARSE: Error type:', error?.constructor?.name);
+          console.error('✅ AUTO-PARSE: Error message:', error instanceof Error ? error.message : String(error));
+          console.error('✅ AUTO-PARSE: Error stack:', error instanceof Error ? error.stack : 'no stack');
           setParsedSchema(null);
           setParseError(error instanceof Error ? error.message : 'Unknown parsing error');
         } finally {

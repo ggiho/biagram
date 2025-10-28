@@ -296,6 +296,9 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
             const p1 = points[i];
             const p2 = points[i + 1];
 
+            // 점이 유효한지 확인
+            if (!p1 || !p2) continue;
+
             // 점과 선분 사이의 최단 거리 계산
             const distance = distanceToSegment(worldX, worldY, p1.x, p1.y, p2.x, p2.y);
 
