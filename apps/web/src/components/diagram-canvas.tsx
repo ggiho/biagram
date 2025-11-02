@@ -412,7 +412,7 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
             if (schemaRef.current?.relationships) {
               const tablePositions = new Map<string, any>();
               tablesRef.current.forEach(table => {
-                tablePositions.set(table.id, table.bounds);
+                tablePositions.set(table.name, table.bounds); // Use table.name for consistency
               });
 
               // 컬럼 위치 계산을 위한 헬퍼 함수
