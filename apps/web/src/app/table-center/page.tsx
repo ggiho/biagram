@@ -71,6 +71,8 @@ export default function TableCenterPage() {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [filterFK, setFilterFK] = useState(false);
   const [filterRelations, setFilterRelations] = useState(false);
+  const [filterPII, setFilterPII] = useState(false);
+  const [showPIIReport, setShowPIIReport] = useState(false);
 
   // Category collapse states
   const [expandedCategories, setExpandedCategories] = useState<Set<SearchCategory>>(
@@ -174,19 +176,25 @@ export default function TableCenterPage() {
 
   // Generate summaries from sorted specifications
   const summaries = useMemo(() => {
-    return sortedSpecifications.map((spec): SpecificationSummary => ({
-      id: spec.id,
-      tableName: spec.tableName,
-      schemaName: spec.schemaName,
-      description: spec.description,
-      columnCount: spec.stats.columnCount,
-      relationshipCount: spec.stats.relationshipCount,
-      hasIndexes: spec.stats.indexCount > 0,
-      hasForeignKeys: spec.stats.foreignKeyCount > 0,
-      tags: spec.tags,
-      category: spec.category,
-      updatedAt: spec.updatedAt,
-    }));
+    return sortedSpecifications.map((spec): SpecificationSummary => {
+      // Count PII columns (description starts with *)
+      const piiCount = spec.columns.filter((col: any) => col.description?.startsWith('*')).length;
+      
+      return {
+        id: spec.id,
+        tableName: spec.tableName,
+        schemaName: spec.schemaName,
+        description: spec.description,
+        columnCount: spec.stats.columnCount,
+        relationshipCount: spec.stats.relationshipCount,
+        hasIndexes: spec.stats.indexCount > 0,
+        hasForeignKeys: spec.stats.foreignKeyCount > 0,
+        tags: spec.tags,
+        category: spec.category,
+        updatedAt: spec.updatedAt,
+        piiCount, // Add PII count
+      };
+    });
   }, [sortedSpecifications]);
 
   const searchResults = searchData?.results || [];
@@ -209,12 +217,13 @@ export default function TableCenterPage() {
     if (searchQuery.trim() && searchResults.length > 0) {
       return searchResults
         .map((result) => {
-          const summary = summaries.find((s: SpecificationSummary) => s.tableName === result.tableName);
+          const summary = summaries.find((s: any) => s.tableName === result.tableName);
           if (!summary) return null;
 
           // Apply additional filters (using summary data only)
           if (filterFK && !summary.hasForeignKeys) return null;
           if (filterRelations && summary.relationshipCount === 0) return null;
+          if (filterPII && (!summary.piiCount || summary.piiCount === 0)) return null;
 
           // Attach highlights to summary for display
           return { ...summary, highlights: result.highlights };
@@ -223,7 +232,7 @@ export default function TableCenterPage() {
     }
 
     // When not searching, use client-side filtering
-    return summaries.filter((summary: SpecificationSummary) => {
+    return summaries.filter((summary: any) => {
       // Foreign key filter
       if (filterFK) {
         if (!summary.hasForeignKeys) return false;
@@ -232,6 +241,11 @@ export default function TableCenterPage() {
       // Relationships filter
       if (filterRelations) {
         if (summary.relationshipCount === 0) return false;
+      }
+
+      // PII filter
+      if (filterPII) {
+        if (!summary.piiCount || summary.piiCount === 0) return false;
       }
 
       return true;
@@ -378,6 +392,32 @@ export default function TableCenterPage() {
               <div className="text-xs font-medium text-muted-foreground">Filters</div>
               <div className="flex items-center space-x-2">
                 <Checkbox
+                  id="filter-pii"
+                  checked={filterPII}
+                  onCheckedChange={(checked) => setFilterPII(checked === true)}
+                />
+                <label
+                  htmlFor="filter-pii"
+                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer flex items-center gap-1"
+                >
+                  🔒 Has PII Columns
+                </label>
+              </div>
+              <Button
+                variant={showPIIReport ? "default" : "outline"}
+                size="sm"
+                className="w-full mt-2"
+                onClick={() => {
+                  setShowPIIReport(!showPIIReport);
+                  if (!showPIIReport) {
+                    setSelectedTable(null); // Clear selection when showing report
+                  }
+                }}
+              >
+                {showPIIReport ? 'Hide' : 'Show'} PII Report
+              </Button>
+              <div className="flex items-center space-x-2">
+                <Checkbox
                   id="filter-fk"
                   checked={filterFK}
                   onCheckedChange={(checked) => setFilterFK(checked === true)}
@@ -451,7 +491,7 @@ export default function TableCenterPage() {
 
                       {/* Category Results */}
                       {expandedCategories.has(category as SearchCategory) && (
-                        <div>
+                        <div className="flex flex-col gap-2 p-2">
                           {results.map((result) => {
                             const allResults = Object.values(groupedResults).flat();
                             const globalIndex = allResults.findIndex(r => r.id === result.id);
@@ -461,7 +501,7 @@ export default function TableCenterPage() {
                               <button
                                 key={result.id}
                                 onClick={() => setSelectedTable(result.tableName)}
-                                className={`w-full text-left p-4 pl-8 hover:bg-muted/50 transition-colors ${
+                                className={`w-full text-left p-4 ml-6 rounded-lg hover:bg-muted/50 transition-colors ${
                                   selectedTable === result.tableName ? 'bg-muted' : ''
                                 } ${isKeyboardSelected ? 'ring-2 ring-primary ring-inset' : ''}`}
                               >
@@ -510,7 +550,7 @@ export default function TableCenterPage() {
                 </p>
               </div>
             ) : (
-              <div className="divide-y">
+              <div className="flex flex-col gap-2 p-2">
                 {filteredSummaries.map((summary: SpecificationSummary) => {
                   const summaryWithHighlights = summary as typeof summary & { highlights?: Array<{ field: string; text: string }> };
                   const hasHighlights = summaryWithHighlights.highlights && summaryWithHighlights.highlights.length > 0;
@@ -519,7 +559,7 @@ export default function TableCenterPage() {
                     <button
                       key={summary.id}
                       onClick={() => setSelectedTable(summary.tableName)}
-                      className={`w-full text-left p-4 hover:bg-muted/50 transition-colors ${
+                      className={`w-full text-left p-4 rounded-lg hover:bg-muted/50 transition-colors ${
                         selectedTable === summary.tableName ? 'bg-muted' : ''
                       }`}
                     >
@@ -546,6 +586,11 @@ export default function TableCenterPage() {
                           <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
                             <span>{summary.columnCount} columns</span>
                             <span>{summary.relationshipCount} relations</span>
+                            {(summary as any).piiCount > 0 && (
+                              <span className="text-red-600 dark:text-red-400 font-medium">
+                                🔒 {(summary as any).piiCount} PII
+                              </span>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -557,9 +602,139 @@ export default function TableCenterPage() {
           </div>
         </div>
 
-        {/* Right Panel - Table Detail */}
+        {/* Right Panel - Table Detail or PII Report */}
         <div className="flex-1 overflow-y-auto">
-          {selectedSpec ? (
+          {showPIIReport ? (
+            /* PII Report View */
+            <div className="p-6">
+              <div className="mb-6 flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-bold">PII Columns Report</h2>
+                  <p className="text-sm text-muted-foreground mt-2">
+                    All columns containing Personal Identifiable Information across your database
+                  </p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    // Export to Excel
+                    const piiData = sortedSpecifications.flatMap((spec) => 
+                      spec.columns
+                        .filter((col: any) => col.description?.startsWith('*'))
+                        .map((col: any) => ({
+                          Schema: spec.schemaName || '-',
+                          Table: spec.tableName,
+                          Column: col.name,
+                          Type: col.type,
+                          Description: col.description.substring(1).trim()
+                        }))
+                    );
+                    
+                    // Create CSV with UTF-8 BOM for Excel Korean support
+                    const headers = ['Schema', 'Table', 'Column', 'Type', 'Description'];
+                    const csvContent = [
+                      headers.join(','),
+                      ...piiData.map(row => 
+                        [row.Schema, row.Table, row.Column, row.Type, row.Description]
+                          .map(cell => `"${cell}"`)
+                          .join(',')
+                      )
+                    ].join('\n');
+                    
+                    // Add UTF-8 BOM for Excel
+                    const BOM = '\uFEFF';
+                    const csvWithBOM = BOM + csvContent;
+                    
+                    // Download
+                    const blob = new Blob([csvWithBOM], { type: 'text/csv;charset=utf-8;' });
+                    const link = document.createElement('a');
+                    const url = URL.createObjectURL(blob);
+                    link.setAttribute('href', url);
+                    link.setAttribute('download', `PII_Report_${new Date().toISOString().split('T')[0]}.csv`);
+                    link.style.visibility = 'hidden';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    
+                    toast({
+                      title: '✅ Exported',
+                      description: 'PII report downloaded as CSV',
+                    });
+                  }}
+                >
+                  Download
+                </Button>
+              </div>
+
+              {/* PII Summary */}
+              <div className="mb-6 p-4 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-lg">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-lg font-semibold">⚠️ Security Notice</span>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  {(() => {
+                    const tablesWithPII = sortedSpecifications.filter(spec => 
+                      spec.columns.some((col: any) => col.description?.startsWith('*'))
+                    );
+                    const totalPIIColumns = sortedSpecifications.reduce((sum, spec) => 
+                      sum + spec.columns.filter((col: any) => col.description?.startsWith('*')).length, 0
+                    );
+                    return `Found ${totalPIIColumns} PII columns across ${tablesWithPII.length} tables`;
+                  })()}
+                </p>
+              </div>
+
+              {/* PII Table */}
+              <div className="border rounded-lg overflow-hidden">
+                <table className="w-full">
+                  <thead className="bg-muted/50">
+                    <tr>
+                      <th className="text-left p-3 font-medium text-sm w-[10%]">Schema</th>
+                      <th className="text-left p-3 font-medium text-sm w-[20%]">Table</th>
+                      <th className="text-left p-3 font-medium text-sm w-[20%]">Column Name</th>
+                      <th className="text-left p-3 font-medium text-sm w-[15%]">Type</th>
+                      <th className="text-left p-3 font-medium text-sm w-[35%]">Description</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {sortedSpecifications.flatMap((spec) => 
+                      spec.columns
+                        .filter((col: any) => col.description?.startsWith('*'))
+                        .map((col: any, idx: number) => (
+                          <tr 
+                            key={`${spec.tableName}-${col.name}`}
+                            className="hover:bg-muted/30 bg-red-100/80 dark:bg-red-900/30"
+                          >
+                            <td className="p-3 text-sm text-muted-foreground">
+                              {spec.schemaName || '-'}
+                            </td>
+                            <td className="p-3 font-medium text-sm">
+                              <button
+                                onClick={() => {
+                                  setSelectedTable(spec.tableName);
+                                  setShowPIIReport(false);
+                                }}
+                                className="text-blue-600 dark:text-blue-400 hover:underline"
+                              >
+                                {spec.tableName}
+                              </button>
+                            </td>
+                            <td className="p-3 font-mono text-sm">
+                              🔒 {col.name}
+                            </td>
+                            <td className="p-3 text-sm text-muted-foreground">{col.type}</td>
+                            <td className="p-3 text-sm text-muted-foreground">
+                              {col.description.substring(1).trim()}
+                            </td>
+                          </tr>
+                        ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : selectedSpec ? (
             <div className="p-6">
               {/* Table Header */}
               <div className="mb-6">
@@ -608,20 +783,25 @@ export default function TableCenterPage() {
               <div className="mb-6">
                 <h3 className="text-lg font-semibold mb-3">Columns</h3>
                 <div className="border rounded-lg overflow-hidden">
-                  <table className="w-full">
+                  <table className="w-full table-fixed">
                     <thead className="bg-muted/50">
                       <tr>
-                        <th className="text-left p-3 font-medium text-sm">Name</th>
-                        <th className="text-left p-3 font-medium text-sm">Type</th>
-                        <th className="text-left p-3 font-medium text-sm">Constraints</th>
-                        <th className="text-left p-3 font-medium text-sm">Description</th>
+                        <th className="text-left p-3 font-medium text-sm w-[25%]">Name</th>
+                        <th className="text-left p-3 font-medium text-sm w-[15%]">Type</th>
+                        <th className="text-left p-3 font-medium text-sm w-[20%]">Constraints</th>
+                        <th className="text-left p-3 font-medium text-sm w-[40%]">Description</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y">
-                      {selectedSpec.columns.map((column: import('@biagram/shared').ColumnSpecification) => (
-                        <tr key={column.name} className="hover:bg-muted/30">
-                          <td className="p-3 font-mono text-sm">{column.name}</td>
-                          <td className="p-3 text-sm">{column.type}</td>
+                      {selectedSpec.columns.map((column: import('@biagram/shared').ColumnSpecification) => {
+                        const isPII = column.description?.startsWith('*');
+                        return (
+                        <tr key={column.name} className={`hover:bg-muted/30 ${isPII ? 'bg-red-100/80 dark:bg-red-900/30' : ''}`}>
+                          <td className="p-3 font-mono text-sm truncate" title={column.name}>
+                            {isPII && <span className="mr-1">🔒</span>}
+                            {column.name}
+                          </td>
+                          <td className="p-3 text-sm truncate" title={column.type}>{column.type}</td>
                           <td className="p-3 text-sm">
                             <div className="flex flex-wrap gap-1">
                               {column.primaryKey && (
@@ -646,11 +826,16 @@ export default function TableCenterPage() {
                               )}
                             </div>
                           </td>
-                          <td className="p-3 text-sm text-muted-foreground">
-                            {column.description || '-'}
+                          <td className="p-3 text-sm text-muted-foreground" title={column.description || '-'}>
+                            <div className="line-clamp-2">
+                              {isPII 
+                                ? column.description.substring(1).trim() 
+                                : (column.description || '-')}
+                            </div>
                           </td>
                         </tr>
-                      ))}
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
