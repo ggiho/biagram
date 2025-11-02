@@ -558,7 +558,10 @@ export default function TableCenterPage() {
                   return (
                     <button
                       key={summary.id}
-                      onClick={() => setSelectedTable(summary.tableName)}
+                      onClick={() => {
+                        setSelectedTable(summary.tableName);
+                        setShowPIIReport(false); // Close PII report when selecting a table
+                      }}
                       className={`w-full text-left p-4 rounded-lg hover:bg-muted/50 transition-colors ${
                         selectedTable === summary.tableName ? 'bg-muted' : ''
                       }`}
