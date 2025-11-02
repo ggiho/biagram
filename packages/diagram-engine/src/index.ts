@@ -208,7 +208,15 @@ export class DiagramEngine {
     console.log('🎯 DiagramEngine.panToTable called for table:', tableName);
 
     // Find the table by name
-    const table = this.tables.find(t => t.name === tableName);
+    // Support both exact match (e.g., "AGREEMENT") and schema.table format (e.g., "PII.AGREEMENT")
+    let table = this.tables.find(t => t.name === tableName);
+    
+    // If not found and tableName contains schema, try matching just the table name part
+    if (!table && tableName.includes('.')) {
+      const tableNameOnly = tableName.split('.').pop()!;
+      table = this.tables.find(t => t.name === tableNameOnly);
+      console.log('🔍 Trying without schema:', tableNameOnly, '→ found:', !!table);
+    }
 
     if (!table) {
       console.warn('⚠️ DiagramEngine.panToTable: Table not found:', tableName);

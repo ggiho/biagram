@@ -12,6 +12,7 @@ interface DiagramCanvasProps {
   className?: string;
   initialTablePositions?: Record<string, { x: number; y: number }>;
   onTablePositionsChange?: (positions: Record<string, { x: number; y: number }>) => void;
+  onTableDoubleClick?: (tableName: string) => void;
 }
 
 /**
@@ -21,7 +22,7 @@ interface DiagramCanvasProps {
  * 3. 리사이즈/뷰포트 변경 시에도 데이터는 React에 안전하게 보관
  * 4. 모든 렌더링은 React의 현재 데이터를 사용
  */
-export function DiagramCanvas({ schema, parseError, className, initialTablePositions, onTablePositionsChange }: DiagramCanvasProps) {
+export function DiagramCanvas({ schema, parseError, className, initialTablePositions, onTablePositionsChange, onTableDoubleClick }: DiagramCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const engineRef = useRef<DiagramEngine | null>(null);
@@ -261,7 +262,8 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
 
           if (worldX >= x && worldX <= x + width &&
               worldY >= y && worldY <= y + height) {
-            return table.id;
+            console.log('🎯 Found table at position:', table.name, 'id:', table.id);
+            return table.name; // Use table.name instead of table.id for consistency
           }
         }
         return null;
@@ -608,7 +610,7 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
           // isSelected 업데이트하고 재렌더링
           tablesRef.current = tablesRef.current.map(table => ({
             ...table,
-            isSelected: table.id === mouseDownTableId,
+            isSelected: table.name === mouseDownTableId,
           }));
           safeRender();
         } else if (!hasMoved && mouseDownRelationshipId) {
@@ -704,11 +706,40 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
         hasMoved = false;
       };
 
+      // 더블클릭으로 테이블 이름 변경
+      const handleDoubleClick = (e: MouseEvent) => {
+        const rect = canvas.getBoundingClientRect();
+        const canvasX = e.clientX - rect.left;
+        const canvasY = e.clientY - rect.top;
+
+        // 월드 좌표로 변환
+        const viewport = engine.getViewportManager().getViewport();
+        const worldX = (canvasX - viewport.pan.x) / viewport.zoom;
+        const worldY = (canvasY - viewport.pan.y) / viewport.zoom;
+
+        // 테이블 찾기
+        const clickedTable = tablesRef.current.find(table => {
+          return (
+            worldX >= table.bounds.x &&
+            worldX <= table.bounds.x + table.bounds.width &&
+            worldY >= table.bounds.y &&
+            worldY <= table.bounds.y + table.bounds.height
+          );
+        });
+
+        if (clickedTable && onTableDoubleClick) {
+          console.log('🎯 Table double-clicked:', clickedTable.name);
+          onTableDoubleClick(clickedTable.name);
+          e.preventDefault();
+        }
+      };
+
       canvas.addEventListener('wheel', handleWheel, { passive: false });
       canvas.addEventListener('mousedown', handleMouseDown);
       canvas.addEventListener('mousemove', handleMouseMove);
       canvas.addEventListener('mouseup', handleMouseUp);
       canvas.addEventListener('mouseleave', handleMouseLeave);
+      canvas.addEventListener('dblclick', handleDoubleClick);
 
       setIsReady(true);
       console.log('✅ [NEW] DiagramCanvas 준비 완료');
@@ -719,6 +750,7 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
         canvas.removeEventListener('mousemove', handleMouseMove);
         canvas.removeEventListener('mouseup', handleMouseUp);
         canvas.removeEventListener('mouseleave', handleMouseLeave);
+        canvas.removeEventListener('dblclick', handleDoubleClick);
         resizeObserver.disconnect();
         engine.dispose();
         engineRef.current = null;
@@ -1276,7 +1308,7 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
         // 연결된 테이블들 하이라이트
         tablesRef.current = tablesRef.current.map(table => ({
           ...table,
-          isSelected: table.id === selectedRel.fromTable || table.id === selectedRel.toTable,
+          isSelected: table.name === selectedRel.fromTable || table.name === selectedRel.toTable,
         }));
 
         // 선택된 관계선만 하이라이트
@@ -1289,7 +1321,7 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
       // 테이블 선택: 기존 로직
       tablesRef.current = tablesRef.current.map(table => ({
         ...table,
-        isSelected: table.id === selectedEntityId,
+        isSelected: table.name === selectedEntityId,
       }));
 
       // 선택된 테이블과 연결된 관계선 하이라이트
@@ -1327,7 +1359,7 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
         tablesRef.current = tablesRef.current.map(table => ({
           ...table,
           // @ts-ignore - Adding opacity property not in schema
-          opacity: connectedTableIds.has(table.id) ? 1.0 : 0.3,
+          opacity: connectedTableIds.has(table.name) ? 1.0 : 0.3,
         }));
 
         // 하이라이트된 관계선만 선택 상태로 표시

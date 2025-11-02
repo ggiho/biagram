@@ -48,13 +48,28 @@ export const CodeEditor = forwardRef<CodeEditorRef, CodeEditorProps>(({
       const lines = content.split('\n');
 
       // Find the line with "Table tableName" or "table tableName" or Table "tableName"
-      // Support both quoted and unquoted table names
+      // Support both quoted and unquoted table names, and schema.table format
       const escapedName = tableName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const tableRegex = new RegExp(
+      
+      // Try exact match first (e.g., "PII.AGREEMENT")
+      let tableRegex = new RegExp(
         `^\\s*[Tt]able\\s+(?:"${escapedName}"|${escapedName})\\s*{`,
         'i'
       );
-      const lineNumber = lines.findIndex(line => tableRegex.test(line));
+      let lineNumber = lines.findIndex(line => tableRegex.test(line));
+      
+      // If not found and tableName contains schema (e.g., "PII.AGREEMENT"),
+      // try matching just the table name part (e.g., "AGREEMENT")
+      if (lineNumber === -1 && tableName.includes('.')) {
+        const tableNameOnly = tableName.split('.').pop()!;
+        const escapedTableOnly = tableNameOnly.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        tableRegex = new RegExp(
+          `^\\s*[Tt]able\\s+(?:"${escapedTableOnly}"|${escapedTableOnly})\\s*{`,
+          'i'
+        );
+        lineNumber = lines.findIndex(line => tableRegex.test(line));
+        console.log('🔍 Trying without schema:', tableNameOnly, '→ found:', lineNumber !== -1);
+      }
 
       if (lineNumber !== -1) {
         console.log('📜 Scrolling to table:', tableName, 'at line', lineNumber + 1);
@@ -188,10 +203,10 @@ export const CodeEditor = forwardRef<CodeEditorRef, CodeEditorProps>(({
         const lines = content.split('\n');
 
         // Find the table that contains this line
-        // Support both quoted and unquoted table names
+        // Support both quoted and unquoted table names, including schema.table format
         let currentTable: string | null = null;
-        // Match: Table tableName { or Table "tableName" {
-        const tableRegex = /^\s*[Tt]able\s+(?:"([^"]+)"|([\w]+))\s*{/;
+        // Match: Table tableName { or Table "tableName" { or Table schema.tableName {
+        const tableRegex = /^\s*[Tt]able\s+(?:"([^"]+)"|([\w.]+))\s*{/;
 
         for (let i = 0; i < lineNumber; i++) {
           const match = lines[i]?.match(tableRegex);
