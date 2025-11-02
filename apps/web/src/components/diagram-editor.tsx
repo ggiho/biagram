@@ -16,6 +16,7 @@ import { DiagramProvider, useDiagramEngine } from '@/contexts/diagram-context';
 import { trpc } from '@/lib/trpc/client';
 import { useToast } from '@/hooks/use-toast';
 import { saveDraft, loadDraft } from '@/lib/storage';
+import { TableRenameDialog } from '@/components/table-rename-dialog';
 
 const SAMPLE_DBML = `// Sample database schema
 Table users {
@@ -67,6 +68,8 @@ function DiagramEditorContent() {
   const [isLoading, setIsLoading] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
+  const [renameDialogOpen, setRenameDialogOpen] = useState(false);
+  const [tableToRename, setTableToRename] = useState<string | null>(null);
   const parseTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isParsingRef = useRef(false);
   const codeEditorRef = useRef<CodeEditorRef>(null);
@@ -82,6 +85,22 @@ function DiagramEditorContent() {
   const { toast } = useToast();
   const parseDBML = trpc.diagrams.parseDBML.useMutation();
   const { engine, selectedEntityId, setSelectedEntityId, setHighlightedRelationshipId } = useDiagramEngine();
+
+  // 테이블 이름 변경 핸들러
+  const handleTableDoubleClick = useCallback((tableName: string) => {
+    console.log('🎯 Opening rename dialog for:', tableName);
+    setTableToRename(tableName);
+    setRenameDialogOpen(true);
+  }, []);
+
+  const handleTableRename = useCallback((newCode: string, newTableName: string) => {
+    console.log('✅ Applying renamed code');
+    setCode(newCode);
+    toast({
+      title: '✅ Table Renamed',
+      description: `Successfully renamed to ${newTableName}`,
+    });
+  }, [toast]);
 
   const handleCodeChange = useCallback((value: string) => {
     console.log('Code changed, new length:', value.length);
@@ -410,6 +429,7 @@ function DiagramEditorContent() {
                     className="absolute inset-0 w-full h-full"
                     initialTablePositions={tablePositions}
                     onTablePositionsChange={setTablePositions}
+                    onTableDoubleClick={handleTableDoubleClick}
                   />
                 </div>
               </div>
@@ -441,6 +461,17 @@ function DiagramEditorContent() {
           code={code}
           schema={parsedSchema}
         />
+
+        {/* Table Rename Dialog */}
+        {tableToRename && (
+          <TableRenameDialog
+            open={renameDialogOpen}
+            onOpenChange={setRenameDialogOpen}
+            currentTableName={tableToRename}
+            dbmlCode={code}
+            onRename={handleTableRename}
+          />
+        )}
       </div>
   );
 }
