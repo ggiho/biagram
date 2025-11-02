@@ -73,6 +73,7 @@ export default function TableCenterPage() {
   const [filterRelations, setFilterRelations] = useState(false);
   const [filterPII, setFilterPII] = useState(false);
   const [showPIIReport, setShowPIIReport] = useState(false);
+  const [expandedSchemas, setExpandedSchemas] = useState<Set<string>>(new Set());
 
   // Category collapse states
   const [expandedCategories, setExpandedCategories] = useState<Set<SearchCategory>>(
@@ -252,6 +253,40 @@ export default function TableCenterPage() {
     });
   })();
 
+  // Group tables by schema
+  const tablesBySchema = useMemo(() => {
+    const grouped = new Map<string, any[]>();
+    
+    filteredSummaries.forEach((summary: any) => {
+      // Extract schema from tableName if it contains a dot (e.g., "CUSTOMER.CUSTOMER" -> "CUSTOMER")
+      let schema = summary.schemaName;
+      if (!schema && summary.tableName.includes('.')) {
+        schema = summary.tableName.split('.')[0];
+      }
+      schema = schema || 'No Schema';
+      
+      if (!grouped.has(schema)) {
+        grouped.set(schema, []);
+      }
+      grouped.get(schema)!.push(summary);
+    });
+    
+    return grouped;
+  }, [filteredSummaries]);
+
+  // Toggle schema expansion
+  const toggleSchema = useCallback((schema: string) => {
+    setExpandedSchemas(prev => {
+      const next = new Set(prev);
+      if (next.has(schema)) {
+        next.delete(schema);
+      } else {
+        next.add(schema);
+      }
+      return next;
+    });
+  }, []);
+
   // Group search results by category
   const groupedResults = (() => {
     if (!searchQuery.trim() || searchResults.length === 0) {
@@ -323,7 +358,23 @@ export default function TableCenterPage() {
   // Get selected table specification from cached data
   const selectedSpec = useMemo(() => {
     if (!selectedTable || sortedSpecifications.length === 0) return null;
-    return sortedSpecifications.find(spec => spec.tableName === selectedTable) || null;
+    const spec = sortedSpecifications.find(spec => spec.tableName === selectedTable);
+    if (!spec) return null;
+    
+    console.log('🔍 selectedSpec:', {
+      tableName: spec.tableName,
+      schemaName: spec.schemaName,
+      hasColumns: spec.columns?.length,
+    });
+    
+    // Extract schema from tableName if not provided
+    if (!spec.schemaName && spec.tableName.includes('.')) {
+      const extractedSchema = spec.tableName.split('.')[0];
+      console.log('🔍 Extracting schema from tableName:', spec.tableName, '→', extractedSchema);
+      spec.schemaName = extractedSchema;
+    }
+    
+    return spec;
   }, [selectedTable, sortedSpecifications]);
 
   return (
@@ -550,56 +601,101 @@ export default function TableCenterPage() {
                 </p>
               </div>
             ) : (
-              <div className="flex flex-col gap-2 p-2">
-                {filteredSummaries.map((summary: SpecificationSummary) => {
-                  const summaryWithHighlights = summary as typeof summary & { highlights?: Array<{ field: string; text: string }> };
-                  const hasHighlights = summaryWithHighlights.highlights && summaryWithHighlights.highlights.length > 0;
+              <div className="flex flex-col">
+                {Array.from(tablesBySchema.entries())
+                  .sort(([schemaA], [schemaB]) => {
+                    // Sort: "No Schema" last, others alphabetically
+                    if (schemaA === 'No Schema') return 1;
+                    if (schemaB === 'No Schema') return -1;
+                    return schemaA.localeCompare(schemaB);
+                  })
+                  .map(([schema, tables]) => {
+                    const isExpanded = expandedSchemas.has(schema);
+                    
+                    if (tables.length === 0) return null;
 
-                  return (
-                    <button
-                      key={summary.id}
-                      onClick={() => {
-                        setSelectedTable(summary.tableName);
-                        setShowPIIReport(false); // Close PII report when selecting a table
-                      }}
-                      className={`w-full text-left p-4 rounded-lg hover:bg-muted/50 transition-colors ${
-                        selectedTable === summary.tableName ? 'bg-muted' : ''
-                      }`}
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex-1 min-w-0">
-                          <div className="font-medium truncate">
-                            {searchQuery.trim() ? highlightText(summary.tableName, searchQuery) : summary.tableName}
-                          </div>
-                          {summary.description && (
-                            <div className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                              {searchQuery.trim() ? highlightText(summary.description, searchQuery) : summary.description}
-                            </div>
-                          )}
-                          {hasHighlights && (
-                            <div className="mt-2 space-y-1">
-                              {summaryWithHighlights.highlights!.slice(0, 2).map((highlight: { field: string; text: string }, idx: number) => (
-                                <div key={idx} className="text-xs text-blue-600 dark:text-blue-400">
-                                  {highlight.field === 'column' && `Column: ${highlight.text}`}
-                                  {highlight.field === 'description' && `Match in description`}
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                          <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
-                            <span>{summary.columnCount} columns</span>
-                            <span>{summary.relationshipCount} relations</span>
-                            {(summary as any).piiCount > 0 && (
-                              <span className="text-red-600 dark:text-red-400 font-medium">
-                                🔒 {(summary as any).piiCount} PII
-                              </span>
+                    return (
+                      <div key={schema}>
+                        {/* Schema Header */}
+                        <button
+                          onClick={() => toggleSchema(schema)}
+                          className="w-full flex items-center justify-between p-3 hover:bg-muted/50 transition-colors font-medium text-sm border-b sticky top-0 bg-background z-10"
+                        >
+                          <div className="flex items-center gap-2">
+                            {isExpanded ? (
+                              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                            ) : (
+                              <ChevronRight className="h-4 w-4 text-muted-foreground" />
                             )}
+                            <span>{schema}</span>
+                            <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                              {tables.length}
+                            </span>
                           </div>
-                        </div>
+                        </button>
+
+                        {/* Schema Tables */}
+                        {isExpanded && (
+                          <div className="flex flex-col gap-2 p-2">
+                            {tables.map((summary: any) => {
+                              const summaryWithHighlights = summary as typeof summary & { highlights?: Array<{ field: string; text: string }> };
+                              const hasHighlights = summaryWithHighlights.highlights && summaryWithHighlights.highlights.length > 0;
+
+                              // Extract pure table name without schema
+                              const pureTableName = summary.tableName.includes('.') 
+                                ? summary.tableName.split('.').slice(1).join('.')
+                                : summary.tableName;
+
+                              return (
+                                <button
+                                  key={summary.id}
+                                  onClick={() => {
+                                    setSelectedTable(summary.tableName);
+                                    setShowPIIReport(false);
+                                  }}
+                                  className={`w-full text-left p-4 rounded-lg hover:bg-muted/50 transition-colors ${
+                                    selectedTable === summary.tableName ? 'bg-muted' : ''
+                                  }`}
+                                >
+                                  <div className="flex items-start justify-between gap-2">
+                                    <div className="flex-1 min-w-0">
+                                      <div className="font-medium truncate">
+                                        {searchQuery.trim() ? highlightText(pureTableName, searchQuery) : pureTableName}
+                                      </div>
+                                      {summary.description && (
+                                        <div className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                                          {searchQuery.trim() ? highlightText(summary.description, searchQuery) : summary.description}
+                                        </div>
+                                      )}
+                                      {hasHighlights && (
+                                        <div className="mt-2 space-y-1">
+                                          {summaryWithHighlights.highlights!.slice(0, 2).map((highlight: { field: string; text: string }, idx: number) => (
+                                            <div key={idx} className="text-xs text-blue-600 dark:text-blue-400">
+                                              {highlight.field === 'column' && `Column: ${highlight.text}`}
+                                              {highlight.field === 'description' && `Match in description`}
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
+                                      <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
+                                        <span>{summary.columnCount} columns</span>
+                                        <span>{summary.relationshipCount} relations</span>
+                                        {summary.piiCount > 0 && (
+                                          <span className="text-red-600 dark:text-red-400 font-medium">
+                                            🔒 {summary.piiCount} PII
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
-                    </button>
-                  );
-                })}
+                    );
+                  })}
               </div>
             )}
           </div>
@@ -625,13 +721,25 @@ export default function TableCenterPage() {
                     const piiData = sortedSpecifications.flatMap((spec) => 
                       spec.columns
                         .filter((col: any) => col.description?.startsWith('*'))
-                        .map((col: any) => ({
-                          Schema: spec.schemaName || '-',
-                          Table: spec.tableName,
-                          Column: col.name,
-                          Type: col.type,
-                          Description: col.description.substring(1).trim()
-                        }))
+                        .map((col: any) => {
+                          // Extract schema from tableName if not provided
+                          let schema = spec.schemaName;
+                          let pureTableName = spec.tableName;
+                          
+                          if (!schema && spec.tableName.includes('.')) {
+                            const parts = spec.tableName.split('.');
+                            schema = parts[0];
+                            pureTableName = parts.slice(1).join('.');
+                          }
+                          
+                          return {
+                            Schema: schema || '-',
+                            Table: pureTableName,
+                            Column: col.name,
+                            Type: col.type,
+                            Description: col.description.substring(1).trim()
+                          };
+                        })
                     );
                     
                     // Create CSV with UTF-8 BOM for Excel Korean support
@@ -701,16 +809,30 @@ export default function TableCenterPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y">
-                    {sortedSpecifications.flatMap((spec) => 
-                      spec.columns
+                    {sortedSpecifications.flatMap((spec) => {
+                      console.log('🔍 PII spec:', spec.tableName, 'schemaName:', spec.schemaName);
+                      
+                      return spec.columns
                         .filter((col: any) => col.description?.startsWith('*'))
-                        .map((col: any, idx: number) => (
+                        .map((col: any, idx: number) => {
+                          // Extract schema from tableName
+                          let schema = spec.schemaName;
+                          let pureTableName = spec.tableName;
+                          
+                          if (!schema && spec.tableName.includes('.')) {
+                            const parts = spec.tableName.split('.');
+                            schema = parts[0];
+                            pureTableName = parts.slice(1).join('.');
+                            console.log('🔍 Extracting schema from', spec.tableName, '→ schema:', schema, 'table:', pureTableName);
+                          }
+                          
+                          return (
                           <tr 
                             key={`${spec.tableName}-${col.name}`}
                             className="hover:bg-muted/30 bg-red-100/80 dark:bg-red-900/30"
                           >
                             <td className="p-3 text-sm text-muted-foreground">
-                              {spec.schemaName || '-'}
+                              {schema || '-'}
                             </td>
                             <td className="p-3 font-medium text-sm">
                               <button
@@ -720,7 +842,7 @@ export default function TableCenterPage() {
                                 }}
                                 className="text-blue-600 dark:text-blue-400 hover:underline"
                               >
-                                {spec.tableName}
+                                {pureTableName}
                               </button>
                             </td>
                             <td className="p-3 font-mono text-sm">
@@ -731,8 +853,9 @@ export default function TableCenterPage() {
                               {col.description.substring(1).trim()}
                             </td>
                           </tr>
-                        ))
-                    )}
+                          );
+                        });
+                    })}
                   </tbody>
                 </table>
               </div>
