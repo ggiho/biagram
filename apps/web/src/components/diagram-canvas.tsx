@@ -430,8 +430,12 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
               };
 
               relationshipsRef.current = schemaRef.current.relationships.map((schemaRel: any, index: number) => {
-                const fromTableBounds = tablePositions.get(schemaRel.fromTable);
-                const toTableBounds = tablePositions.get(schemaRel.toTable);
+                // 실제 렌더링된 테이블의 bounds 사용 (드래그 중 실시간 업데이트)
+                const fromTableData = tablesRef.current.find((t: any) => t.name === schemaRel.fromTable);
+                const toTableData = tablesRef.current.find((t: any) => t.name === schemaRel.toTable);
+                
+                const fromTableBounds = fromTableData?.bounds;
+                const toTableBounds = toTableData?.bounds;
 
                 const fromTable = (schemaRef.current.tables || []).find((t: any) => t.name === schemaRel.fromTable);
                 const toTable = (schemaRef.current.tables || []).find((t: any) => t.name === schemaRel.toTable);
@@ -885,8 +889,29 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
             const index = start + localIndex;
         // 저장된 위치가 있으면 사용, 없으면 기본 레이아웃 적용
         const savedPosition = initialTablePositions?.[table.name];
-        const defaultX = 50 + (index % 3) * 300; // 간격 증가
-        const defaultY = 50 + Math.floor(index / 3) * 200;
+        
+        // 동적 레이아웃: 테이블 높이에 따라 간격 조정
+        const COLUMN_WIDTH = 320; // 테이블 너비 + 여백
+        const BASE_HEIGHT = 150; // 기본 테이블 높이
+        const COLUMN_HEIGHT = 25; // 각 컬럼당 높이
+        const ROW_PADDING = 50; // 행 간 추가 여백
+        
+        const estimatedHeight = Math.max(BASE_HEIGHT, (table.columns?.length || 0) * COLUMN_HEIGHT + 80 + (table.note ? 24 : 0));
+        const rowIndex = Math.floor(index / 3);
+        
+        // 같은 행의 이전 테이블들 중 최대 높이 찾기
+        let maxHeightInPreviousRow = BASE_HEIGHT;
+        const startOfRow = Math.floor((index - 1) / 3) * 3;
+        for (let i = Math.max(0, startOfRow); i < index && i < start + chunk.length; i++) {
+          const prevTable = schema.tables[i];
+          if (prevTable) {
+            const prevHeight = Math.max(BASE_HEIGHT, (prevTable.columns?.length || 0) * COLUMN_HEIGHT + 80 + (prevTable.note ? 24 : 0));
+            maxHeightInPreviousRow = Math.max(maxHeightInPreviousRow, prevHeight);
+          }
+        }
+        
+        const defaultX = 50 + (index % 3) * COLUMN_WIDTH;
+        const defaultY = 50 + rowIndex * (maxHeightInPreviousRow + ROW_PADDING);
 
         if (savedPosition) {
           console.log(`📍 Restoring position for table ${table.name}:`, savedPosition);
