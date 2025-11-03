@@ -283,36 +283,32 @@ export const CodeMirrorEditor = forwardRef<CodeMirrorEditorRef, CodeMirrorEditor
       // Add Vim extension (Ctrl+D/U already handled above)
       extensions.push(vim());
       
-      // Add visual line mode decoration plugin
+      // Add visual line mode decoration plugin with HIGHEST priority
       const visualLinePlugin = ViewPlugin.fromClass(class {
         decorations: DecorationSet;
         
         constructor(view: EditorView) {
+          console.log('🎨 Visual Line Plugin initialized');
           this.decorations = this.computeDecorations(view);
         }
         
         update(update: ViewUpdate) {
-          if (update.selectionSet || update.viewportChanged || update.docChanged) {
-            this.decorations = this.computeDecorations(update.view);
-          }
+          console.log('🔄 Plugin update triggered');
+          this.decorations = this.computeDecorations(update.view);
         }
         
         computeDecorations(view: EditorView): DecorationSet {
           const vimState = (view.state as any).vim;
           const decorations: Range<Decoration>[] = [];
           
-          // Debug log
-          if (vimState) {
-            console.log('🔍 Vim state:', {
-              mode: vimState.mode,
-              visualLine: vimState.visualLine,
-              visualBlock: vimState.visualBlock,
-            });
-          }
+          console.log('🔍 Computing decorations, vim state:', vimState ? {
+            mode: vimState.mode,
+            visualLine: vimState.visualLine,
+          } : 'NO VIM STATE');
           
-          // Only in visual line mode
+          // In visual mode, highlight full lines
           if (vimState && vimState.mode === 'visual') {
-            console.log('✅ Visual mode detected, visualLine:', vimState.visualLine);
+            console.log('✅ Visual mode active!');
             
             const selection = view.state.selection.main;
             const from = Math.min(selection.from, selection.to);
@@ -322,9 +318,9 @@ export const CodeMirrorEditor = forwardRef<CodeMirrorEditorRef, CodeMirrorEditor
             const fromLine = view.state.doc.lineAt(from);
             const toLine = view.state.doc.lineAt(to);
             
-            console.log('📏 Line range:', fromLine.number, '→', toLine.number);
+            console.log('📏 Highlighting lines', fromLine.number, '→', toLine.number);
             
-            // Highlight full lines from start to end
+            // Highlight full lines from start to end (including cursor line)
             for (let pos = fromLine.from; pos <= toLine.to;) {
               const line = view.state.doc.lineAt(pos);
               decorations.push(
@@ -333,9 +329,10 @@ export const CodeMirrorEditor = forwardRef<CodeMirrorEditorRef, CodeMirrorEditor
                 }).range(line.from)
               );
               pos = line.to + 1;
+              if (pos > view.state.doc.length) break;
             }
             
-            console.log('🎨 Added', decorations.length, 'line decorations');
+            console.log('🎨 Created', decorations.length, 'decorations');
           }
           
           return Decoration.set(decorations);
