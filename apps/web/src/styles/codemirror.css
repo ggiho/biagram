@@ -1,0 +1,49 @@
+/* CodeMirror 6 custom styles - minimal overrides to let themes work */
+
+.codemirror-editor-wrapper {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.codemirror-editor-wrapper .cm-editor {
+  height: 100%;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  font-size: 14px;
+  font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+}
+
+.codemirror-editor-wrapper .cm-scroller {
+  overflow: auto !important;
+  flex: 1 1 0 !important;
+  min-height: 0 !important;
+  font-family: inherit;
+}
+
+.codemirror-editor-wrapper .cm-content {
+  padding: 8px 0;
+  font-family: inherit;
+}
+
+.codemirror-editor-wrapper .cm-line {
+  padding: 0 8px;
+  line-height: 1.6;
+}
+
+/* Cursor styling */
+.codemirror-editor-wrapper .cm-cursor,
+.codemirror-editor-wrapper .cm-dropCursor {
+  border-left-color: #6c6c6c !important;
+  border-left-width: 2px !important;
+}
+
+/* Block cursor in Vim normal mode */
+.codemirror-editor-wrapper .cm-fat-cursor {
+  background-color: #6c6c6c !important;
+  color: #ffffff !important;
+  border: none !important;
+}
