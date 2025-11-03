@@ -260,7 +260,7 @@ export const CodeMirrorEditor = forwardRef<CodeMirrorEditorRef, CodeMirrorEditor
         { tag: t.operator, color: '#000000' }, // Black operators (<, >, -)
         { tag: t.punctuation, color: '#000000' }, // Black punctuation
         { tag: t.meta, color: '#000000' }, // Black meta (attributes in brackets like [not null], [default: ...])
-        { tag: [t.variableName, t.propertyName], color: '#001080' }, // Dark blue variables (table names, column names)
+        { tag: [t.variableName, t.propertyName], color: '#000000' }, // Black variables (table names, column names)
         { tag: t.typeName, color: '#008080' }, // Teal types (varchar, integer, etc.)
         { tag: t.className, color: '#008080' }, // Teal class names
       ],
