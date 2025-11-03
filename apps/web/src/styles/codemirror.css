@@ -48,12 +48,9 @@
   border: none !important;
 }
 
-/* Vim Visual Line mode: ensure full line is highlighted */
-.codemirror-editor-wrapper .cm-vim-visual-line-highlight {
-  background-color: rgba(173, 214, 255, 0.4) !important;
-}
-
-/* Dark mode visual line highlight */
-.dark .codemirror-editor-wrapper .cm-vim-visual-line-highlight {
-  background-color: rgba(150, 200, 255, 0.3) !important;
+/* Vim Visual Line mode: extend selection to full line width */
+.codemirror-editor-wrapper .cm-selectionBackground {
+  /* Make selection extend to end of line visually */
+  display: block !important;
+  min-width: 100% !important;
 }
