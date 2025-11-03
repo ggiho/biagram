@@ -245,8 +245,8 @@ export const CodeMirrorEditor = forwardRef<CodeMirrorEditorRef, CodeMirrorEditor
         background: '#ffffff',
         foreground: '#000000',
         caret: '#6c6c6c', // Gray cursor
-        selection: '#add6ff',
-        selectionMatch: '#add6ff',
+        selection: '#80b3ff', // Darker blue for better visibility
+        selectionMatch: '#80b3ff',
         lineHighlight: '#f0f0f0',
         gutterBackground: '#f5f5f5',
         gutterForeground: '#237893',
