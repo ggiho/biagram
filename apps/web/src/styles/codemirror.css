@@ -25,13 +25,13 @@
 }
 
 .codemirror-editor-wrapper .cm-content {
-  padding: 8px 0;
+  padding: 4px 0;
   font-family: inherit;
 }
 
 .codemirror-editor-wrapper .cm-line {
-  padding: 0 8px;
-  line-height: 1.6;
+  padding: 0 4px;
+  line-height: 1.5;
 }
 
 /* Cursor styling */
