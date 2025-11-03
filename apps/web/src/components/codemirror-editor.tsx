@@ -301,8 +301,19 @@ export const CodeMirrorEditor = forwardRef<CodeMirrorEditorRef, CodeMirrorEditor
           const vimState = (view.state as any).vim;
           const decorations: Range<Decoration>[] = [];
           
+          // Debug log
+          if (vimState) {
+            console.log('🔍 Vim state:', {
+              mode: vimState.mode,
+              visualLine: vimState.visualLine,
+              visualBlock: vimState.visualBlock,
+            });
+          }
+          
           // Only in visual line mode
-          if (vimState && vimState.mode === 'visual' && vimState.visualLine) {
+          if (vimState && vimState.mode === 'visual') {
+            console.log('✅ Visual mode detected, visualLine:', vimState.visualLine);
+            
             const selection = view.state.selection.main;
             const from = Math.min(selection.from, selection.to);
             const to = Math.max(selection.from, selection.to);
@@ -310,6 +321,8 @@ export const CodeMirrorEditor = forwardRef<CodeMirrorEditorRef, CodeMirrorEditor
             // Get line range
             const fromLine = view.state.doc.lineAt(from);
             const toLine = view.state.doc.lineAt(to);
+            
+            console.log('📏 Line range:', fromLine.number, '→', toLine.number);
             
             // Highlight full lines from start to end
             for (let pos = fromLine.from; pos <= toLine.to;) {
@@ -321,6 +334,8 @@ export const CodeMirrorEditor = forwardRef<CodeMirrorEditorRef, CodeMirrorEditor
               );
               pos = line.to + 1;
             }
+            
+            console.log('🎨 Added', decorations.length, 'line decorations');
           }
           
           return Decoration.set(decorations);
