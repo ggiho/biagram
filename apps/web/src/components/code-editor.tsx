@@ -12,6 +12,7 @@ interface CodeEditorProps {
   language?: string;
   options?: any;
   height?: string | number;
+  vimMode?: boolean;
 }
 
 export interface CodeEditorRef {
@@ -27,10 +28,12 @@ export const CodeEditor = forwardRef<CodeEditorRef, CodeEditorProps>(({
   language = 'sql',
   options = {},
   height = '100%',
+  vimMode = false,
 }, ref) => {
   const [isClient, setIsClient] = useState(false);
   const { theme } = useTheme();
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
+  const vimModeRef = useRef<any>(null);
 
   // Monaco themes: 'vs-light' for light mode, 'vs-dark' for dark mode
   const monacoTheme = theme === 'dark' ? 'vs-dark' : 'vs-light';
@@ -86,6 +89,48 @@ export const CodeEditor = forwardRef<CodeEditorRef, CodeEditorProps>(({
   useEffect(() => {
     setIsClient(true);
   }, []);
+
+  // Initialize/cleanup Vim mode when vimMode changes
+  useEffect(() => {
+    const initVim = async () => {
+      const editor = editorRef.current;
+      if (!editor || !vimMode) return;
+
+      try {
+        console.log('🔄 Loading monaco-vim...');
+        const monacoVim = await import('monaco-vim');
+        console.log('✅ monaco-vim loaded:', !!monacoVim.initVimMode);
+        
+        // Wait for status bar to be rendered
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        const statusNode = document.getElementById('vim-status-bar');
+        console.log('📍 Status node:', !!statusNode);
+        
+        if (monacoVim.initVimMode) {
+          vimModeRef.current = monacoVim.initVimMode(editor, statusNode || undefined);
+          console.log('⌨️  Vim mode enabled');
+        }
+      } catch (error) {
+        console.error('❌ Failed to initialize Vim mode:', error);
+      }
+    };
+
+    if (vimMode) {
+      initVim();
+    } else if (vimModeRef.current) {
+      vimModeRef.current.dispose();
+      vimModeRef.current = null;
+      console.log('🔴 Vim mode disabled');
+    }
+
+    return () => {
+      if (vimModeRef.current) {
+        vimModeRef.current.dispose();
+        vimModeRef.current = null;
+      }
+    };
+  }, [vimMode]);
 
   // Configure Monaco Editor before it mounts
   const handleEditorWillMount = (monaco: typeof import('monaco-editor')) => {
@@ -186,7 +231,7 @@ export const CodeEditor = forwardRef<CodeEditorRef, CodeEditorProps>(({
   };
 
   // Handle editor mount - store instance and setup listeners
-  const handleEditorDidMount: OnMount = (editor, monaco) => {
+  const handleEditorDidMount: OnMount = async (editor, monaco) => {
     editorRef.current = editor;
     console.log('📝 Monaco Editor mounted');
 
@@ -240,9 +285,9 @@ export const CodeEditor = forwardRef<CodeEditorRef, CodeEditorProps>(({
   }
 
   return (
-    <div className="w-full h-full border border-gray-300 rounded overflow-hidden">
+    <div className="relative w-full h-full border border-gray-300 rounded overflow-hidden">
       <Editor
-        height={height}
+        height={vimMode ? 'calc(100% - 24px)' : height}
         value={value}
         language={language === 'dbml' ? 'dbml' : language}
         onChange={handleEditorChange}
@@ -276,6 +321,12 @@ export const CodeEditor = forwardRef<CodeEditorRef, CodeEditorProps>(({
         }}
         theme={monacoTheme}
       />
+      {vimMode && (
+        <div 
+          id="vim-status-bar"
+          className="absolute bottom-0 left-0 right-0 h-6 bg-muted/80 border-t border-border text-xs px-2 flex items-center font-mono text-foreground"
+        />
+      )}
     </div>
   );
 });
