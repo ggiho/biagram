@@ -70,6 +70,7 @@ function DiagramEditorContent() {
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const [renameDialogOpen, setRenameDialogOpen] = useState(false);
   const [tableToRename, setTableToRename] = useState<string | null>(null);
+  const [vimMode, setVimMode] = useState(false);
   const parseTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isParsingRef = useRef(false);
   const codeEditorRef = useRef<CodeEditorRef>(null);
@@ -369,14 +370,25 @@ function DiagramEditorContent() {
                   <div className="flex h-full flex-col">
                     <div className="border-b p-2 flex items-center justify-between">
                       <h3 className="text-sm font-medium">DBML Code</h3>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setEditorOpen(false)}
-                        className="h-6 w-6 p-0"
-                      >
-                        <ChevronLeft className="h-4 w-4" />
-                      </Button>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant={vimMode ? "secondary" : "ghost"}
+                          size="sm"
+                          onClick={() => setVimMode(!vimMode)}
+                          className="h-6 px-2 text-xs"
+                          title={vimMode ? "Disable Vim Mode" : "Enable Vim Mode"}
+                        >
+                          Vim
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setEditorOpen(false)}
+                          className="h-6 w-6 p-0"
+                        >
+                          <ChevronLeft className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
                     <div className="flex-1">
                       <CodeEditor
@@ -385,6 +397,7 @@ function DiagramEditorContent() {
                         onChange={handleCodeChange}
                         onCursorPositionChange={handleCursorPositionChange}
                         language="dbml"
+                        vimMode={vimMode}
                         options={{
                           minimap: { enabled: false },
                           lineNumbers: 'on',
