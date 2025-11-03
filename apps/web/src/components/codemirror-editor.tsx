@@ -108,15 +108,34 @@ export const CodeMirrorEditor = forwardRef<CodeMirrorEditorRef, CodeMirrorEditor
 
     console.log('🎨 Initializing CodeMirror editor, Vim mode:', vimMode);
 
-    // Vim Ctrl+D/U keymap with HIGHEST priority
+    // Vim Ctrl+D/U keymap with cursor movement (not just scroll)
     const vimScrollKeymap = vimMode ? Prec.highest(keymap.of([
       {
         key: 'Ctrl-d',
         run: (view) => {
           const scroller = view.scrollDOM;
           const halfPage = scroller.clientHeight / 2;
-          scroller.scrollTop += halfPage;
-          console.log('🔽 Ctrl+D: scrolled down', halfPage);
+          
+          // Calculate how many lines to move
+          const lineHeight = view.defaultLineHeight;
+          const linesToMove = Math.floor(halfPage / lineHeight);
+          
+          // Move cursor down
+          const cursor = view.state.selection.main.head;
+          const currentLine = view.state.doc.lineAt(cursor);
+          const targetLine = Math.min(currentLine.number + linesToMove, view.state.doc.lines);
+          const targetLineObj = view.state.doc.line(targetLine);
+          
+          // Move to same column if possible, otherwise end of line
+          const currentColumn = cursor - currentLine.from;
+          const targetPos = Math.min(targetLineObj.from + currentColumn, targetLineObj.to);
+          
+          view.dispatch({
+            selection: { anchor: targetPos, head: targetPos },
+            scrollIntoView: true,
+          });
+          
+          console.log('🔽 Ctrl+D: moved cursor down', linesToMove, 'lines');
           return true;
         },
       },
@@ -125,8 +144,27 @@ export const CodeMirrorEditor = forwardRef<CodeMirrorEditorRef, CodeMirrorEditor
         run: (view) => {
           const scroller = view.scrollDOM;
           const halfPage = scroller.clientHeight / 2;
-          scroller.scrollTop -= halfPage;
-          console.log('🔼 Ctrl+U: scrolled up', halfPage);
+          
+          // Calculate how many lines to move
+          const lineHeight = view.defaultLineHeight;
+          const linesToMove = Math.floor(halfPage / lineHeight);
+          
+          // Move cursor up
+          const cursor = view.state.selection.main.head;
+          const currentLine = view.state.doc.lineAt(cursor);
+          const targetLine = Math.max(currentLine.number - linesToMove, 1);
+          const targetLineObj = view.state.doc.line(targetLine);
+          
+          // Move to same column if possible, otherwise end of line
+          const currentColumn = cursor - currentLine.from;
+          const targetPos = Math.min(targetLineObj.from + currentColumn, targetLineObj.to);
+          
+          view.dispatch({
+            selection: { anchor: targetPos, head: targetPos },
+            scrollIntoView: true,
+          });
+          
+          console.log('🔼 Ctrl+U: moved cursor up', linesToMove, 'lines');
           return true;
         },
       },
@@ -328,7 +366,7 @@ export const CodeMirrorEditor = forwardRef<CodeMirrorEditorRef, CodeMirrorEditor
     
     // Add Vim mode if enabled
     if (vimMode) {
-      // Add Vim extension (Ctrl+D/U already handled above)
+      // Add Vim extension (handles Ctrl+D/U with cursor movement)
       extensions.push(vim());
       
       // REMOVED: ViewPlugin approach doesn't work because vim state is not accessible
