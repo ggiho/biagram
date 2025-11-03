@@ -81,10 +81,15 @@ export const diagramRouter = createTRPCRouter({
     .mutation(async ({ input }) => {
       try {
         console.log('🔄 SERVER: convertDDL called with dialect:', input.dialect);
+        console.log('📝 DDL length:', input.ddl.length);
+        console.log('📝 DDL preview:', input.ddl.substring(0, 100));
 
         const result = convertDDLtoDBMLAuto(input.ddl);
 
+        console.log('📊 Parse result:', { success: result.success, errors: result.errors, dbmlLength: result.dbml?.length || 0 });
+
         if (!result.success) {
+          console.error('❌ Parse failed:', result.errors);
           return {
             success: false,
             dbml: '',
