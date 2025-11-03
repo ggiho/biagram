@@ -99,7 +99,7 @@ const dbmlLanguage = StreamLanguage.define<DBMLState>({
     }
 
     // Keywords (only outside brackets)
-    if (stream.match(/^(Table|Ref|Enum|Project|Note|TableGroup|Indexes)\b/)) {
+    if (stream.match(/^(Table|Ref|Enum|Project|Note|TableGroup|Indexes|indexes)\b/)) {
       return 'keyword';
     }
 
