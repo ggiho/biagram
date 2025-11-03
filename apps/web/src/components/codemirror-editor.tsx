@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useState, useRef, useImperativeHandle, forwardRef } from 'react';
-import { EditorView, keymap, KeyBinding } from '@codemirror/view';
-import { EditorState, Prec } from '@codemirror/state';
+import { EditorView, keymap, KeyBinding, Decoration, ViewPlugin, DecorationSet, ViewUpdate } from '@codemirror/view';
+import { EditorState, Prec, Range } from '@codemirror/state';
 import { vim, Vim } from '@replit/codemirror-vim';
 import dbmlLanguage from '@/lib/dbml-language';
 import { defaultKeymap, historyKeymap } from '@codemirror/commands';
@@ -282,6 +282,54 @@ export const CodeMirrorEditor = forwardRef<CodeMirrorEditorRef, CodeMirrorEditor
     if (vimMode) {
       // Add Vim extension (Ctrl+D/U already handled above)
       extensions.push(vim());
+      
+      // Add visual line mode decoration plugin
+      const visualLinePlugin = ViewPlugin.fromClass(class {
+        decorations: DecorationSet;
+        
+        constructor(view: EditorView) {
+          this.decorations = this.computeDecorations(view);
+        }
+        
+        update(update: ViewUpdate) {
+          if (update.selectionSet || update.viewportChanged || update.docChanged) {
+            this.decorations = this.computeDecorations(update.view);
+          }
+        }
+        
+        computeDecorations(view: EditorView): DecorationSet {
+          const vimState = (view.state as any).vim;
+          const decorations: Range<Decoration>[] = [];
+          
+          // Only in visual line mode
+          if (vimState && vimState.mode === 'visual' && vimState.visualLine) {
+            const selection = view.state.selection.main;
+            const from = Math.min(selection.from, selection.to);
+            const to = Math.max(selection.from, selection.to);
+            
+            // Get line range
+            const fromLine = view.state.doc.lineAt(from);
+            const toLine = view.state.doc.lineAt(to);
+            
+            // Highlight full lines from start to end
+            for (let pos = fromLine.from; pos <= toLine.to;) {
+              const line = view.state.doc.lineAt(pos);
+              decorations.push(
+                Decoration.line({
+                  attributes: { class: 'cm-vim-visual-line-highlight' }
+                }).range(line.from)
+              );
+              pos = line.to + 1;
+            }
+          }
+          
+          return Decoration.set(decorations);
+        }
+      }, {
+        decorations: v => v.decorations
+      });
+      
+      extensions.push(visualLinePlugin);
       
       // Update Vim status indicator and cursor position
       extensions.push(
