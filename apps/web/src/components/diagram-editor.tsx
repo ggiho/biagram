@@ -6,7 +6,9 @@ import { Save, Settings, Download, Share, Upload, FileText, ChevronLeft, Chevron
 import Link from 'next/link';
 
 import { Button } from '@/components/ui/button';
-import { CodeEditor, type CodeEditorRef } from '@/components/code-editor';
+import { CodeMirrorEditor, type CodeMirrorEditorRef } from '@/components/codemirror-editor';
+// Keep old editor as fallback
+// import { CodeEditor, type CodeEditorRef } from '@/components/code-editor';
 import DiagramCanvas from '@/components/diagram-canvas';
 import { DiagramToolbar } from '@/components/diagram-toolbar';
 import { DiagramSidebar } from '@/components/diagram-sidebar';
@@ -73,7 +75,7 @@ function DiagramEditorContent() {
   const [vimMode, setVimMode] = useState(false);
   const parseTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isParsingRef = useRef(false);
-  const codeEditorRef = useRef<CodeEditorRef>(null);
+  const codeEditorRef = useRef<CodeMirrorEditorRef>(null);
 
   // Undo/Redo history
   const [history, setHistory] = useState<string[]>([SAMPLE_DBML]);
@@ -372,7 +374,7 @@ function DiagramEditorContent() {
                       <h3 className="text-sm font-medium">DBML Code</h3>
                       <div className="flex items-center gap-1">
                         <Button
-                          variant={vimMode ? "secondary" : "ghost"}
+                          variant={vimMode ? "default" : "ghost"}
                           size="sm"
                           onClick={() => setVimMode(!vimMode)}
                           className="h-6 px-2 text-xs"
@@ -391,19 +393,13 @@ function DiagramEditorContent() {
                       </div>
                     </div>
                     <div className="flex-1">
-                      <CodeEditor
+                      <CodeMirrorEditor
                         ref={codeEditorRef}
                         value={code}
                         onChange={handleCodeChange}
                         onCursorPositionChange={handleCursorPositionChange}
                         language="dbml"
                         vimMode={vimMode}
-                        options={{
-                          minimap: { enabled: false },
-                          lineNumbers: 'on',
-                          wordWrap: 'on',
-                          automaticLayout: true,
-                        }}
                       />
                     </div>
                   </div>
