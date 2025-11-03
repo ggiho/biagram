@@ -3,8 +3,8 @@
 import { useEffect, useState, useRef, useImperativeHandle, forwardRef } from 'react';
 import { EditorView, keymap, KeyBinding } from '@codemirror/view';
 import { EditorState, Prec } from '@codemirror/state';
-import { sql } from '@codemirror/lang-sql';
 import { vim, Vim } from '@replit/codemirror-vim';
+import dbmlLanguage from '@/lib/dbml-language';
 import { defaultKeymap, historyKeymap } from '@codemirror/commands';
 import { history } from '@codemirror/commands';
 import { lineNumbers, highlightActiveLineGutter, highlightSpecialChars, drawSelection, dropCursor, rectangularSelection, crosshairCursor, highlightActiveLine } from '@codemirror/view';
@@ -169,7 +169,7 @@ export const CodeMirrorEditor = forwardRef<CodeMirrorEditorRef, CodeMirrorEditor
     // Create extensions array
     const extensions = [
       ...basicExtensions,
-      sql(), // Use SQL highlighting as base (closest to DBML)
+      dbmlLanguage, // Use custom DBML language
       EditorView.lineWrapping,
       // CRITICAL: Fix scrolling by constraining scroller height
       EditorView.theme({
@@ -254,13 +254,14 @@ export const CodeMirrorEditor = forwardRef<CodeMirrorEditorRef, CodeMirrorEditor
       },
       styles: [
         { tag: t.comment, color: '#008000' }, // Green comments
-        { tag: [t.keyword], color: '#0000ff' }, // Blue keywords (Table, Ref, Enum, etc.)
-        { tag: [t.string, t.special(t.brace), t.regexp], color: '#a31515' }, // Red strings
+        { tag: t.keyword, color: '#0000ff' }, // Blue keywords (Table, Ref, Enum, etc.)
+        { tag: [t.string, t.special(t.brace)], color: '#a31515' }, // Red strings
         { tag: t.number, color: '#098658' }, // Green numbers
-        { tag: [t.operator, t.punctuation, t.modifier, t.bool, t.null, t.atom, t.constant(t.name)], color: '#000000' }, // Black (not null, default, CURRENT_TIMESTAMP, etc.)
-        { tag: [t.variableName, t.propertyName], color: '#001080' }, // Dark blue variables (table names)
-        { tag: t.function(t.variableName), color: '#795e26' }, // Brown functions
-        { tag: t.typeName, color: '#008080' }, // Teal types (varchar, integer, etc.) - Monaco 청록색
+        { tag: t.operator, color: '#000000' }, // Black operators (<, >, -)
+        { tag: t.punctuation, color: '#000000' }, // Black punctuation
+        { tag: t.meta, color: '#000000' }, // Black meta (attributes in brackets like [not null], [default: ...])
+        { tag: [t.variableName, t.propertyName], color: '#001080' }, // Dark blue variables (table names, column names)
+        { tag: t.typeName, color: '#008080' }, // Teal types (varchar, integer, etc.)
         { tag: t.className, color: '#008080' }, // Teal class names
       ],
     });
