@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useState, useRef, useImperativeHandle, forwardRef } from 'react';
-import { EditorView, keymap, KeyBinding, Decoration, ViewPlugin, DecorationSet, ViewUpdate } from '@codemirror/view';
-import { EditorState, Prec, Range } from '@codemirror/state';
+import { EditorView, keymap, KeyBinding, Decoration, DecorationSet, ViewPlugin, ViewUpdate } from '@codemirror/view';
+import { EditorState, Prec } from '@codemirror/state';
 import { vim, Vim } from '@replit/codemirror-vim';
 import dbmlLanguage from '@/lib/dbml-language';
 import { defaultKeymap, historyKeymap } from '@codemirror/commands';
@@ -130,6 +130,49 @@ export const CodeMirrorEditor = forwardRef<CodeMirrorEditorRef, CodeMirrorEditor
     ])) : [];
 
     // Basic setup extensions (manually defined instead of using deprecated basicSetup)
+    const selectionTheme = EditorView.theme(
+      {
+        '.cm-selectionBackground': {
+          backgroundColor: '#add6ff',
+        },
+        '&.cm-focused .cm-selectionBackground': {
+          backgroundColor: '#add6ff',
+        },
+        '.cm-selectionMatch': {
+          backgroundColor: '#d4ebff',
+        },
+      },
+      { priority: 1 }
+    );
+
+    const selectionHighlightPlugin = ViewPlugin.fromClass(
+      class {
+        decorations: DecorationSet;
+
+        constructor(view: EditorView) {
+          this.decorations = this.computeDecorations(view);
+        }
+
+        update(update: ViewUpdate) {
+          if (update.selectionSet || update.docChanged || update.focusChanged) {
+            this.decorations = this.computeDecorations(update.view);
+          }
+        }
+
+        computeDecorations(view: EditorView): DecorationSet {
+          const ranges = view.state.selection.ranges;
+          const marks = ranges
+            .filter(range => !range.empty)
+            .map(range => Decoration.mark({ class: 'cm-custom-selection' }).range(range.from, range.to));
+
+          return Decoration.set(marks, true);
+        }
+      },
+      {
+        decorations: v => v.decorations,
+      }
+    );
+
     const basicExtensions = [
       lineNumbers(),
       highlightActiveLineGutter(),
@@ -151,6 +194,8 @@ export const CodeMirrorEditor = forwardRef<CodeMirrorEditorRef, CodeMirrorEditor
       rectangularSelection(),
       crosshairCursor(),
       highlightActiveLine(),
+      selectionTheme,
+      selectionHighlightPlugin,
       highlightSelectionMatches(),
       // Add keymap BEFORE Vim mode (lower priority)
       // This ensures Vim keys will override default keys when Vim is enabled

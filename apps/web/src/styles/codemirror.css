@@ -48,21 +48,7 @@
   border: none !important;
 }
 
-/* Force selection background to be visible */
-.codemirror-editor-wrapper .cm-selectionBackground {
-  background-color: rgba(173, 214, 255, 0.99) !important;
-  position: absolute !important;
-  z-index: 999 !important;
-  pointer-events: none !important;
+.codemirror-editor-wrapper .cm-custom-selection {
+  background-color: rgba(173, 214, 255, 0.9) !important;
 }
 
-.codemirror-editor-wrapper .cm-selectionMatch {
-  background-color: rgba(212, 235, 255, 0.6) !important;
-  z-index: 1 !important;
-}
-
-/* Ensure content is below selection */
-.codemirror-editor-wrapper .cm-content {
-  position: relative !important;
-  z-index: 1 !important;
-}
