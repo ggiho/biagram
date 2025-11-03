@@ -65,7 +65,12 @@ export class PostgreSQLParser {
       return;
     }
 
-    const tableName = (tableNameMatch[2] || tableNameMatch[1]) ?? '';
+    // If tableNameMatch[2] exists, then tableNameMatch[1] is schema, [2] is table
+    // If tableNameMatch[2] doesn't exist, then tableNameMatch[1] is table (no schema)
+    const schemaName = tableNameMatch[2] ? tableNameMatch[1] : undefined;
+    const tableName = tableNameMatch[2] || tableNameMatch[1] || '';
+    const fullTableName = schemaName ? `${schemaName}.${tableName}` : tableName;
+    
     if (!tableName) {
       this.errors.push('Could not extract table name');
       return;
@@ -74,12 +79,12 @@ export class PostgreSQLParser {
     // Extract table definition
     const defMatch = stmt.match(/\(([\s\S]+)\)(?:\s*;|\s*$)/i);
     if (!defMatch || !defMatch[1]) {
-      this.errors.push(`Could not extract table definition for ${tableName}`);
+      this.errors.push(`Could not extract table definition for ${fullTableName}`);
       return;
     }
 
     const tableDef: TableDef = {
-      name: tableName,
+      name: fullTableName,
       columns: [],
       primaryKeys: [],
       foreignKeys: [],

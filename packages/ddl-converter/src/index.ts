@@ -39,21 +39,7 @@ export function convertDDLtoDBML(ddl: string, dialect: SQLDialect = 'mysql'): DD
 export function detectSQLDialect(ddl: string): SQLDialect {
   const upper = ddl.toUpperCase();
 
-  // PostgreSQL-specific keywords
-  if (
-    upper.includes('SERIAL') ||
-    upper.includes('BIGSERIAL') ||
-    upper.includes('SMALLSERIAL') ||
-    upper.includes('CHARACTER VARYING') ||
-    upper.includes('TIMESTAMP WITH TIME ZONE') ||
-    upper.includes('TIMESTAMP WITHOUT TIME ZONE') ||
-    upper.includes('JSONB') ||
-    upper.includes('UUID')
-  ) {
-    return 'postgresql';
-  }
-
-  // MySQL-specific keywords
+  // Check MySQL-specific keywords first (more specific patterns)
   if (
     upper.includes('AUTO_INCREMENT') ||
     upper.includes('ENGINE=') ||
@@ -61,6 +47,22 @@ export function detectSQLDialect(ddl: string): SQLDialect {
     upper.includes('COLLATE=')
   ) {
     return 'mysql';
+  }
+
+  // PostgreSQL-specific keywords (but exclude UUID in comments)
+  // Only match UUID as a type, not in comments
+  const cleanedDdl = upper.replace(/COMMENT\s+'[^']*'/g, '');
+  if (
+    cleanedDdl.includes(' SERIAL') ||
+    cleanedDdl.includes(' BIGSERIAL') ||
+    cleanedDdl.includes(' SMALLSERIAL') ||
+    cleanedDdl.includes('CHARACTER VARYING') ||
+    cleanedDdl.includes('TIMESTAMP WITH TIME ZONE') ||
+    cleanedDdl.includes('TIMESTAMP WITHOUT TIME ZONE') ||
+    cleanedDdl.includes(' JSONB') ||
+    cleanedDdl.match(/\s+UUID(\s+|,|\))/i)  // UUID as a type, not in text
+  ) {
+    return 'postgresql';
   }
 
   // Default to MySQL

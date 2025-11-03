@@ -11,22 +11,39 @@ export class MySQLParser {
     this.warnings = [];
 
     try {
+      console.log('🔄 MySQL Parser: Starting parse...');
+      
       // Remove comments
       const cleaned = this.removeComments(ddl);
+      console.log('✅ Comments removed, length:', cleaned.length);
 
       // Split into statements
       const statements = this.splitStatements(cleaned);
+      console.log('📋 Found', statements.length, 'statements');
 
       // Parse each statement
-      for (const stmt of statements) {
-        const trimmed = stmt.trim();
+      for (let i = 0; i < statements.length; i++) {
+        const trimmed = statements[i]?.trim() || '';
         if (trimmed.toUpperCase().startsWith('CREATE TABLE')) {
-          this.parseCreateTable(trimmed);
+          console.log(`🔨 Parsing table ${i + 1}/${statements.length}...`);
+          try {
+            this.parseCreateTable(trimmed);
+            console.log('✅ Table parsed successfully');
+          } catch (error) {
+            const errMsg = `Error parsing table ${i + 1}: ${error instanceof Error ? error.message : String(error)}`;
+            console.error('❌', errMsg);
+            this.errors.push(errMsg);
+          }
         }
       }
 
+      console.log('📊 Total tables parsed:', this.tables.length);
+      console.log('⚠️ Total errors:', this.errors.length);
+      console.log('💡 Total warnings:', this.warnings.length);
+
       // Convert to DBML
       const dbml = this.convertToDBML();
+      console.log('📝 DBML generated, length:', dbml.length);
 
       return {
         success: this.errors.length === 0,
@@ -35,7 +52,9 @@ export class MySQLParser {
         warnings: this.warnings.length > 0 ? this.warnings : undefined,
       };
     } catch (error) {
-      this.errors.push(`Parse error: ${error instanceof Error ? error.message : String(error)}`);
+      const errMsg = `Parse error: ${error instanceof Error ? error.message : String(error)}`;
+      console.error('❌ Fatal parse error:', errMsg);
+      this.errors.push(errMsg);
       return {
         success: false,
         dbml: '',
@@ -59,24 +78,34 @@ export class MySQLParser {
   }
 
   private parseCreateTable(stmt: string): void {
-    // Extract table name
-    const tableNameMatch = stmt.match(/CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?`?(\w+)`?/i);
-    if (!tableNameMatch || !tableNameMatch[1]) {
+    // Extract table name (with optional schema)
+    const tableNameMatch = stmt.match(/CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(?:`?(\w+)`?\.)?`?(\w+)`?/i);
+    if (!tableNameMatch) {
+      console.error('❌ Could not match table name in:', stmt.substring(0, 100));
       this.errors.push('Could not extract table name');
       return;
     }
 
-    const tableName = tableNameMatch[1];
+    // Schema.Table or just Table
+    // If tableNameMatch[2] exists, then tableNameMatch[1] is schema, [2] is table
+    // If tableNameMatch[2] doesn't exist, then tableNameMatch[1] is table (no schema)
+    const schemaName = tableNameMatch[2] ? tableNameMatch[1] : undefined;
+    const tableName = tableNameMatch[2] || tableNameMatch[1] || '';
+    const fullTableName = schemaName ? `${schemaName}.${tableName}` : tableName;
+    console.log('🏷️ Parsed table:', { schemaName, tableName, fullTableName });
 
     // Extract table definition (content between parentheses)
     const defMatch = stmt.match(/\(([\s\S]+)\)(?:\s*ENGINE|\s*DEFAULT|\s*COMMENT|\s*;|\s*$)/i);
     if (!defMatch || !defMatch[1]) {
-      this.errors.push(`Could not extract table definition for ${tableName}`);
+      console.error('❌ Could not match table definition. Statement length:', stmt.length);
+      console.error('Statement preview:', stmt.substring(0, 200));
+      this.errors.push(`Could not extract table definition for ${fullTableName}`);
       return;
     }
+    console.log('✅ Table definition matched, length:', defMatch[1].length);
 
     const tableDef: TableDef = {
-      name: tableName,
+      name: fullTableName,
       columns: [],
       primaryKeys: [],
       foreignKeys: [],
@@ -91,6 +120,8 @@ export class MySQLParser {
 
       if (trimmed.toUpperCase().startsWith('PRIMARY KEY')) {
         this.parsePrimaryKey(trimmed, tableDef);
+      } else if (trimmed.toUpperCase().startsWith('CONSTRAINT')) {
+        this.parseConstraint(trimmed, tableDef);
       } else if (trimmed.toUpperCase().startsWith('FOREIGN KEY')) {
         this.parseForeignKey(trimmed, tableDef);
       } else if (trimmed.toUpperCase().startsWith('KEY') ||
@@ -139,7 +170,10 @@ export class MySQLParser {
   private parseColumn(line: string, table: TableDef): void {
     // Extract column name (might be backtick-quoted)
     const nameMatch = line.match(/^`?(\w+)`?\s+/);
-    if (!nameMatch || !nameMatch[1]) return;
+    if (!nameMatch || !nameMatch[1]) {
+      console.warn('⚠️ Could not parse column name from:', line.substring(0, 50));
+      return;
+    }
 
     const columnName = nameMatch[1];
     const rest = line.substring(nameMatch[0].length);
@@ -147,9 +181,12 @@ export class MySQLParser {
     // Extract data type
     const typeMatch = rest.match(/^(\w+)(?:\(([^)]+)\))?/i);
     if (!typeMatch || !typeMatch[1]) {
-      this.warnings.push(`Could not parse type for column ${columnName}`);
+      const warning = `Could not parse type for column ${columnName}`;
+      console.warn('⚠️', warning, 'Rest:', rest.substring(0, 50));
+      this.warnings.push(warning);
       return;
     }
+    console.log(`  ✓ Column: ${columnName} ${typeMatch[1]}`);
 
     const column: ColumnDef = {
       name: columnName,
@@ -197,12 +234,19 @@ export class MySQLParser {
   }
 
   private parseForeignKey(line: string, table: TableDef): void {
-    const match = line.match(/FOREIGN\s+KEY\s*\(`?(\w+)`?\)\s*REFERENCES\s+`?(\w+)`?\s*\(`?(\w+)`?\)/i);
-    if (match && match[1] && match[2] && match[3]) {
+    // Match FOREIGN KEY with optional schema in REFERENCES
+    const match = line.match(/FOREIGN\s+KEY\s*\(`?(\w+)`?\)\s*REFERENCES\s+(?:`?(\w+)`?\.)?`?(\w+)`?\s*\(`?(\w+)`?\)/i);
+    if (match && match[1]) {
+      const schemaName = match[2];
+      const tableName = match[3] || match[2] || '';
+      const columnName = match[4] || match[3] || '';
+      
+      const fullTableName = schemaName && match[3] ? `${schemaName}.${tableName}` : tableName;
+      
       const fk: ForeignKeyDef = {
         columnName: match[1],
-        referencedTable: match[2],
-        referencedColumn: match[3],
+        referencedTable: fullTableName,
+        referencedColumn: columnName,
         onDelete: undefined,
         onUpdate: undefined,
       };
@@ -222,12 +266,41 @@ export class MySQLParser {
     }
   }
 
+  private parseConstraint(line: string, table: TableDef): void {
+    // Handle CONSTRAINT ... FOREIGN KEY
+    if (line.toUpperCase().includes('FOREIGN KEY')) {
+      this.parseForeignKey(line, table);
+    }
+    // Handle CONSTRAINT ... PRIMARY KEY
+    else if (line.toUpperCase().includes('PRIMARY KEY')) {
+      this.parsePrimaryKey(line, table);
+    }
+    // Handle CONSTRAINT ... UNIQUE
+    else if (line.toUpperCase().includes('UNIQUE')) {
+      this.parseIndex(line, table);
+    }
+  }
+
   private parseIndex(line: string, table: TableDef): void {
-    const unique = line.toUpperCase().startsWith('UNIQUE');
-    const nameMatch = line.match(/(?:KEY|INDEX)\s+(?:`?(\w+)`?\s+)?\(([^)]+)\)/i);
+    const unique = line.toUpperCase().includes('UNIQUE');
+    // Match KEY/INDEX with optional name and column list (handle partial indexes like col(100))
+    // Use greedy match to capture everything between outer parentheses
+    const nameMatch = line.match(/(?:KEY|INDEX)\s+(?:`?(\w+)`?\s+)?\((.*)\)(?:\s|,|$)/i);
 
     if (nameMatch && nameMatch[2]) {
-      const columns = nameMatch[2].split(',').map(c => c.trim().replace(/`/g, ''));
+      // Clean up columns (remove partial index sizes like "full_name(100)")
+      const columns = nameMatch[2]
+        .split(',')
+        .map(c => {
+          const trimmed = c.trim().replace(/`/g, '');
+          // Remove partial index notation like (100)
+          const cleaned = trimmed.replace(/\(\d+\)$/, '');
+          return cleaned;
+        })
+        .filter(c => c.length > 0);  // Remove empty strings
+      
+      console.log(`  ✓ Index: ${nameMatch[1] || 'unnamed'} on (${columns.join(', ')})`);
+      
       table.indexes.push({
         name: nameMatch[1] || `idx_${columns.join('_')}`,
         columns,
