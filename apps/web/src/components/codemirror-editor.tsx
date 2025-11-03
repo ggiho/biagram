@@ -289,7 +289,7 @@ export const CodeMirrorEditor = forwardRef<CodeMirrorEditorRef, CodeMirrorEditor
           const statusBar = document.getElementById('vim-mode-indicator');
           const cursorPos = document.getElementById('cursor-position');
           
-          // Update Vim mode
+          // Update Vim mode (check on ANY update, not just selection changes)
           if (statusBar) {
             const vimState = (update.view.state as any).vim;
             if (vimState) {
@@ -314,6 +314,15 @@ export const CodeMirrorEditor = forwardRef<CodeMirrorEditorRef, CodeMirrorEditor
             const lineNum = line.number;
             const colNum = cursor - line.from + 1;
             cursorPos.textContent = `Ln ${lineNum}, Col ${colNum}`;
+          }
+          
+          // Force repaint when entering visual mode to show selection immediately
+          if (update.selectionSet || update.viewportChanged) {
+            const vimState = (update.view.state as any).vim;
+            if (vimState && vimState.mode === 'visual') {
+              // Trigger a DOM update to ensure selection is visible
+              update.view.requestMeasure();
+            }
           }
         })
       );
