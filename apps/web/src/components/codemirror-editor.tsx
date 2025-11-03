@@ -254,15 +254,14 @@ export const CodeMirrorEditor = forwardRef<CodeMirrorEditorRef, CodeMirrorEditor
       },
       styles: [
         { tag: t.comment, color: '#008000' }, // Green comments
-        { tag: [t.keyword, t.modifier, t.bool, t.null, t.atom], color: '#0000ff' }, // Blue keywords (Table, Ref, not null, default, true, false, etc.)
+        { tag: [t.keyword], color: '#0000ff' }, // Blue keywords (Table, Ref, Enum, etc.)
         { tag: [t.string, t.special(t.brace), t.regexp], color: '#a31515' }, // Red strings
         { tag: t.number, color: '#098658' }, // Green numbers
-        { tag: [t.operator, t.punctuation], color: '#000000' }, // Black operators
+        { tag: [t.operator, t.punctuation, t.modifier, t.bool, t.null, t.atom, t.constant(t.name)], color: '#000000' }, // Black (not null, default, CURRENT_TIMESTAMP, etc.)
         { tag: [t.variableName, t.propertyName], color: '#001080' }, // Dark blue variables (table names)
         { tag: t.function(t.variableName), color: '#795e26' }, // Brown functions
-        { tag: t.typeName, color: '#267f99' }, // Teal types (varchar, integer, etc.)
-        { tag: t.className, color: '#267f99' }, // Teal class names
-        { tag: t.constant(t.name), color: '#0070c1' }, // Bright blue for constants (CURRENT_TIMESTAMP, etc.)
+        { tag: t.typeName, color: '#008080' }, // Teal types (varchar, integer, etc.) - Monaco 청록색
+        { tag: t.className, color: '#008080' }, // Teal class names
       ],
     });
     
