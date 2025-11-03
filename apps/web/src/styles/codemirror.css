@@ -48,9 +48,13 @@
   border: none !important;
 }
 
-/* Vim Visual Line mode: extend selection to full line width */
+/* Force selection background to be visible */
 .codemirror-editor-wrapper .cm-selectionBackground {
-  /* Make selection extend to end of line visually */
-  display: block !important;
-  min-width: 100% !important;
+  background-color: rgba(173, 214, 255, 0.99) !important;
+  z-index: 2 !important;
+}
+
+.codemirror-editor-wrapper .cm-selectionMatch {
+  background-color: rgba(212, 235, 255, 0.6) !important;
+  z-index: 1 !important;
 }
