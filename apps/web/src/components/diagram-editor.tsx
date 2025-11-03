@@ -227,13 +227,19 @@ function DiagramEditorContent() {
     });
   }, [code, toast]);
 
+  // Track if the last selection change came from code editor
+  const lastSelectionFromCodeRef = useRef(false);
+
   // BIDIRECTIONAL SYNC: Canvas → Code
   // When a table is selected in the canvas, scroll the code editor to that table
   useEffect(() => {
-    if (selectedEntityId && codeEditorRef.current) {
+    // Only scroll code editor if selection came from canvas (not from code cursor movement)
+    if (selectedEntityId && codeEditorRef.current && !lastSelectionFromCodeRef.current) {
       console.log('🔄 Canvas selected:', selectedEntityId, '→ scrolling code editor');
       codeEditorRef.current.scrollToTable(selectedEntityId);
     }
+    // Reset flag
+    lastSelectionFromCodeRef.current = false;
   }, [selectedEntityId]);
 
   // BIDIRECTIONAL SYNC: Code → Canvas
@@ -241,6 +247,7 @@ function DiagramEditorContent() {
   const handleCursorPositionChange = useCallback((line: number, column: number, tableName: string | null) => {
     if (tableName && tableName !== selectedEntityId) {
       console.log('🔄 Code cursor in table:', tableName, '→ selecting in canvas');
+      lastSelectionFromCodeRef.current = true; // Mark that this selection came from code
       setSelectedEntityId(tableName);
       setHighlightedRelationshipId(null); // 관계 하이라이트 초기화
 
@@ -249,12 +256,8 @@ function DiagramEditorContent() {
         console.log('🎯 Auto-panning canvas to table:', tableName);
         engine.panToTable(tableName, true); // true = with animation
       }
-    } else if (!tableName && selectedEntityId) {
-      // Cursor is outside any table, deselect
-      console.log('🔄 Code cursor outside tables → deselecting');
-      setSelectedEntityId(null);
-      setHighlightedRelationshipId(null); // 관계 하이라이트 초기화
     }
+    // Don't deselect or pan when cursor is outside tables - this prevents unwanted jumps
   }, [selectedEntityId, setSelectedEntityId, setHighlightedRelationshipId, engine]);
 
   // AUTO-PARSE FUNCTIONALITY
