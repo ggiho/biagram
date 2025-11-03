@@ -320,6 +320,27 @@ export const CodeMirrorEditor = forwardRef<CodeMirrorEditorRef, CodeMirrorEditor
           if (update.selectionSet || update.viewportChanged) {
             const vimState = (update.view.state as any).vim;
             if (vimState && vimState.mode === 'visual') {
+              // Check if in visual line mode
+              const isVisualLine = vimState.visualLine;
+              
+              if (isVisualLine) {
+                // Extend selection to end of line for visual line mode
+                const selection = update.state.selection.main;
+                const cursorLine = update.state.doc.lineAt(selection.head);
+                
+                // If selection doesn't include the full line, extend it
+                if (selection.to < cursorLine.to) {
+                  const newSelection = {
+                    anchor: selection.anchor,
+                    head: cursorLine.to,
+                  };
+                  
+                  update.view.dispatch({
+                    selection: newSelection,
+                  });
+                }
+              }
+              
               // Trigger a DOM update to ensure selection is visible
               update.view.requestMeasure();
             }
