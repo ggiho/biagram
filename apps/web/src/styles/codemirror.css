@@ -49,6 +49,11 @@
 }
 
 /* Vim Visual Line mode: ensure full line is highlighted */
-.codemirror-editor-wrapper .cm-vim-visual-line .cm-line {
-  background-color: rgba(128, 179, 255, 0.3) !important;
+.codemirror-editor-wrapper .cm-vim-visual-line-highlight {
+  background-color: rgba(128, 179, 255, 0.5) !important;
+}
+
+/* Dark mode visual line highlight */
+.dark .codemirror-editor-wrapper .cm-vim-visual-line-highlight {
+  background-color: rgba(150, 200, 255, 0.3) !important;
 }
