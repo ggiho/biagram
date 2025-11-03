@@ -16,12 +16,13 @@ import { useToast } from '@/hooks/use-toast';
 interface DDLImportDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onImportSuccess: (dbml: string) => void;
+  onImportSuccess: (dbml: string, mode: 'replace' | 'append') => void;
 }
 
 export function DDLImportDialog({ open, onOpenChange, onImportSuccess }: DDLImportDialogProps) {
   const [ddl, setDdl] = useState('');
   const [dialect, setDialect] = useState<'mysql' | 'postgresql' | 'auto'>('auto');
+  const [importMode, setImportMode] = useState<'replace' | 'append'>('replace');
   const { toast } = useToast();
   const convertDDL = trpc.diagrams.convertDDL.useMutation();
 
@@ -56,13 +57,13 @@ export function DDLImportDialog({ open, onOpenChange, onImportSuccess }: DDLImpo
         });
       }
 
-      console.log('✅ DDL converted successfully');
+      console.log('✅ DDL converted successfully, mode:', importMode);
       toast({
         title: 'Success',
-        description: 'DDL converted to DBML successfully',
+        description: `DDL converted to DBML successfully (${importMode === 'replace' ? 'Replaced' : 'Appended'})`,
       });
 
-      onImportSuccess(result.dbml);
+      onImportSuccess(result.dbml, importMode);
       onOpenChange(false);
       setDdl(''); // Clear input
     } catch (error) {
@@ -97,6 +98,19 @@ export function DDLImportDialog({ open, onOpenChange, onImportSuccess }: DDLImpo
               <option value="auto">Auto Detect</option>
               <option value="mysql">MySQL</option>
               <option value="postgresql">PostgreSQL</option>
+            </select>
+          </div>
+
+          {/* Import Mode Selection */}
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-medium">Import Mode:</label>
+            <select
+              value={importMode}
+              onChange={(e) => setImportMode(e.target.value as any)}
+              className="rounded-md border border-input bg-background px-3 py-1.5 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+            >
+              <option value="replace">Replace</option>
+              <option value="append">Append</option>
             </select>
           </div>
 

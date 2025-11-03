@@ -209,14 +209,23 @@ function DiagramEditorContent() {
     });
   }, [toast]);
 
-  const handleImportSuccess = useCallback((dbml: string) => {
-    console.log('📥 DDL imported successfully, updating code');
-    setCode(dbml);
+  const handleImportSuccess = useCallback((dbml: string, mode: 'replace' | 'append') => {
+    console.log('📥 DDL imported successfully, mode:', mode);
+    
+    if (mode === 'append') {
+      // Append with separator
+      const separator = '\n\n// ===== Imported DDL =====\n';
+      setCode(code + separator + dbml);
+    } else {
+      // Replace
+      setCode(dbml);
+    }
+    
     toast({
       title: 'Import Successful',
-      description: 'DDL converted to DBML successfully',
+      description: `DDL converted to DBML successfully (${mode === 'replace' ? 'Replaced' : 'Appended'})`,
     });
-  }, [toast]);
+  }, [code, toast]);
 
   // BIDIRECTIONAL SYNC: Canvas → Code
   // When a table is selected in the canvas, scroll the code editor to that table
