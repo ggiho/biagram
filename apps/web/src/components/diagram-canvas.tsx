@@ -483,58 +483,77 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
                 const fromCenterX = fromTableBounds.x + fromTableBounds.width / 2;
                 const toCenterX = toTableBounds.x + toTableBounds.width / 2;
 
-                // 컬럼의 Y 좌표 계산
-                const startY = getColumnY(fromTable, schemaRel.fromColumn, fromTableBounds);
-                const endY = getColumnY(toTable, schemaRel.toColumn, toTableBounds);
+                // 컬럼의 Y 좌표 계산 (컬럼 중심)
+                const fromColumnY = getColumnY(fromTable, schemaRel.fromColumn, fromTableBounds);
+                const toColumnY = getColumnY(toTable, schemaRel.toColumn, toTableBounds);
 
-                let startX: number, endX: number;
+                // 시작점과 끝점 계산 (컬럼의 Y 좌표에서 테이블 가장자리로)
+                let startX: number, startY: number, endX: number, endY: number;
                 let fromSide: 'left' | 'right', toSide: 'left' | 'right';
 
                 if (fromCenterX < toCenterX) {
                   // fromTable이 왼쪽에 있음 → 오른쪽에서 나가서 왼쪽으로 들어감
                   startX = fromTableBounds.x + fromTableBounds.width;
+                  startY = fromColumnY;
                   endX = toTableBounds.x;
+                  endY = toColumnY;
                   fromSide = 'right';
                   toSide = 'left';
                 } else {
                   // fromTable이 오른쪽에 있음 → 왼쪽에서 나가서 오른쪽으로 들어감
                   startX = fromTableBounds.x;
+                  startY = fromColumnY;
                   endX = toTableBounds.x + toTableBounds.width;
+                  endY = toColumnY;
                   fromSide = 'left';
                   toSide = 'right';
                 }
 
                 // 🔄 Orthogonal routing: 가로-세로-가로 경로 생성
-                const GAP = 5; // 테이블에서 떨어진 거리
+                const GAP = 20; // 테이블에서 떨어진 거리
                 const controlPoints: { x: number; y: number }[] = [];
-
-                let actualStartX: number, actualEndX: number;
 
                 if (fromSide === 'right' && toSide === 'left') {
                   // 오른쪽 → 왼쪽
-                  actualStartX = startX + GAP;
-                  actualEndX = endX - GAP;
-                  const midX = (actualStartX + actualEndX) / 2;
+                  const firstX = startX + GAP;
+                  const lastX = endX - GAP;
+                  const midX = (firstX + lastX) / 2;
+                  // start → firstX (수평), midX (수평), midX (수직), lastX (수평) → end
                   controlPoints.push(
-                    { x: midX, y: startY },            // 중간까지 가로
-                    { x: midX, y: endY }               // 세로로 이동
+                    { x: firstX, y: startY },          // 테이블에서 GAP만큼 나가기
+                    { x: midX, y: startY },            // 중간까지 수평
+                    { x: midX, y: endY },              // 수직 이동
+                    { x: lastX, y: endY }              // 테이블 도착 전
                   );
                 } else {
-                  // 왼쪽 → 오른쪽
-                  actualStartX = startX - GAP;
-                  actualEndX = endX + GAP;
-                  const midX = (actualStartX + actualEndX) / 2;
+                  // 왼쪽 → 오른쪽 (fromTable이 오른쪽에 있음)
+                  const firstX = startX - GAP;  // 왼쪽으로 GAP만큼 나가기
+                  const lastX = endX + GAP;     // 오른쪽으로 GAP만큼 나가기
+                  const midX = (firstX + lastX) / 2;
                   controlPoints.push(
-                    { x: midX, y: startY },            // 중간까지 가로
-                    { x: midX, y: endY }               // 세로로 이동
+                    { x: firstX, y: startY },
+                    { x: midX, y: startY },
+                    { x: midX, y: endY },
+                    { x: lastX, y: endY }
                   );
                 }
 
                 // 화살표 방향 계산 (마지막 세그먼트 방향)
                 const lastControlPoint = controlPoints[controlPoints.length - 1];
                 const direction = lastControlPoint
-                  ? Math.atan2(endY - lastControlPoint.y, actualEndX - lastControlPoint.x)
-                  : Math.atan2(endY - startY, actualEndX - actualStartX);
+                  ? Math.atan2(endY - lastControlPoint.y, endX - lastControlPoint.x)
+                  : Math.atan2(endY - startY, endX - startX);
+
+                // Debug logging for first relationship
+                if (index === 0) {
+                  console.log('🔍 Relationship path:', {
+                    from: schemaRel.fromTable,
+                    to: schemaRel.toTable,
+                    start: { x: startX, y: startY },
+                    controlPoints,
+                    end: { x: endX, y: endY }
+                  });
+                }
 
                 return {
                   id: schemaRel.id || `rel-${index}`,
@@ -544,10 +563,10 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
                   fromColumn: schemaRel.fromColumn,
                   toColumn: schemaRel.toColumn,
                   path: {
-                    start: { x: actualStartX, y: startY },
-                    end: { x: actualEndX, y: endY },
-                    controlPoints, // 🔄 Orthogonal waypoints (중간 포인트만)
-                    midpoint: { x: (actualStartX + actualEndX) / 2, y: (startY + endY) / 2 },
+                    start: { x: startX, y: startY },  // 테이블 경계에서 시작
+                    end: { x: endX, y: endY },        // 테이블 경계에서 끝
+                    controlPoints, // 🔄 Orthogonal waypoints (4개 포인트)
+                    midpoint: { x: (startX + endX) / 2, y: (startY + endY) / 2 },
                     direction,
                   },
                   style: {
@@ -1050,7 +1069,8 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
               }
               const headerHeight = 32;
               const rowHeight = 24;
-              return tableBounds.y + headerHeight + (columnIndex * rowHeight) + (rowHeight / 2);
+              const noteHeight = table.note ? 20 : 0; // 테이블 note가 있으면 추가 공간
+              return tableBounds.y + headerHeight + noteHeight + (columnIndex * rowHeight) + (rowHeight / 2);
             };
 
             const fromTable = (schema.tables || []).find((t: any) => t.name === rel.fromTable);
@@ -1119,36 +1139,38 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
             endY = toColumnY;
 
             // 🔄 Orthogonal routing: 가로-세로-가로 경로 생성
-            const GAP = 5; // 테이블에서 떨어진 거리
+            const GAP = 20; // 테이블에서 떨어진 거리
             const controlPoints: { x: number; y: number }[] = [];
-
-            let actualStartX: number, actualEndX: number;
 
             if (fromSide === 'right' && toSide === 'left') {
               // 오른쪽 → 왼쪽
-              actualStartX = startX + GAP;
-              actualEndX = endX - GAP;
-              const midX = (actualStartX + actualEndX) / 2;
+              const firstX = startX + GAP;
+              const lastX = endX - GAP;
+              const midX = (firstX + lastX) / 2;
               controlPoints.push(
+                { x: firstX, y: startY },          // 테이블에서 GAP만큼 떨어진 첫 포인트
                 { x: midX, y: startY },            // 중간까지 가로
-                { x: midX, y: endY }               // 세로로 이동
+                { x: midX, y: endY },              // 세로로 이동
+                { x: lastX, y: endY }              // 테이블 전 마지막 포인트
               );
             } else {
               // 왼쪽 → 오른쪽
-              actualStartX = startX - GAP;
-              actualEndX = endX + GAP;
-              const midX = (actualStartX + actualEndX) / 2;
+              const firstX = startX - GAP;
+              const lastX = endX + GAP;
+              const midX = (firstX + lastX) / 2;
               controlPoints.push(
-                { x: midX, y: startY },            // 중간까지 가로
-                { x: midX, y: endY }               // 세로로 이동
+                { x: firstX, y: startY },
+                { x: midX, y: startY },
+                { x: midX, y: endY },
+                { x: lastX, y: endY }
               );
             }
 
             // 화살표 방향 계산 (마지막 세그먼트 방향)
             const lastControlPoint = controlPoints[controlPoints.length - 1];
             const direction = lastControlPoint
-              ? Math.atan2(endY - lastControlPoint.y, actualEndX - lastControlPoint.x)
-              : Math.atan2(endY - startY, actualEndX - actualStartX);
+              ? Math.atan2(endY - lastControlPoint.y, endX - lastControlPoint.x)
+              : Math.atan2(endY - startY, endX - startX);
 
             return {
               id: rel.id || `rel-${index}`,
@@ -1158,10 +1180,10 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
               fromColumn: rel.fromColumn,
               toColumn: rel.toColumn,
               path: {
-                start: { x: actualStartX, y: startY },
-                end: { x: actualEndX, y: endY },
-                controlPoints, // 🔄 Orthogonal waypoints (중간 포인트만)
-                midpoint: { x: (actualStartX + actualEndX) / 2, y: (startY + endY) / 2 },
+                start: { x: startX, y: startY },  // 테이블 경계에서 시작
+                end: { x: endX, y: endY },        // 테이블 경계에서 끝
+                controlPoints, // 🔄 Orthogonal waypoints (4개 포인트)
+                midpoint: { x: (startX + endX) / 2, y: (startY + endY) / 2 },
                 direction,
               },
               style: {
@@ -1475,3 +1497,4 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
 }
 
 export default DiagramCanvas;
+;

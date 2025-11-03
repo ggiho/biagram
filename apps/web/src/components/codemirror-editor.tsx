@@ -83,12 +83,15 @@ export const CodeMirrorEditor = forwardRef<CodeMirrorEditorRef, CodeMirrorEditor
           pos += lines[i].length + 1; // +1 for newline
         }
         
-        // Scroll to position and set cursor
+        // Scroll to position WITHOUT moving cursor
+        const line = view.state.doc.line(lineNumber + 1);
         view.dispatch({
-          selection: { anchor: pos, head: pos },
-          scrollIntoView: true,
+          effects: EditorView.scrollIntoView(line.from, {
+            y: 'center',
+            yMargin: 100,
+          })
         });
-        view.focus();
+        // Don't focus or change selection - let user keep typing
       } else {
         console.warn('📜 Table not found:', tableName);
       }
