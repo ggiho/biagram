@@ -7,6 +7,7 @@ const nextConfig = {
     '@biagram/shared',
     '@biagram/dbml-parser',
     '@biagram/diagram-engine',
+    '@biagram/ddl-converter',
   ],
   webpack: (config) => {
     config.module.rules.push({

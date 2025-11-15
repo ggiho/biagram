@@ -5,6 +5,7 @@ import { DDLParseResult, SQLDialect } from './types';
 export * from './types';
 export { MySQLParser } from './mysql-parser';
 export { PostgreSQLParser } from './postgres-parser';
+export { convertDBMLtoDDL } from './dbml-to-ddl';
 
 /**
  * Convert DDL (Data Definition Language) to DBML

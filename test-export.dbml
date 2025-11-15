@@ -1,0 +1,44 @@
+// Test DBML for DDL export
+
+Table users {
+  id int [pk, increment]
+  username varchar(50) [not null, unique]
+  email varchar(100) [not null]
+  created_at timestamp [default: `CURRENT_TIMESTAMP`]
+  
+  Note: 'User accounts table'
+}
+
+Table posts {
+  id int [pk, increment]
+  title varchar(200) [not null]
+  content text
+  user_id int [not null]
+  published boolean [default: false]
+  created_at timestamp [default: `CURRENT_TIMESTAMP`]
+  
+  indexes {
+    user_id
+    (title, published) [unique]
+  }
+}
+
+Table comments {
+  id int [pk, increment]
+  post_id int [not null]
+  user_id int [not null]
+  content text [not null]
+  created_at timestamp [default: `CURRENT_TIMESTAMP`]
+}
+
+// Relationships
+Ref: posts.user_id > users.id
+Ref: comments.post_id > posts.id
+Ref: comments.user_id > users.id
+
+// Enum example (PostgreSQL)
+Enum post_status {
+  draft
+  published
+  archived
+}

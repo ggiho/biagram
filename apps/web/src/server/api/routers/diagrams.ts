@@ -1,6 +1,6 @@
 import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
-import { convertDDLtoDBMLAuto } from '@biagram/ddl-converter';
+import { convertDDLtoDBMLAuto, convertDBMLtoDDL } from '@biagram/ddl-converter';
 import { DBMLParser } from '@biagram/dbml-parser';
 
 import { createTRPCRouter, publicProcedure } from '@/server/api/trpc';
@@ -255,6 +255,50 @@ export const diagramRouter = createTRPCRouter({
           success: false,
           error: 'Failed to parse DBML content',
           schema: null,
+        };
+      }
+    }),
+
+  // Convert DBML to DDL
+  convertDBMLtoDDL: publicProcedure
+    .input(z.object({
+      dbml: z.string(),
+      dialect: z.enum(['mysql', 'postgresql']).default('mysql'),
+      includeForeignKeys: z.boolean().default(true)
+    }))
+    .mutation(async ({ input }) => {
+      try {
+        console.log('🔄 SERVER: convertDBMLtoDDL called with dialect:', input.dialect);
+        console.log('📝 DBML length:', input.dbml.length);
+
+        // Parse DBML first
+        const parseResult = DBMLParser.parse(input.dbml);
+
+        if (!parseResult.success || !parseResult.schema) {
+          console.error('❌ DBML parse failed:', parseResult.errors);
+          return {
+            success: false,
+            ddl: '',
+            errors: parseResult.errors?.map(e => e.message) || ['Failed to parse DBML'],
+          };
+        }
+
+        // Convert to DDL
+        const ddl = convertDBMLtoDDL(parseResult.schema, input.dialect, input.includeForeignKeys);
+
+        console.log('✅ DDL generated successfully, length:', ddl.length, 'includeForeignKeys:', input.includeForeignKeys);
+
+        return {
+          success: true,
+          ddl,
+          errors: undefined,
+        };
+      } catch (error) {
+        console.error('❌ convertDBMLtoDDL error:', error);
+        return {
+          success: false,
+          ddl: '',
+          errors: [error instanceof Error ? error.message : 'Unknown error'],
         };
       }
     }),
