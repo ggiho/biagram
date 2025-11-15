@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Download, FileCode, FileJson, Image } from 'lucide-react';
+import { Download, FileCode, FileJson, Image, Database } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -14,9 +14,10 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useToast } from '@/hooks/use-toast';
-import { exportAsPNG, exportAsDBML, exportAsJSON, sanitizeFilename } from '@/lib/export';
+import { exportAsPNG, exportAsDBML, exportAsJSON, exportAsDDL, sanitizeFilename } from '@/lib/export';
+import { trpc } from '@/lib/trpc/client';
 
-export type ExportFormat = 'png' | 'dbml' | 'json';
+export type ExportFormat = 'png' | 'dbml' | 'json' | 'ddl';
 
 interface ExportDialogProps {
   open: boolean;
@@ -34,8 +35,11 @@ export function ExportDialog({
   diagramName = 'Untitled Diagram',
 }: ExportDialogProps) {
   const [format, setFormat] = useState<ExportFormat>('png');
+  const [ddlDialect, setDdlDialect] = useState<'mysql' | 'postgresql'>('mysql');
+  const [includeForeignKeys, setIncludeForeignKeys] = useState(true);
   const [isExporting, setIsExporting] = useState(false);
   const { toast } = useToast();
+  const convertDBMLtoDDL = trpc.diagrams.convertDBMLtoDDL.useMutation();
 
   const getCanvas = (): HTMLCanvasElement | null => {
     // Find the canvas element in the diagram-canvas component
@@ -106,13 +110,30 @@ export function ExportDialog({
         case 'json':
           exportAsJSON(schema, `${baseFilename}.json`);
           break;
+        case 'ddl': {
+          console.log('🔄 Converting DBML to DDL with dialect:', ddlDialect, 'includeForeignKeys:', includeForeignKeys);
+          const result = await convertDBMLtoDDL.mutateAsync({
+            dbml: code,
+            dialect: ddlDialect,
+            includeForeignKeys,
+          });
+
+          if (!result.success || !result.ddl) {
+            throw new Error(result.errors?.join('\n') || 'Failed to convert DBML to DDL');
+          }
+
+          const extension = ddlDialect === 'mysql' ? 'sql' : 'sql';
+          const filename = `${baseFilename}.${ddlDialect}.${extension}`;
+          exportAsDDL(result.ddl, filename);
+          break;
+        }
         default:
           throw new Error(`Unknown format: ${format}`);
       }
 
       toast({
         title: 'Export Successful',
-        description: `Diagram exported as ${format.toUpperCase()}`,
+        description: `Diagram exported as ${format.toUpperCase()}${format === 'ddl' ? ` (${ddlDialect})` : ''}`,
       });
 
       onOpenChange(false);
@@ -176,6 +197,48 @@ export function ExportDialog({
                 <p className="text-sm text-muted-foreground">
                   Structured schema data in JSON format
                 </p>
+              </Label>
+            </div>
+
+            <div className="flex items-start space-x-3 rounded-lg border p-4 cursor-pointer hover:bg-accent transition-colors">
+              <RadioGroupItem value="ddl" id="format-ddl" className="mt-0.5" />
+              <Label htmlFor="format-ddl" className="flex-1 cursor-pointer">
+                <div className="flex items-center gap-2 mb-1">
+                  <Database className="h-4 w-4 text-orange-500" />
+                  <span className="font-medium">DDL Script</span>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  SQL Data Definition Language script
+                </p>
+                {format === 'ddl' && (
+                  <div className="mt-2 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <label className="text-xs font-medium">Dialect:</label>
+                      <select
+                        value={ddlDialect}
+                        onChange={(e) => setDdlDialect(e.target.value as 'mysql' | 'postgresql')}
+                        className="rounded-md border border-input bg-background px-2 py-1 text-xs ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <option value="mysql">MySQL</option>
+                        <option value="postgresql">PostgreSQL</option>
+                      </select>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        id="include-foreign-keys"
+                        checked={includeForeignKeys}
+                        onChange={(e) => setIncludeForeignKeys(e.target.checked)}
+                        className="h-3.5 w-3.5 rounded border-input text-primary focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                      <label htmlFor="include-foreign-keys" className="text-xs">
+                        Include Foreign Key Constraints
+                      </label>
+                    </div>
+                  </div>
+                )}
               </Label>
             </div>
           </div>

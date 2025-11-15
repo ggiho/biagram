@@ -71,6 +71,24 @@ export function exportAsJSON(
 }
 
 /**
+ * Export DDL SQL script
+ */
+export function exportAsDDL(
+  ddl: string,
+  filename: string = 'schema.sql'
+): void {
+  const blob = new Blob([ddl], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+/**
  * Get sanitized filename from diagram name
  */
 export function sanitizeFilename(name: string): string {
