@@ -383,8 +383,20 @@ function convertRelationship(rel: Relationship, dialect: 'mysql' | 'postgresql')
 
 /**
  * Quote identifier based on dialect
+ * Handles schema.table syntax by splitting and quoting each part
  */
 function quoteIdentifier(name: string, dialect: 'mysql' | 'postgresql'): string {
+  // Check if name contains schema.table syntax
+  if (name.includes('.')) {
+    const parts = name.split('.');
+    if (dialect === 'mysql') {
+      return parts.map(part => `\`${part}\``).join('.');
+    } else {
+      return parts.map(part => `"${part}"`).join('.');
+    }
+  }
+
+  // Simple identifier
   if (dialect === 'mysql') {
     return `\`${name}\``;
   } else {
