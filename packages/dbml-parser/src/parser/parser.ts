@@ -265,7 +265,7 @@ export class DBMLParser {
   }
 
   private parseTableDeclaration(): any {
-    const name = this.parseTableName();
+    const tableNameObj = this.parseTableName();
     const alias = this.match('identifier') ? this.previous().value : undefined;
 
     this.consume('left_brace', 'Expected "{" after table name');
@@ -277,44 +277,46 @@ export class DBMLParser {
     let loopCount = 0;
     const MAX_LOOP_ITERATIONS = 10000; // 무한 루프 방지
 
+    const displayName = tableNameObj.schema ? `${tableNameObj.schema}.${tableNameObj.name}` : tableNameObj.name;
+
     while (!this.check('right_brace') && !this.isAtEnd()) {
       this.checkOperationTimeout(); // 타임아웃 체크
-      
+
       const beforePosition = this.current;
       const currentToken = this.peek();
-      
+
       loopCount++;
       if (loopCount > MAX_LOOP_ITERATIONS) {
-        throw new Error(`Parser stuck in infinite loop while parsing table "${name}" - exceeded ${MAX_LOOP_ITERATIONS} iterations`);
+        throw new Error(`Parser stuck in infinite loop while parsing table "${displayName}" - exceeded ${MAX_LOOP_ITERATIONS} iterations`);
       }
-      
+
       // 매 10번째 루프마다 디버그 로그
       if (loopCount % 10 === 0) {
-        console.log(`  🔄 Table "${name}" loop ${loopCount}, position ${this.current}, token: ${currentToken.type}="${currentToken.value}"`);
+        console.log(`  🔄 Table "${displayName}" loop ${loopCount}, position ${this.current}, token: ${currentToken.type}="${currentToken.value}"`);
       }
 
       // Check for table-level Note first (before trying to parse as column)
       if (this.match('note')) {
-        console.log(`  📝 Parsing table-level note for "${name}"`);
+        console.log(`  📝 Parsing table-level note for "${displayName}"`);
         // Parse table-level Note: "Note" keyword
         this.consume('colon', 'Expected ":" after Note');
         const noteToken = this.consume('string', 'Expected note text');
         tableNote = noteToken.value.slice(1, -1); // Remove quotes
       } else if (this.match('indexes')) {
-        console.log(`  🔍 Parsing indexes block for "${name}"`);
+        console.log(`  🔍 Parsing indexes block for "${displayName}"`);
         indexes.push(...this.parseIndexesBlock());
       } else {
         console.log(`  📊 Parsing column at position ${this.current}, token: ${currentToken.type}="${currentToken.value}"`);
         const column = this.parseColumnDeclaration();
         if (column) {
           columns.push(column);
-          console.log(`  ✅ Added column "${column.name}" to table "${name}"`);
+          console.log(`  ✅ Added column "${column.name}" to table "${displayName}"`);
         }
       }
-      
+
       // 무한 루프 체크: 토큰 위치가 전혀 변하지 않았다면
       if (this.current === beforePosition) {
-        console.error(`  ❌ CRITICAL: Parser position didn't advance in table "${name}" at position ${beforePosition}, token: ${currentToken.type}="${currentToken.value}"`);
+        console.error(`  ❌ CRITICAL: Parser position didn't advance in table "${displayName}" at position ${beforePosition}, token: ${currentToken.type}="${currentToken.value}"`);
         console.error(`  ❌ Forcing skip to next token to prevent infinite loop`);
         this.advance(); // 강제로 다음 토큰으로
       }
@@ -325,7 +327,8 @@ export class DBMLParser {
     return {
       type: 'table', // Add type field for schema identification
       id: this.generateId(),
-      name,
+      name: tableNameObj.name,
+      schema: tableNameObj.schema,
       alias,
       columns,
       note: tableNote,
@@ -854,7 +857,7 @@ export class DBMLParser {
     return { key, value };
   }
 
-  private parseTableName(): string {
+  private parseTableName(): { schema?: string; name: string } {
     // Table name can be either identifier or quoted identifier
     let name: string;
     if (this.check('identifier')) {
@@ -870,14 +873,14 @@ export class DBMLParser {
       const nextToken = this.peek();
       if (nextToken.type === 'identifier' || nextToken.type === 'note') {
         const tableName = this.advance().value;
-        return `${name}.${tableName}`;
+        return { schema: name, name: tableName };
       } else {
         this.addError('syntax', 'EXPECTED_TABLE_NAME', 'Expected table name after schema', this.peek().position);
-        return name;
+        return { name };
       }
     }
 
-    return name;
+    return { name };
   }
 
   // Utility methods
