@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
+import { DBImportDialog } from '@/components/db-import-dialog';
 import {
   Select,
   SelectContent,
@@ -104,6 +105,16 @@ export default function TableCenterPage() {
     }
   }, [toast]);
 
+  // Handle DB import
+  const handleDBImport = useCallback((dbml: string) => {
+    console.log('📥 DB Import received:', dbml.length, 'characters');
+    setDbmlContent(dbml);
+    toast({
+      title: 'Database Imported',
+      description: 'Schema successfully imported from database',
+    });
+  }, [toast]);
+
   // Generate specifications from DBML
   const [specificationsData, setSpecificationsData] = useState<any>(null);
   const [fullSpecifications, setFullSpecifications] = useState<TableSpecification[]>([]);
@@ -177,10 +188,10 @@ export default function TableCenterPage() {
 
   // Generate summaries from sorted specifications
   const summaries = useMemo(() => {
-    return sortedSpecifications.map((spec): SpecificationSummary => {
+    return sortedSpecifications.map((spec): SpecificationSummary & { piiCount?: number } => {
       // Count PII columns (description starts with *)
       const piiCount = spec.columns.filter((col: any) => col.description?.startsWith('*')).length;
-      
+
       return {
         id: spec.id,
         tableName: spec.tableName,
@@ -390,6 +401,7 @@ export default function TableCenterPage() {
         </div>
 
         <div className="flex items-center gap-2">
+          <DBImportDialog onImport={handleDBImport} />
           <Button variant="outline" size="sm" asChild>
             <Link href="/editor">
               <ArrowLeft className="mr-2 h-4 w-4" />
@@ -954,8 +966,8 @@ export default function TableCenterPage() {
                           </td>
                           <td className="p-3 text-sm text-muted-foreground" title={column.description || '-'}>
                             <div className="line-clamp-2">
-                              {isPII 
-                                ? column.description.substring(1).trim() 
+                              {isPII
+                                ? (column.description?.substring(1).trim() || '-')
                                 : (column.description || '-')}
                             </div>
                           </td>

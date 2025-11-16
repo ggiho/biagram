@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
-import { Save, Settings, Download, Share, Upload, FileText, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Save, Settings, Download, Share, Upload, FileText, ChevronLeft, ChevronRight, Database } from 'lucide-react';
 import Link from 'next/link';
 
 import { Button } from '@/components/ui/button';
@@ -13,6 +13,7 @@ import DiagramCanvas from '@/components/diagram-canvas';
 import { DiagramToolbar } from '@/components/diagram-toolbar';
 import { DiagramSidebar } from '@/components/diagram-sidebar';
 import { DDLImportDialog } from '@/components/ddl-import-dialog';
+import { DBImportDialog } from '@/components/db-import-dialog';
 import { ExportDialog } from '@/components/export-dialog';
 import { DiagramProvider, useDiagramEngine } from '@/contexts/diagram-context';
 import { trpc } from '@/lib/trpc/client';
@@ -211,7 +212,7 @@ function DiagramEditorContent() {
 
   const handleImportSuccess = useCallback((dbml: string, mode: 'replace' | 'append') => {
     console.log('📥 DDL imported successfully, mode:', mode);
-    
+
     if (mode === 'append') {
       // Append with separator
       const separator = '\n\n// ===== Imported DDL =====\n';
@@ -220,12 +221,21 @@ function DiagramEditorContent() {
       // Replace
       setCode(dbml);
     }
-    
+
     toast({
       title: 'Import Successful',
       description: `DDL converted to DBML successfully (${mode === 'replace' ? 'Replaced' : 'Appended'})`,
     });
   }, [code, toast]);
+
+  const handleDBImport = useCallback((dbml: string) => {
+    console.log('📥 DB Import received:', dbml.length, 'characters');
+    setCode(dbml);
+    toast({
+      title: 'Database Imported',
+      description: 'Schema successfully imported from database',
+    });
+  }, [toast]);
 
   // Track if the last selection change came from code editor
   const lastSelectionFromCodeRef = useRef(false);
@@ -346,8 +356,9 @@ function DiagramEditorContent() {
               onClick={() => setImportDialogOpen(true)}
             >
               <Upload className="mr-2 h-4 w-4" />
-              Import
+              Import DDL
             </Button>
+            <DBImportDialog onImport={handleDBImport} />
             <Button
               variant="outline"
               size="sm"
