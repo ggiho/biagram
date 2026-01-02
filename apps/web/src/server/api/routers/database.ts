@@ -7,9 +7,12 @@
 
 import { z } from 'zod';
 import { createTRPCRouter, publicProcedure } from '../trpc';
-import { introspectDatabase } from '@biagram/db-introspector';
-import type { DatabaseConnection } from '@biagram/db-introspector';
+import { introspectDatabase, inferRelationships, convertToDBMLRefs } from '@biagram/db-introspector';
+import type { DatabaseConnection, IntrospectedDatabase, InferredRelationship } from '@biagram/db-introspector';
 import { randomUUID } from 'crypto';
+
+// 캐시된 introspection 결과 (관계 추론용)
+const introspectionCache = new Map<string, IntrospectedDatabase>();
 
 /**
  * Connection pool manager
@@ -131,6 +134,7 @@ export const databaseRouter = createTRPCRouter({
   testConnection: publicProcedure
     .input(TestConnectionInputSchema)
     .mutation(async ({ input, ctx }) => {
+      console.log('🔌 DATABASE: testConnection called', { host: input.host, database: input.database, user: input.username });
       try {
         // Validate connection config
         const config: DatabaseConnection = {
@@ -146,7 +150,9 @@ export const databaseRouter = createTRPCRouter({
 
         // Test connection by attempting introspection
         // We don't need the full result, just want to verify connection works
+        console.log('🔌 DATABASE: Attempting introspection...');
         const result = await introspectDatabase(config);
+        console.log('🔌 DATABASE: Introspection result:', { success: result.success, error: result.error });
 
         if (!result.success) {
           return {
@@ -233,10 +239,17 @@ export const databaseRouter = createTRPCRouter({
           };
         }
 
+        // 관계 추론을 위해 결과 캐시
+        if (result.database) {
+          const sessionId = input.sessionId || getSessionId(ctx);
+          introspectionCache.set(sessionId, result.database);
+        }
+
         return {
           success: true,
           dbml: result.dbml,
           stats: result.stats,
+          database: result.database, // 관계 추론용으로 반환
         };
       } catch (error) {
         console.error('Database introspection failed:', error);
@@ -286,5 +299,53 @@ export const databaseRouter = createTRPCRouter({
             }
           : null,
       };
+    }),
+
+  /**
+   * Infer relationships from column name patterns
+   * 물리적 FK가 없는 경우 컬럼명/타입 매칭으로 논리적 관계 추론
+   */
+  inferRelationships: publicProcedure
+    .input(
+      z.object({
+        sessionId: z.string().optional(),
+        minConfidence: z.enum(['high', 'medium', 'low']).optional(),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      try {
+        const sessionId = input.sessionId || getSessionId(ctx);
+        const database = introspectionCache.get(sessionId);
+
+        if (!database) {
+          return {
+            success: false,
+            error: 'No introspection data found. Please import database first.',
+          };
+        }
+
+        // 관계 추론 실행
+        const result = inferRelationships(database, {
+          includeExistingFKs: false,
+          minConfidence: input.minConfidence || 'medium',
+        });
+
+        // DBML Ref 형식으로 변환
+        const dbmlRefs = convertToDBMLRefs(result.relationships);
+
+        return {
+          success: true,
+          relationships: result.relationships,
+          dbmlRefs,
+          stats: result.stats,
+        };
+      } catch (error) {
+        console.error('Relationship inference failed:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+        return {
+          success: false,
+          error: errorMessage,
+        };
+      }
     }),
 });

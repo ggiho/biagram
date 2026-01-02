@@ -28,6 +28,15 @@ export { convertToDBML, getConversionStats } from './converter';
 // Export type mapping utilities
 export { mapTypeToDBML, formatDBMLType, MYSQL_TO_DBML, POSTGRESQL_TO_DBML } from './type-mapping';
 
+// Export relationship inference
+export {
+  inferRelationships,
+  convertToForeignKeys,
+  convertToDBMLRefs,
+  type InferredRelationship,
+  type InferRelationshipsResult,
+} from './relationship-inferrer';
+
 /**
  * Main introspection function that handles both MySQL and PostgreSQL
  */

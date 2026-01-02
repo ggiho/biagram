@@ -850,27 +850,37 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
       const schemaColors = new Map<string, string>();
       const colorPalette = [
         '#3b82f6', // blue
-        '#10b981', // green  
+        '#10b981', // green (emerald)
         '#f59e0b', // amber
         '#8b5cf6', // violet
         '#ec4899', // pink
         '#14b8a6', // teal
         '#f97316', // orange
         '#6366f1', // indigo
+        '#ef4444', // red
+        '#84cc16', // lime
+        '#06b6d4', // cyan
+        '#a855f7', // purple
+        '#22c55e', // green
+        '#eab308', // yellow
+        '#0ea5e9', // sky
+        '#d946ef', // fuchsia
+        '#64748b', // slate
+        '#78716c', // stone
+        '#f43f5e', // rose
+        '#0d9488', // teal darker
       ];
       
       let colorIndex = 0;
       (schema.tables || []).forEach((table: any) => {
         if (!table.name) return;
-        const parts = table.name.split('.');
-        if (parts.length > 1) {
-          const schemaName = parts[0];
-          if (schemaName && !schemaColors.has(schemaName)) {
-            const color = colorPalette[colorIndex % colorPalette.length];
-            if (color) {
-              schemaColors.set(schemaName, color);
-              colorIndex++;
-            }
+        // Use table.schema if available, otherwise try to extract from name
+        const schemaName = table.schema || (table.name.includes('.') ? table.name.split('.')[0] : undefined);
+        if (schemaName && !schemaColors.has(schemaName)) {
+          const color = colorPalette[colorIndex % colorPalette.length];
+          if (color) {
+            schemaColors.set(schemaName, color);
+            colorIndex++;
           }
         }
       });
@@ -957,16 +967,19 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
         const calculatedWidth = Math.max(180, maxColumnWidth + padding * 2 + 40);
 
         // Parse schema.table notation
-        const tableParts = table.name.split('.');
-        const tableSchema = tableParts.length > 1 ? tableParts[0] : undefined;
-        const tableName = tableParts.length > 1 ? tableParts[1] : table.name;
+        // table.schema comes from the DBML parser when using schema.table syntax
+        const tableSchema = table.schema || (table.name.includes('.') ? table.name.split('.')[0] : undefined);
+        const tableName = table.name.includes('.') ? table.name.split('.')[1] : table.name;
         const schemaColor = tableSchema ? schemaColors.get(tableSchema) : undefined;
         
+        // Full name with schema for matching relationships (e.g., "admin_portal.auth_group")
+        const fullTableName = tableSchema ? `${tableSchema}.${tableName}` : tableName;
+        
         return {
-          id: table.name,
-          name: table.name,
+          id: fullTableName, // Use full name with schema for relationship matching
+          name: fullTableName,
           schema: tableSchema,
-          displayName: table.name, // Full name with schema
+          displayName: fullTableName, // Full name with schema
           note: table.note,
           bounds: {
             x: savedPosition?.x ?? defaultX,
@@ -1052,11 +1065,19 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
           tablesRef.current = allProcessedTables;
 
           // 관계선도 중간 업데이트 (현재까지 처리된 테이블 기준)
-          const tablePositions = new Map();
+          const tablePositions = new Map<string, any>();
           allProcessedTables.forEach(table => {
+            // 스키마.테이블 형식과 테이블명만으로 모두 접근 가능하게 저장
             tablePositions.set(table.id, table.bounds);
+            // 스키마가 있는 경우 테이블명만으로도 접근 가능하게
+            if (table.schema && table.name.includes('.')) {
+              const shortName = table.name.split('.')[1];
+              if (shortName) {
+                tablePositions.set(shortName, table.bounds);
+              }
+            }
           });
-
+          
           const currentRelationships: RelationshipRenderData[] = (schema.relationships || []).map((rel: any, index: number) => {
             const fromTableBounds = tablePositions.get(rel.fromTable);
             const toTableBounds = tablePositions.get(rel.toTable);
@@ -1073,8 +1094,17 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
               return tableBounds.y + headerHeight + noteHeight + (columnIndex * rowHeight) + (rowHeight / 2);
             };
 
-            const fromTable = (schema.tables || []).find((t: any) => t.name === rel.fromTable);
-            const toTable = (schema.tables || []).find((t: any) => t.name === rel.toTable);
+            // Find tables by full name (schema.table) or short name
+            const findTable = (targetName: string) => {
+              return (schema.tables || []).find((t: any) => {
+                const tableSchema = t.schema || (t.name.includes('.') ? t.name.split('.')[0] : undefined);
+                const tableName = t.name.includes('.') ? t.name.split('.')[1] : t.name;
+                const fullName = tableSchema ? `${tableSchema}.${tableName}` : tableName;
+                return fullName === targetName || t.name === targetName || tableName === targetName;
+              });
+            };
+            const fromTable = findTable(rel.fromTable);
+            const toTable = findTable(rel.toTable);
 
             // 🔄 Smart connection points: 테이블 위치 기반 좌/우 선택
             if (!fromTableBounds || !toTableBounds) {

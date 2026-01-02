@@ -216,6 +216,7 @@ export const diagramRouter = createTRPCRouter({
           return {
             id: table.id,
             name: table.name,
+            schema: table.schema, // Include schema for schema.table notation
             columns,
             // Use deterministic positioning for SuperJSON compatibility
             x: table.position?.x ?? (50 + (index % 3) * 250),
