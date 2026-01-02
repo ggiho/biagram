@@ -102,6 +102,16 @@ export function DiagramToolbar() {
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Input/Textarea 등 입력 요소에 포커스가 있으면 단축키 무시
+      const activeElement = document.activeElement;
+      const isInputFocused = activeElement instanceof HTMLInputElement ||
+        activeElement instanceof HTMLTextAreaElement ||
+        activeElement?.getAttribute('contenteditable') === 'true';
+      
+      if (isInputFocused) {
+        return;
+      }
+
       // Zoom shortcuts: Cmd/Ctrl + Plus/Minus
       if ((e.metaKey || e.ctrlKey) && (e.key === '=' || e.key === '+')) {
         e.preventDefault();
