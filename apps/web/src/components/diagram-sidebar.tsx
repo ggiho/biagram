@@ -94,8 +94,81 @@ export function DiagramSidebar({ schema }: DiagramSidebarProps) {
     );
   }
 
-  // Check if viewing table detail
+  // Check if viewing table or relationship detail
   const isTableSelected = selectedEntityId && !selectedEntityId.startsWith('rel:');
+  const isRelationshipSelected = selectedEntityId && selectedEntityId.startsWith('rel:');
+
+  // Render detailed relationship view
+  if (isRelationshipSelected) {
+    const relationshipId = selectedEntityId.replace('rel:', '');
+    const selectedRel = schema.relationships.find(r => r.id === relationshipId);
+    
+    if (!selectedRel) {
+      return renderSchemaOverview();
+    }
+
+    const fromTable = schema.tables.find(t => t.name === selectedRel.fromTable);
+    const toTable = schema.tables.find(t => t.name === selectedRel.toTable);
+
+    return (
+      <div className="h-full w-full border-l bg-background flex flex-col">
+        <div className="border-b p-4">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="mb-2 h-auto p-1"
+            onClick={() => setSelectedEntityId(null)}
+          >
+            ← Back to Overview
+          </Button>
+          <h3 className="text-sm font-medium">Relationship Details</h3>
+        </div>
+
+        <div className="flex-1 overflow-y-auto">
+          {/* Relationship Info */}
+          <div className="border-b p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Link className="h-4 w-4 text-primary" />
+              <span className="font-semibold text-sm">
+                {selectedRel.fromTable} → {selectedRel.toTable}
+              </span>
+            </div>
+            <div className="text-xs text-muted-foreground space-y-1">
+              <div><span className="font-medium">Type:</span> {selectedRel.type || 'one-to-many'}</div>
+            </div>
+          </div>
+
+          {/* From Table */}
+          <div className="border-b p-4">
+            <h5 className="text-xs font-medium uppercase text-muted-foreground mb-2">From</h5>
+            <div 
+              className="p-2 rounded bg-muted/50 cursor-pointer hover:bg-muted"
+              onClick={() => setSelectedEntityId(selectedRel.fromTable)}
+            >
+              <div className="font-medium text-sm">{selectedRel.fromTable}</div>
+              <div className="text-xs text-muted-foreground">
+                Column: <span className="font-mono">{selectedRel.fromColumn}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* To Table */}
+          <div className="border-b p-4">
+            <h5 className="text-xs font-medium uppercase text-muted-foreground mb-2">To</h5>
+            <div 
+              className="p-2 rounded bg-muted/50 cursor-pointer hover:bg-muted"
+              onClick={() => setSelectedEntityId(selectedRel.toTable)}
+            >
+              <div className="font-medium text-sm">{selectedRel.toTable}</div>
+              <div className="text-xs text-muted-foreground">
+                Column: <span className="font-mono">{selectedRel.toColumn}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // Render detailed table view
   if (isTableSelected) {
@@ -345,6 +418,7 @@ export function DiagramSidebar({ schema }: DiagramSidebarProps) {
                     onClick={() => {
                       console.log('🔗 Relationship clicked from overview:', relationshipId);
                       setHighlightedRelationshipId(isHighlighted ? null : relationshipId);
+                      setSelectedEntityId(isHighlighted ? null : `rel:${relationshipId}`);
                     }}
                   >
                     <div className={`text-xs font-medium ${isHighlighted ? 'text-primary' : ''}`}>
