@@ -335,8 +335,8 @@ export class CanvasRenderer {
     // 🎨 PK/FK 배경 하이라이트 색상
     const pkBgColor = isDark ? '#422006' : '#fef3c7'; // amber-50 / amber-900
     const pkBorderColor = isDark ? '#f59e0b' : '#d97706'; // amber-500 / amber-600
-    const fkBgColor = isDark ? '#1e1b4b' : '#ede9fe'; // violet-50 / violet-950
-    const fkBorderColor = isDark ? '#8b5cf6' : '#7c3aed'; // violet-500 / violet-600
+    const fkBgColor = isDark ? '#083344' : '#e0f2fe'; // sky-50 / sky-950
+    const fkBorderColor = isDark ? '#38bdf8' : '#0284c7'; // sky-400 / sky-600
 
     // Row background - 우선순위: selected > hovered > connected > PK > FK
     if (isSelected) {
@@ -360,7 +360,7 @@ export class CanvasRenderer {
       this.ctx.fillStyle = pkBorderColor;
       this.ctx.fillRect(x, y, 3, style.rowHeight);
     } else if (isForeignKey) {
-      // 🔗 FK 배경 하이라이트 (violet/purple)
+      // 🔗 FK 배경 하이라이트 (sky/cyan)
       this.ctx.fillStyle = fkBgColor;
       this.ctx.fillRect(x, y, width, style.rowHeight);
       // 왼쪽 테두리 강조
@@ -371,15 +371,18 @@ export class CanvasRenderer {
     let iconX = x + style.padding;
 
     // Icons (only at higher zoom levels)
+    // 아이콘과 텍스트 간격을 줄임 (iconSpacing의 절반 사용)
+    const tightSpacing = Math.max(2, (style.iconSpacing || 8) / 2);
+    
     if (showIcons) {
       if (isPrimaryKey) {
         this.drawKeyIcon(iconX, y + style.rowHeight / 2, style.iconSize, pkBorderColor);
-        iconX += style.iconSize + style.iconSpacing;
+        iconX += style.iconSize + tightSpacing;
       }
 
       if (isForeignKey) {
         this.drawForeignKeyIcon(iconX, y + style.rowHeight / 2, style.iconSize, fkBorderColor);
-        iconX += style.iconSize + style.iconSpacing;
+        iconX += style.iconSize + tightSpacing;
       }
     }
 
