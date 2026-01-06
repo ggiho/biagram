@@ -273,7 +273,8 @@ export class CanvasRenderer {
         
         if (maxNoteWidth > 30) { // Only show if there's enough space
           this.ctx.font = `normal ${style.fontSize - 1}px ${style.fontFamily}`;
-          this.ctx.fillStyle = (style as any).noteTextColor || style.typeTextColor;
+          // 헤더 텍스트 색상을 기반으로 약간 투명하게 (0.7 opacity)
+          this.ctx.fillStyle = this.addAlpha(style.headerTextColor, 0.7);
           
           // Truncate note if too long
           let noteText = tableNote;
@@ -382,8 +383,8 @@ export class CanvasRenderer {
     let iconX = x + style.padding;
 
     // Icons (only at higher zoom levels)
-    // 아이콘과 텍스트 간격을 최소화 (2px 고정)
-    const tightSpacing = 2;
+    // 아이콘과 텍스트 간격을 최소화 (1px 고정)
+    const tightSpacing = 1;
     
     if (showIcons) {
       if (isPrimaryKey) {
@@ -1263,5 +1264,25 @@ export class CanvasRenderer {
     // Convert back to hex
     const toHex = (n: number) => Math.min(255, Math.max(0, n)).toString(16).padStart(2, '0');
     return `#${toHex(newR)}${toHex(newG)}${toHex(newB)}`;
+  }
+
+  /**
+   * Add alpha (opacity) to a color
+   * @param color - Hex color string (e.g., "#ff0000") or rgb string
+   * @param alpha - Alpha value 0-1
+   */
+  private addAlpha(color: string, alpha: number): string {
+    if (color.startsWith('#')) {
+      const cleanHex = color.replace('#', '');
+      const r = parseInt(cleanHex.substring(0, 2), 16);
+      const g = parseInt(cleanHex.substring(2, 4), 16);
+      const b = parseInt(cleanHex.substring(4, 6), 16);
+      return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    }
+    // If already rgb/rgba, just return with alpha
+    if (color.startsWith('rgb(')) {
+      return color.replace('rgb(', 'rgba(').replace(')', `, ${alpha})`);
+    }
+    return color;
   }
 }
