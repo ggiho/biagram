@@ -866,8 +866,8 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
 
       // 연결된 컬럼 정보 수집
       const connectedColumns = new Map<string, Set<string>>(); // tableName -> Set<columnName>
-      // 🔗 Ref로 연결된 FK 컬럼 추적 (fromColumn은 논리적 FK)
-      const fkColumns = new Map<string, Set<string>>(); // tableName -> Set<fk columnName>
+      // 🔗 Ref로 연결된 FK 컬럼 추적 (fromColumn은 논리적 FK) + 참조 테이블 정보
+      const fkColumnRefs = new Map<string, Map<string, string>>(); // tableName -> Map<columnName, refTableName>
       
       (schema.relationships || []).forEach((rel: any) => {
         if (!connectedColumns.has(rel.fromTable)) {
@@ -879,11 +879,11 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
         connectedColumns.get(rel.fromTable)?.add(rel.fromColumn);
         connectedColumns.get(rel.toTable)?.add(rel.toColumn);
         
-        // Ref의 fromColumn은 논리적 FK로 표시
-        if (!fkColumns.has(rel.fromTable)) {
-          fkColumns.set(rel.fromTable, new Set());
+        // Ref의 fromColumn은 논리적 FK로 표시 + 참조 테이블 저장
+        if (!fkColumnRefs.has(rel.fromTable)) {
+          fkColumnRefs.set(rel.fromTable, new Map());
         }
-        fkColumns.get(rel.fromTable)?.add(rel.fromColumn);
+        fkColumnRefs.get(rel.fromTable)?.set(rel.fromColumn, rel.toTable);
       });
 
       // 🚀 텍스트 너비를 측정하는 헬퍼 함수 (캐싱 최적화)
@@ -1115,8 +1115,17 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
           columns: (table.columns || []).map((column: any) => {
             const isConnected = connectedColumns.get(table.name)?.has(column.name) || false;
             // FK 판단: 1) column 자체 FK 속성 2) Ref로 연결된 fromColumn (논리적 FK)
-            const isRefFk = fkColumns.get(table.name)?.has(column.name) || 
-                            fkColumns.get(fullTableName)?.has(column.name) || false;
+            const refTable = fkColumnRefs.get(table.name)?.get(column.name) || 
+                             fkColumnRefs.get(fullTableName)?.get(column.name);
+            const isRefFk = !!refTable;
+            
+            // FK가 참조하는 테이블의 스키마 컬러 찾기
+            let fkRefColor: string | undefined;
+            if (isRefFk && refTable) {
+              const refSchema = refTable.includes('.') ? refTable.split('.')[0] : undefined;
+              fkRefColor = refSchema ? schemaColors.get(refSchema) : undefined;
+            }
+            
             return {
               id: column.name,
               name: column.name,
@@ -1124,6 +1133,7 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
               note: column.note,
               isPrimaryKey: column.isPrimaryKey || column.primaryKey || false,
               isForeignKey: column.isForeignKey || column.foreignKey || isRefFk,
+              fkRefColor: fkRefColor, // 참조 테이블의 스키마 컬러
               isConnected: isConnected, // 관계선 연결 정보
               isSelected: false,
               isHovered: false,

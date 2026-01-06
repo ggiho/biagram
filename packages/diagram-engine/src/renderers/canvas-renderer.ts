@@ -329,14 +329,25 @@ export class CanvasRenderer {
     showIcons: boolean,
     showComments: boolean = true
   ): void {
-    const { isSelected, isHovered, isConnected, isPrimaryKey, isForeignKey } = column;
+    const { isSelected, isHovered, isConnected, isPrimaryKey, isForeignKey, fkRefColor } = column;
     const isDark = this.currentTheme?.mode === 'dark';
 
-    // 🎨 PK/FK 배경 하이라이트 색상
+    // 🎨 PK 배경 하이라이트 색상
     const pkBgColor = isDark ? '#422006' : '#fef3c7'; // amber-50 / amber-900
     const pkBorderColor = isDark ? '#f59e0b' : '#d97706'; // amber-500 / amber-600
-    const fkBgColor = isDark ? '#083344' : '#e0f2fe'; // sky-50 / sky-950
-    const fkBorderColor = isDark ? '#38bdf8' : '#0284c7'; // sky-400 / sky-600
+    
+    // 🔗 FK 색상: 참조 테이블 스키마 컬러 또는 기본 하늘색
+    const defaultFkBgColor = isDark ? '#083344' : '#e0f2fe'; // sky-50 / sky-950
+    const defaultFkBorderColor = isDark ? '#38bdf8' : '#0284c7'; // sky-400 / sky-600
+    
+    // fkRefColor가 있으면 그 색상 기반으로, 없으면 기본 하늘색
+    let fkBgColor = defaultFkBgColor;
+    let fkBorderColor = defaultFkBorderColor;
+    if (fkRefColor) {
+      // 스키마 컬러를 기반으로 밝은/어두운 버전 생성
+      fkBorderColor = fkRefColor;
+      fkBgColor = this.lightenColor(fkRefColor, isDark ? 0.15 : 0.85);
+    }
 
     // Row background - 우선순위: selected > hovered > connected > PK > FK
     if (isSelected) {
@@ -360,7 +371,7 @@ export class CanvasRenderer {
       this.ctx.fillStyle = pkBorderColor;
       this.ctx.fillRect(x, y, 3, style.rowHeight);
     } else if (isForeignKey) {
-      // 🔗 FK 배경 하이라이트 (sky/cyan)
+      // 🔗 FK 배경 하이라이트 (참조 테이블 스키마 컬러 or 하늘색)
       this.ctx.fillStyle = fkBgColor;
       this.ctx.fillRect(x, y, width, style.rowHeight);
       // 왼쪽 테두리 강조
@@ -371,8 +382,8 @@ export class CanvasRenderer {
     let iconX = x + style.padding;
 
     // Icons (only at higher zoom levels)
-    // 아이콘과 텍스트 간격을 줄임 (iconSpacing의 절반 사용)
-    const tightSpacing = Math.max(2, (style.iconSpacing || 8) / 2);
+    // 아이콘과 텍스트 간격을 최소화 (2px 고정)
+    const tightSpacing = 2;
     
     if (showIcons) {
       if (isPrimaryKey) {
@@ -1228,5 +1239,29 @@ export class CanvasRenderer {
     if (this.svgOverlay) {
       this.svgOverlay.remove();
     }
+  }
+
+  /**
+   * Lighten or darken a hex color
+   * @param hex - Hex color string (e.g., "#ff0000")
+   * @param factor - 0 = original, 1 = white (for lighten), 0 = black (for darken)
+   */
+  private lightenColor(hex: string, factor: number): string {
+    // Remove # if present
+    const cleanHex = hex.replace('#', '');
+    
+    // Parse RGB
+    const r = parseInt(cleanHex.substring(0, 2), 16);
+    const g = parseInt(cleanHex.substring(2, 4), 16);
+    const b = parseInt(cleanHex.substring(4, 6), 16);
+    
+    // Lighten: blend with white (255)
+    const newR = Math.round(r + (255 - r) * factor);
+    const newG = Math.round(g + (255 - g) * factor);
+    const newB = Math.round(b + (255 - b) * factor);
+    
+    // Convert back to hex
+    const toHex = (n: number) => Math.min(255, Math.max(0, n)).toString(16).padStart(2, '0');
+    return `#${toHex(newR)}${toHex(newG)}${toHex(newB)}`;
   }
 }
