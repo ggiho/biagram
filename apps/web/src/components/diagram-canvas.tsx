@@ -866,6 +866,9 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
 
       // 연결된 컬럼 정보 수집
       const connectedColumns = new Map<string, Set<string>>(); // tableName -> Set<columnName>
+      // 🔗 Ref로 연결된 FK 컬럼 추적 (fromColumn은 논리적 FK)
+      const fkColumns = new Map<string, Set<string>>(); // tableName -> Set<fk columnName>
+      
       (schema.relationships || []).forEach((rel: any) => {
         if (!connectedColumns.has(rel.fromTable)) {
           connectedColumns.set(rel.fromTable, new Set());
@@ -875,6 +878,12 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
         }
         connectedColumns.get(rel.fromTable)?.add(rel.fromColumn);
         connectedColumns.get(rel.toTable)?.add(rel.toColumn);
+        
+        // Ref의 fromColumn은 논리적 FK로 표시
+        if (!fkColumns.has(rel.fromTable)) {
+          fkColumns.set(rel.fromTable, new Set());
+        }
+        fkColumns.get(rel.fromTable)?.add(rel.fromColumn);
       });
 
       // 🚀 텍스트 너비를 측정하는 헬퍼 함수 (캐싱 최적화)
@@ -1105,13 +1114,16 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
           },
           columns: (table.columns || []).map((column: any) => {
             const isConnected = connectedColumns.get(table.name)?.has(column.name) || false;
+            // FK 판단: 1) column 자체 FK 속성 2) Ref로 연결된 fromColumn (논리적 FK)
+            const isRefFk = fkColumns.get(table.name)?.has(column.name) || 
+                            fkColumns.get(fullTableName)?.has(column.name) || false;
             return {
               id: column.name,
               name: column.name,
               type: column.type || 'string',
               note: column.note,
               isPrimaryKey: column.isPrimaryKey || column.primaryKey || false,
-              isForeignKey: column.isForeignKey || column.foreignKey || false,
+              isForeignKey: column.isForeignKey || column.foreignKey || isRefFk,
               isConnected: isConnected, // 관계선 연결 정보
               isSelected: false,
               isHovered: false,
