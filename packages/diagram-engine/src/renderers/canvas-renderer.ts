@@ -406,10 +406,10 @@ export class CanvasRenderer {
   }
 
   /**
-   * Render a single relationship
+   * Render a single relationship with Crow's Foot notation
    */
   private renderRelationship(relationship: RelationshipRenderData): void {
-    const { path, style, isSelected, isHovered } = relationship;
+    const { path, style, isSelected, isHovered, type } = relationship;
 
     this.ctx.save();
 
@@ -419,133 +419,348 @@ export class CanvasRenderer {
 
     if (isSelected) {
       strokeColor = style.selectedColor;
-      lineWidth = style.width + 2; // Make highlighted relationships thicker
+      lineWidth = style.width + 1.5;
     } else if (isHovered) {
       strokeColor = style.hoveredColor;
-      lineWidth = style.width + 1;
+      lineWidth = style.width + 0.5;
     }
 
     this.ctx.strokeStyle = strokeColor;
     this.ctx.lineWidth = lineWidth;
+    this.ctx.lineCap = 'round';
+    this.ctx.lineJoin = 'round';
 
     if (style.dashed) {
       this.ctx.setLineDash([5, 5]);
     }
 
-    // Draw path
+    // Draw path with rounded corners at control points
     this.ctx.beginPath();
-    this.ctx.moveTo(path.start.x, path.start.y);
-
-    if (path.controlPoints && path.controlPoints.length > 0) {
-      // 🔄 Orthogonal routing: Draw straight line segments through waypoints
+    
+    if (path.controlPoints && path.controlPoints.length >= 2) {
+      // Draw orthogonal path with rounded corners
+      this.drawRoundedOrthogonalPath(path, 8); // 8px corner radius
+    } else if (path.controlPoints && path.controlPoints.length > 0) {
+      // Simple path with control points
+      this.ctx.moveTo(path.start.x, path.start.y);
       for (const point of path.controlPoints) {
         this.ctx.lineTo(point.x, point.y);
       }
       this.ctx.lineTo(path.end.x, path.end.y);
     } else {
-      // Straight line fallback
+      // Straight line
+      this.ctx.moveTo(path.start.x, path.start.y);
       this.ctx.lineTo(path.end.x, path.end.y);
     }
 
     this.ctx.stroke();
-
-    // Reset line dash
     this.ctx.setLineDash([]);
 
-    // Draw animated flowing dots along the line
-    this.drawFlowingDots(path, strokeColor);
+    // Draw Crow's Foot notation at both ends
+    const relType = type || 'one-to-many';
+    this.drawCrowsFootNotation(path, relType, strokeColor, lineWidth);
 
-    // Draw arrow
-    this.drawArrow(path.end, path.direction, style.arrowSize, strokeColor);
-
-    // Draw label if present (disabled for cleaner view)
-    // if (relationship.label) {
-    //   this.drawRelationshipLabel(relationship.label, path.midpoint, style);
-    // }
+    // Draw subtle animated indicator (only when selected/hovered)
+    if (isSelected || isHovered) {
+      this.drawFlowingDots(path, strokeColor);
+    }
 
     this.ctx.restore();
   }
 
   /**
-   * Draw flowing dot animation along the relationship line
+   * Draw orthogonal path with rounded corners
+   */
+  private drawRoundedOrthogonalPath(path: RelationshipRenderData['path'], cornerRadius: number): void {
+    const points = [
+      path.start,
+      ...(path.controlPoints || []),
+      path.end,
+    ];
+
+    if (points.length < 2 || !points[0]) return;
+
+    this.ctx.moveTo(points[0].x, points[0].y);
+
+    for (let i = 1; i < points.length - 1; i++) {
+      const prev = points[i - 1];
+      const curr = points[i];
+      const next = points[i + 1];
+
+      if (!prev || !curr || !next) continue;
+
+      // Calculate distances to corner
+      const dx1 = curr.x - prev.x;
+      const dy1 = curr.y - prev.y;
+      const dx2 = next.x - curr.x;
+      const dy2 = next.y - curr.y;
+
+      const len1 = Math.sqrt(dx1 * dx1 + dy1 * dy1);
+      const len2 = Math.sqrt(dx2 * dx2 + dy2 * dy2);
+
+      // Limit corner radius to half of shortest segment
+      const maxRadius = Math.min(len1, len2) / 2;
+      const radius = Math.min(cornerRadius, maxRadius);
+
+      if (radius > 0 && len1 > 0 && len2 > 0) {
+        // Calculate points before and after corner
+        const beforeCorner = {
+          x: curr.x - (dx1 / len1) * radius,
+          y: curr.y - (dy1 / len1) * radius,
+        };
+        const afterCorner = {
+          x: curr.x + (dx2 / len2) * radius,
+          y: curr.y + (dy2 / len2) * radius,
+        };
+
+        // Draw line to before corner, then arc to after corner
+        this.ctx.lineTo(beforeCorner.x, beforeCorner.y);
+        this.ctx.arcTo(curr.x, curr.y, afterCorner.x, afterCorner.y, radius);
+      } else {
+        this.ctx.lineTo(curr.x, curr.y);
+      }
+    }
+
+    // Draw to end point
+    const lastPoint = points[points.length - 1];
+    if (lastPoint) {
+      this.ctx.lineTo(lastPoint.x, lastPoint.y);
+    }
+  }
+
+  /**
+   * Draw Crow's Foot notation at relationship ends
+   * 
+   * Notation types:
+   * - 'one': Single line (|)
+   * - 'many': Crow's foot (⋀)
+   * - 'zero-or-one': Circle + line (○|)
+   * - 'one-or-many': Line + foot (|⋀)
+   * - 'zero-or-many': Circle + foot (○⋀)
+   */
+  private drawCrowsFootNotation(
+    path: RelationshipRenderData['path'],
+    type: string,
+    color: string,
+    lineWidth: number
+  ): void {
+    this.ctx.save();
+    this.ctx.strokeStyle = color;
+    this.ctx.fillStyle = color;
+    this.ctx.lineWidth = lineWidth;
+
+    // Parse relationship type
+    let fromType: 'one' | 'many' | 'zero-one' | 'zero-many' = 'one';
+    let toType: 'one' | 'many' | 'zero-one' | 'zero-many' = 'many';
+
+    switch (type) {
+      case 'one-to-one':
+        fromType = 'one';
+        toType = 'one';
+        break;
+      case 'one-to-many':
+      case '>':
+        fromType = 'one';
+        toType = 'many';
+        break;
+      case 'many-to-one':
+      case '<':
+        fromType = 'many';
+        toType = 'one';
+        break;
+      case 'many-to-many':
+      case '<>':
+        fromType = 'many';
+        toType = 'many';
+        break;
+    }
+
+    // Calculate direction at start
+    const startDir = this.getPathDirectionAt(path, 'start');
+    this.drawCrowsFootSymbol(path.start, startDir, fromType, color, lineWidth);
+
+    // Calculate direction at end
+    const endDir = this.getPathDirectionAt(path, 'end');
+    this.drawCrowsFootSymbol(path.end, endDir, toType, color, lineWidth);
+
+    this.ctx.restore();
+  }
+
+  /**
+   * Get path direction at start or end
+   */
+  private getPathDirectionAt(path: RelationshipRenderData['path'], position: 'start' | 'end'): number {
+    const points = [
+      path.start,
+      ...(path.controlPoints || []),
+      path.end,
+    ];
+
+    if (points.length < 2) return 0;
+
+    if (position === 'start') {
+      const p1 = points[0];
+      const p2 = points[1];
+      if (p1 && p2) {
+        return Math.atan2(p2.y - p1.y, p2.x - p1.x);
+      }
+    } else {
+      const p1 = points[points.length - 2];
+      const p2 = points[points.length - 1];
+      if (p1 && p2) {
+        return Math.atan2(p2.y - p1.y, p2.x - p1.x);
+      }
+    }
+
+    return 0;
+  }
+
+  /**
+   * Draw a single Crow's Foot symbol
+   */
+  private drawCrowsFootSymbol(
+    point: Position2D,
+    direction: number,
+    type: 'one' | 'many' | 'zero-one' | 'zero-many',
+    color: string,
+    lineWidth: number
+  ): void {
+    const size = 12;
+    const footSpread = 0.4; // Radians for crow's foot spread
+
+    this.ctx.save();
+    this.ctx.translate(point.x, point.y);
+    this.ctx.rotate(direction);
+    this.ctx.strokeStyle = color;
+    this.ctx.fillStyle = this.currentTheme?.colors.background || '#ffffff';
+    this.ctx.lineWidth = lineWidth;
+
+    switch (type) {
+      case 'one':
+        // Single vertical line
+        this.ctx.beginPath();
+        this.ctx.moveTo(-size * 0.3, -size * 0.4);
+        this.ctx.lineTo(-size * 0.3, size * 0.4);
+        this.ctx.stroke();
+        break;
+
+      case 'many':
+        // Crow's foot (three lines spreading out)
+        this.ctx.beginPath();
+        // Center line
+        this.ctx.moveTo(0, 0);
+        this.ctx.lineTo(-size, 0);
+        // Top line
+        this.ctx.moveTo(0, 0);
+        this.ctx.lineTo(-size * 0.7, -size * 0.5);
+        // Bottom line
+        this.ctx.moveTo(0, 0);
+        this.ctx.lineTo(-size * 0.7, size * 0.5);
+        this.ctx.stroke();
+        break;
+
+      case 'zero-one':
+        // Circle + vertical line
+        this.ctx.beginPath();
+        this.ctx.arc(-size * 0.5, 0, size * 0.25, 0, Math.PI * 2);
+        this.ctx.fill();
+        this.ctx.stroke();
+        // Vertical line
+        this.ctx.beginPath();
+        this.ctx.moveTo(-size * 0.15, -size * 0.4);
+        this.ctx.lineTo(-size * 0.15, size * 0.4);
+        this.ctx.stroke();
+        break;
+
+      case 'zero-many':
+        // Circle + crow's foot
+        this.ctx.beginPath();
+        this.ctx.arc(-size * 0.7, 0, size * 0.2, 0, Math.PI * 2);
+        this.ctx.fill();
+        this.ctx.stroke();
+        // Crow's foot
+        this.ctx.beginPath();
+        this.ctx.moveTo(0, 0);
+        this.ctx.lineTo(-size * 0.4, 0);
+        this.ctx.moveTo(0, 0);
+        this.ctx.lineTo(-size * 0.35, -size * 0.35);
+        this.ctx.moveTo(0, 0);
+        this.ctx.lineTo(-size * 0.35, size * 0.35);
+        this.ctx.stroke();
+        break;
+    }
+
+    this.ctx.restore();
+  }
+
+  /**
+   * Draw subtle flowing dot animation along the relationship line (only when selected/hovered)
    */
   private drawFlowingDots(path: RelationshipRenderData['path'], color: string): void {
-    const animationPeriod = 2000; // 2 seconds
-    const dotCount = 5;
-    const dotSize = 3;
+    const animationPeriod = 1500; // 1.5 seconds for smoother flow
+    const dotCount = 3;
+    const dotSize = 2.5;
 
     // Calculate animation progress (0 to 1)
     const progress = (this.animationTimestamp % animationPeriod) / animationPeriod;
 
+    const points = [
+      path.start,
+      ...(path.controlPoints || []),
+      path.end,
+    ];
+
+    // Calculate total path length
+    const segmentLengths: number[] = [];
+    let totalLength = 0;
+
+    for (let j = 0; j < points.length - 1; j++) {
+      const p1 = points[j];
+      const p2 = points[j + 1];
+      if (!p1 || !p2) continue;
+
+      const dx = p2.x - p1.x;
+      const dy = p2.y - p1.y;
+      const length = Math.sqrt(dx * dx + dy * dy);
+      segmentLengths.push(length);
+      totalLength += length;
+    }
+
+    if (totalLength === 0) return;
+
     for (let i = 0; i < dotCount; i++) {
-      // Distribute dots evenly along the path
       const offset = (progress + i / dotCount) % 1;
+      const targetDistance = offset * totalLength;
+      
+      let accumulatedLength = 0;
+      let dotX = path.start.x;
+      let dotY = path.start.y;
 
-      let dotX: number, dotY: number;
-
-      if (path.controlPoints && path.controlPoints.length > 0) {
-        // 🔄 Orthogonal routing: Calculate position along multi-segment path
-        // Build all points in the path
-        const points = [
-          path.start,
-          ...path.controlPoints,
-          path.end,
-        ];
-
-        // Calculate segment lengths
-        const segmentLengths: number[] = [];
-        let totalLength = 0;
-
-        for (let j = 0; j < points.length - 1; j++) {
+      for (let j = 0; j < segmentLengths.length; j++) {
+        const segmentLength = segmentLengths[j] || 0;
+        if (accumulatedLength + segmentLength >= targetDistance) {
+          const segmentOffset = segmentLength > 0 
+            ? (targetDistance - accumulatedLength) / segmentLength 
+            : 0;
           const p1 = points[j];
           const p2 = points[j + 1];
-          if (!p1 || !p2) continue;
-
-          const dx = p2.x - p1.x;
-          const dy = p2.y - p1.y;
-          const length = Math.sqrt(dx * dx + dy * dy);
-          segmentLengths.push(length);
-          totalLength += length;
-        }
-
-        // Find which segment the dot should be on
-        const targetDistance = offset * totalLength;
-        let accumulatedLength = 0;
-        let segmentIndex = 0;
-        let segmentOffset = 0;
-
-        for (let j = 0; j < segmentLengths.length; j++) {
-          const segmentLength = segmentLengths[j] || 0;
-          if (accumulatedLength + segmentLength >= targetDistance) {
-            segmentIndex = j;
-            segmentOffset = (targetDistance - accumulatedLength) / segmentLength;
-            break;
+          if (p1 && p2) {
+            dotX = p1.x + (p2.x - p1.x) * segmentOffset;
+            dotY = p1.y + (p2.y - p1.y) * segmentOffset;
           }
-          accumulatedLength += segmentLength;
+          break;
         }
-
-        // Calculate position within the segment
-        const p1 = points[segmentIndex];
-        const p2 = points[segmentIndex + 1];
-
-        if (p1 && p2) {
-          dotX = p1.x + (p2.x - p1.x) * segmentOffset;
-          dotY = p1.y + (p2.y - p1.y) * segmentOffset;
-        } else {
-          dotX = path.start.x;
-          dotY = path.start.y;
-        }
-      } else {
-        // Calculate position on straight line
-        dotX = path.start.x + (path.end.x - path.start.x) * offset;
-        dotY = path.start.y + (path.end.y - path.start.y) * offset;
+        accumulatedLength += segmentLength;
       }
 
-      // Draw dot
+      // Draw dot with slight glow effect
+      this.ctx.save();
+      this.ctx.globalAlpha = 0.8 - (i * 0.2); // Fade trailing dots
       this.ctx.fillStyle = color;
       this.ctx.beginPath();
       this.ctx.arc(dotX, dotY, dotSize, 0, Math.PI * 2);
       this.ctx.fill();
+      this.ctx.restore();
     }
   }
 
