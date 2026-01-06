@@ -208,6 +208,8 @@ export const diagramRouter = createTRPCRouter({
             name: col.name,
             type: typeof col.type === 'string' ? col.type : col.type?.name || 'unknown',
             isPrimaryKey: col.primaryKey || false,
+            // FK는 references가 있거나 ref 속성이 있는 경우
+            isForeignKey: !!(col.references || col.ref),
             isNotNull: !col.nullable,
             isUnique: col.unique || false,
             note: col.note,

@@ -207,6 +207,9 @@ importers:
       monaco-editor:
         specifier: ^0.45.0
         version: 0.45.0
+      monaco-vim:
+        specifier: ^0.4.2
+        version: 0.4.2(monaco-editor@0.45.0)
       next:
         specifier: 14.0.4
         version: 14.0.4(react-dom@18.3.1)(react@18.3.1)
@@ -253,6 +256,12 @@ importers:
       '@types/react-dom':
         specifier: ^18.2.18
         version: 18.3.7(@types/react@18.3.24)
+      '@typescript-eslint/eslint-plugin':
+        specifier: ^6.15.0
+        version: 6.21.0(@typescript-eslint/parser@6.21.0)(eslint@8.57.1)(typescript@5.9.2)
+      '@typescript-eslint/parser':
+        specifier: ^6.15.0
+        version: 6.21.0(eslint@8.57.1)(typescript@5.9.2)
       autoprefixer:
         specifier: ^10.4.16
         version: 10.4.21(postcss@8.5.6)
@@ -6303,6 +6312,14 @@ packages:
 
   /monaco-editor@0.45.0:
     resolution: {integrity: sha512-mjv1G1ZzfEE3k9HZN0dQ2olMdwIfaeAAjFiwNprLfYNRSz7ctv9XuCT7gPtBGrMUeV1/iZzYKj17Khu1hxoHOA==}
+    dev: false
+
+  /monaco-vim@0.4.2(monaco-editor@0.45.0):
+    resolution: {integrity: sha512-rdbQC3O2rmpwX2Orzig/6gZjZfH7q7TIeB+uEl49sa+QyNm3jCKJOw5mwxBdFzTqbrPD+URfg6A2lEkuL5kymw==}
+    peerDependencies:
+      monaco-editor: '*'
+    dependencies:
+      monaco-editor: 0.45.0
     dev: false
 
   /mri@1.2.0:

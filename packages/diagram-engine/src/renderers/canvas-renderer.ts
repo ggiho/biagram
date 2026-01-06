@@ -265,18 +265,30 @@ export class CanvasRenderer {
       const headerY = y + style.headerHeight / 2;
       this.ctx.fillText(table.name, x + style.padding, headerY);
 
-      // Table note (comment) if enabled and exists
+      // Table note (comment) next to table name in header
       if (showComments && tableNote) {
-        const noteY = y + style.headerHeight + 4;
-        this.ctx.font = `normal ${style.fontSize - 2}px ${style.fontFamily}`;
-        this.ctx.fillStyle = (style as any).noteTextColor || style.typeTextColor;
-        this.ctx.textAlign = 'left';
-        this.ctx.textBaseline = 'top';
+        const tableNameWidth = this.ctx.measureText(table.name).width;
+        const noteX = x + style.padding + tableNameWidth + 8; // 8px gap after table name
+        const maxNoteWidth = width - style.padding * 2 - tableNameWidth - 12;
         
-        // Wrap text if too long
-        const maxWidth = width - style.padding * 2;
-        const noteText = tableNote.length > 100 ? tableNote.substring(0, 97) + '...' : tableNote;
-        this.ctx.fillText(noteText, x + style.padding, noteY, maxWidth);
+        if (maxNoteWidth > 30) { // Only show if there's enough space
+          this.ctx.font = `normal ${style.fontSize - 1}px ${style.fontFamily}`;
+          this.ctx.fillStyle = (style as any).noteTextColor || style.typeTextColor;
+          
+          // Truncate note if too long
+          let noteText = tableNote;
+          let noteWidth = this.ctx.measureText(noteText).width;
+          
+          if (noteWidth > maxNoteWidth) {
+            while (noteWidth > maxNoteWidth && noteText.length > 3) {
+              noteText = noteText.substring(0, noteText.length - 1);
+              noteWidth = this.ctx.measureText(noteText + '...').width;
+            }
+            noteText = noteText + '...';
+          }
+          
+          this.ctx.fillText(noteText, noteX, headerY);
+        }
       }
     } else {
       // Low zoom: centered, larger table name
@@ -294,11 +306,7 @@ export class CanvasRenderer {
     // Columns (only if details should be shown)
     if (showDetails) {
       let currentY = y + style.headerHeight;
-      
-      // Add space for table note if shown
-      if (showComments && tableNote) {
-        currentY += 20; // Extra space for note
-      }
+      // Note is now in header, no extra space needed
 
       for (const column of table.columns) {
         this.renderColumn(column, x, currentY, width, style, showIcons, showComments);

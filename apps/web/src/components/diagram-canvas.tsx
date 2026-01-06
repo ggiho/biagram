@@ -1100,8 +1100,8 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
             x: savedPosition?.x ?? defaultX,
             y: savedPosition?.y ?? defaultY,
             width: calculatedWidth,
-            // Add extra height for note if it exists
-            height: Math.max(100, (table.columns?.length || 0) * 25 + 50 + (table.note ? 24 : 0)),
+            // Note is now displayed in header, no extra height needed
+            height: Math.max(100, (table.columns?.length || 0) * 25 + 50),
           },
           columns: (table.columns || []).map((column: any) => {
             const isConnected = connectedColumns.get(table.name)?.has(column.name) || false;
