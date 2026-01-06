@@ -204,6 +204,15 @@ export const diagramRouter = createTRPCRouter({
         
         // Transform schema to the format expected by the frontend
         const tables = schema.tables.map((table: any, index: number) => {
+          // Debug: Log table info
+          if (index === 0) {
+            console.log('🔍 DEBUG: First table raw data:', {
+              name: table.name,
+              note: table.note,
+              firstColumn: table.columns?.[0],
+            });
+          }
+          
           const columns = table.columns.map((col: any) => ({
             name: col.name,
             type: typeof col.type === 'string' ? col.type : col.type?.name || 'unknown',
