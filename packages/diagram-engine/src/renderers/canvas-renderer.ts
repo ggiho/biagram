@@ -321,9 +321,16 @@ export class CanvasRenderer {
     showIcons: boolean,
     showComments: boolean = true
   ): void {
-    const { isSelected, isHovered, isConnected } = column;
+    const { isSelected, isHovered, isConnected, isPrimaryKey, isForeignKey } = column;
+    const isDark = this.currentTheme?.mode === 'dark';
 
-    // Row background
+    // 🎨 PK/FK 배경 하이라이트 색상
+    const pkBgColor = isDark ? '#422006' : '#fef3c7'; // amber-50 / amber-900
+    const pkBorderColor = isDark ? '#f59e0b' : '#d97706'; // amber-500 / amber-600
+    const fkBgColor = isDark ? '#1e1b4b' : '#ede9fe'; // violet-50 / violet-950
+    const fkBorderColor = isDark ? '#8b5cf6' : '#7c3aed'; // violet-500 / violet-600
+
+    // Row background - 우선순위: selected > hovered > connected > PK > FK
     if (isSelected) {
       this.ctx.fillStyle = style.selectedRowColor;
       this.ctx.fillRect(x, y, width, style.rowHeight);
@@ -334,9 +341,22 @@ export class CanvasRenderer {
       // 연결된 컬럼 하이라이트 (테마별 색상)
       this.ctx.fillStyle = (style as any).connectedRowColor || '#eff6ff';
       this.ctx.fillRect(x, y, width, style.rowHeight);
-
-      // 왼쪽 테두리 강조 (테마별 색상)
+      // 왼쪽 테두리 강조
       this.ctx.fillStyle = (style as any).connectedBorderColor || '#3b82f6';
+      this.ctx.fillRect(x, y, 3, style.rowHeight);
+    } else if (isPrimaryKey) {
+      // 🔑 PK 배경 하이라이트 (amber/gold)
+      this.ctx.fillStyle = pkBgColor;
+      this.ctx.fillRect(x, y, width, style.rowHeight);
+      // 왼쪽 테두리 강조
+      this.ctx.fillStyle = pkBorderColor;
+      this.ctx.fillRect(x, y, 3, style.rowHeight);
+    } else if (isForeignKey) {
+      // 🔗 FK 배경 하이라이트 (violet/purple)
+      this.ctx.fillStyle = fkBgColor;
+      this.ctx.fillRect(x, y, width, style.rowHeight);
+      // 왼쪽 테두리 강조
+      this.ctx.fillStyle = fkBorderColor;
       this.ctx.fillRect(x, y, 3, style.rowHeight);
     }
 
@@ -344,20 +364,21 @@ export class CanvasRenderer {
 
     // Icons (only at higher zoom levels)
     if (showIcons) {
-      if (column.isPrimaryKey) {
-        this.drawIcon('key', iconX, y + style.rowHeight / 2, style.iconSize);
+      if (isPrimaryKey) {
+        this.drawKeyIcon(iconX, y + style.rowHeight / 2, style.iconSize, pkBorderColor);
         iconX += style.iconSize + style.iconSpacing;
       }
 
-      if (column.isForeignKey) {
-        this.drawIcon('link', iconX, y + style.rowHeight / 2, style.iconSize);
+      if (isForeignKey) {
+        this.drawForeignKeyIcon(iconX, y + style.rowHeight / 2, style.iconSize, fkBorderColor);
         iconX += style.iconSize + style.iconSpacing;
       }
     }
 
-    // Column name
+    // Column name - PK는 bold 처리
+    const fontWeight = isPrimaryKey ? 'bold' : style.fontWeight;
     this.ctx.fillStyle = style.textColor;
-    this.ctx.font = `${style.fontWeight} ${style.fontSize}px ${style.fontFamily}`;
+    this.ctx.font = `${fontWeight} ${style.fontSize}px ${style.fontFamily}`;
     this.ctx.textAlign = 'left';
     this.ctx.textBaseline = 'middle';
 
@@ -871,6 +892,82 @@ export class CanvasRenderer {
         this.ctx.stroke();
         break;
     }
+
+    this.ctx.restore();
+  }
+
+  /**
+   * Draw a Primary Key icon (🔑 golden key)
+   */
+  private drawKeyIcon(x: number, y: number, size: number, color: string): void {
+    this.ctx.save();
+
+    const halfSize = size / 2;
+    const centerX = x;
+    const centerY = y;
+
+    this.ctx.strokeStyle = color;
+    this.ctx.fillStyle = color;
+    this.ctx.lineWidth = 1.8;
+    this.ctx.lineCap = 'round';
+
+    // 열쇠 머리 (원형, 채움)
+    this.ctx.beginPath();
+    this.ctx.arc(centerX - halfSize * 0.3, centerY, halfSize * 0.35, 0, Math.PI * 2);
+    this.ctx.fill();
+
+    // 열쇠 머리 내부 구멍
+    this.ctx.save();
+    this.ctx.globalCompositeOperation = 'destination-out';
+    this.ctx.beginPath();
+    this.ctx.arc(centerX - halfSize * 0.3, centerY, halfSize * 0.15, 0, Math.PI * 2);
+    this.ctx.fill();
+    this.ctx.restore();
+
+    // 열쇠 몸통
+    this.ctx.beginPath();
+    this.ctx.moveTo(centerX, centerY);
+    this.ctx.lineTo(centerX + halfSize * 0.8, centerY);
+    this.ctx.stroke();
+
+    // 열쇠 이빨들
+    this.ctx.beginPath();
+    this.ctx.moveTo(centerX + halfSize * 0.5, centerY);
+    this.ctx.lineTo(centerX + halfSize * 0.5, centerY + halfSize * 0.3);
+    this.ctx.moveTo(centerX + halfSize * 0.7, centerY);
+    this.ctx.lineTo(centerX + halfSize * 0.7, centerY + halfSize * 0.25);
+    this.ctx.stroke();
+
+    this.ctx.restore();
+  }
+
+  /**
+   * Draw a Foreign Key icon (🔗 chain link)
+   */
+  private drawForeignKeyIcon(x: number, y: number, size: number, color: string): void {
+    this.ctx.save();
+
+    const halfSize = size / 2;
+    const centerX = x;
+    const centerY = y;
+
+    this.ctx.strokeStyle = color;
+    this.ctx.lineWidth = 1.8;
+    this.ctx.lineCap = 'round';
+
+    // 첫 번째 링크 (왼쪽 위)
+    const link1X = centerX - halfSize * 0.25;
+    const link1Y = centerY - halfSize * 0.15;
+    this.ctx.beginPath();
+    this.ctx.ellipse(link1X, link1Y, halfSize * 0.35, halfSize * 0.22, -Math.PI / 4, 0, Math.PI * 2);
+    this.ctx.stroke();
+
+    // 두 번째 링크 (오른쪽 아래)
+    const link2X = centerX + halfSize * 0.25;
+    const link2Y = centerY + halfSize * 0.15;
+    this.ctx.beginPath();
+    this.ctx.ellipse(link2X, link2Y, halfSize * 0.35, halfSize * 0.22, -Math.PI / 4, 0, Math.PI * 2);
+    this.ctx.stroke();
 
     this.ctx.restore();
   }
