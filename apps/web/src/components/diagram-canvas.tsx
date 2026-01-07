@@ -980,9 +980,20 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
         // 각 테이블의 예상 크기 계산
         const getTableDimensions = (table: any) => {
           const columnCount = table.columns?.length || 0;
-          const hasNote = !!table.note;
-          const height = Math.max(100, columnCount * 25 + 50 + (hasNote ? 24 : 0));
-          const width = 280; // 기본 너비
+          const height = Math.max(100, columnCount * 25 + 50);
+          
+          // 테이블명 길이 기반 동적 너비
+          const tableSchema = table.schema || (table.name.includes('.') ? table.name.split('.')[0] : undefined);
+          const tName = table.name.includes('.') ? table.name.split('.')[1] : table.name;
+          const fullName = tableSchema ? `${tableSchema}.${tName}` : tName;
+          
+          // 대략적인 텍스트 너비 계산 (캔버스 없이)
+          const estimatedNameWidth = fullName.length * 8; // 평균 문자 너비 8px
+          const maxColWidth = Math.max(...(table.columns || []).map((c: any) => 
+            (`${c.name} ${c.type || ''}`).length * 7
+          ), 0);
+          
+          const width = Math.max(200, Math.max(estimatedNameWidth, maxColWidth) + 80);
           return { width, height };
         };
 
@@ -1070,34 +1081,35 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
           console.log(`📍 Restoring position for table ${table.name}:`, savedPosition);
         }
 
+        // Parse schema.table notation first (needed for width calculation)
+        const tableSchema = table.schema || (table.name.includes('.') ? table.name.split('.')[0] : undefined);
+        const tableName = table.name.includes('.') ? table.name.split('.')[1] : table.name;
+        const fullTableName = tableSchema ? `${tableSchema}.${tableName}` : tableName;
+
         // 동적 너비 계산
         const fontSize = 14;
         const fontFamily = 'Inter, -apple-system, BlinkMacSystemFont, sans-serif';
         const padding = 12;
         
-        // 테이블 이름 너비 (bold)
-        const tableNameWidth = measureTextWidth(table.name, fontSize, fontFamily, 'bold');
+        // 테이블 이름 너비 (bold) - 전체 이름(스키마.테이블) 사용
+        const tableNameWidth = measureTextWidth(fullTableName, fontSize, fontFamily, 'bold');
+        
+        // 테이블 코멘트가 있으면 헤더에 표시되므로 헤더 너비 계산에 포함
+        const noteText = table.note ? ` ${table.note}` : '';
+        const headerWidth = measureTextWidth(fullTableName + noteText, fontSize - 1, fontFamily);
         
         // 모든 컬럼의 최대 너비 계산
-        let maxColumnWidth = tableNameWidth;
+        let maxColumnWidth = Math.max(tableNameWidth, headerWidth);
         (table.columns || []).forEach((column: any) => {
-          // 컬럼명 + 타입 문자열
+          // 컬럼명 + 타입 문자열 + 아이콘/note 공간
           const columnText = `${column.name} ${column.type || ''}`;
           const columnWidth = measureTextWidth(columnText, fontSize, fontFamily);
           maxColumnWidth = Math.max(maxColumnWidth, columnWidth);
         });
         
         // 패딩과 아이콘 공간 추가 (좌우 패딩 + 아이콘 영역)
-        const calculatedWidth = Math.max(180, maxColumnWidth + padding * 2 + 40);
-
-        // Parse schema.table notation
-        // table.schema comes from the DBML parser when using schema.table syntax
-        const tableSchema = table.schema || (table.name.includes('.') ? table.name.split('.')[0] : undefined);
-        const tableName = table.name.includes('.') ? table.name.split('.')[1] : table.name;
+        const calculatedWidth = Math.max(200, maxColumnWidth + padding * 2 + 50);
         const schemaColor = tableSchema ? schemaColors.get(tableSchema) : undefined;
-        
-        // Full name with schema for matching relationships (e.g., "admin_portal.auth_group")
-        const fullTableName = tableSchema ? `${tableSchema}.${tableName}` : tableName;
         
         return {
           id: fullTableName, // Use full name with schema for relationship matching
