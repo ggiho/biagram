@@ -1227,20 +1227,58 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
             }
           });
           
+          // 🔄 같은 테이블/컬럼에서 나가는 관계선 오프셋 계산을 위한 사전 처리
+          const connectionGroups = new Map<string, { rel: any; index: number }[]>();
+          (schema.relationships || []).forEach((rel: any, index: number) => {
+            // 시작점 그룹핑 (테이블-컬럼 조합)
+            const fromKey = `from:${rel.fromTable}:${rel.fromColumn}`;
+            if (!connectionGroups.has(fromKey)) {
+              connectionGroups.set(fromKey, []);
+            }
+            connectionGroups.get(fromKey)!.push({ rel, index });
+            
+            // 도착점 그룹핑
+            const toKey = `to:${rel.toTable}:${rel.toColumn}`;
+            if (!connectionGroups.has(toKey)) {
+              connectionGroups.set(toKey, []);
+            }
+            connectionGroups.get(toKey)!.push({ rel, index });
+          });
+
+          // 각 관계선의 오프셋 계산
+          const connectionOffsets = new Map<number, { fromOffset: number; toOffset: number }>();
+          connectionGroups.forEach((group, key) => {
+            if (group.length > 1) {
+              const offsetStep = 8; // 선 간 간격 (픽셀)
+              const totalOffset = (group.length - 1) * offsetStep;
+              group.forEach((item, i) => {
+                const offset = -totalOffset / 2 + i * offsetStep;
+                const existing = connectionOffsets.get(item.index) || { fromOffset: 0, toOffset: 0 };
+                if (key.startsWith('from:')) {
+                  existing.fromOffset = offset;
+                } else {
+                  existing.toOffset = offset;
+                }
+                connectionOffsets.set(item.index, existing);
+              });
+            }
+          });
+
           const currentRelationships: RelationshipRenderData[] = (schema.relationships || []).map((rel: any, index: number) => {
             const fromTableBounds = tablePositions.get(rel.fromTable);
             const toTableBounds = tablePositions.get(rel.toTable);
+            const offsets = connectionOffsets.get(index) || { fromOffset: 0, toOffset: 0 };
 
-            const getColumnY = (table: any, columnName: string, tableBounds: any): number => {
+            const getColumnY = (table: any, columnName: string, tableBounds: any, yOffset: number = 0): number => {
               if (!table || !tableBounds) return 0;
               const columnIndex = table.columns?.findIndex((col: any) => col.name === columnName);
               if (columnIndex === -1 || columnIndex === undefined) {
-                return tableBounds.y + tableBounds.height / 2;
+                return tableBounds.y + tableBounds.height / 2 + yOffset;
               }
               const headerHeight = 32;
               const rowHeight = 24;
               const noteHeight = table.note ? 20 : 0; // 테이블 note가 있으면 추가 공간
-              return tableBounds.y + headerHeight + noteHeight + (columnIndex * rowHeight) + (rowHeight / 2);
+              return tableBounds.y + headerHeight + noteHeight + (columnIndex * rowHeight) + (rowHeight / 2) + yOffset;
             };
 
             // Find tables by full name (schema.table) or short name
@@ -1298,8 +1336,9 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
             const toRight = toTableBounds.x + toTableBounds.width;
             const toCenterX = toLeft + toTableBounds.width / 2;
 
-            const fromColumnY = getColumnY(fromTable, rel.fromColumn, fromTableBounds);
-            const toColumnY = getColumnY(toTable, rel.toColumn, toTableBounds);
+            // 오프셋 적용된 컬럼 Y 위치
+            const fromColumnY = getColumnY(fromTable, rel.fromColumn, fromTableBounds, offsets.fromOffset);
+            const toColumnY = getColumnY(toTable, rel.toColumn, toTableBounds, offsets.toOffset);
 
             const GAP = 25;
             const horizontalOverlap = !(fromRight + GAP < toLeft || toRight + GAP < fromLeft);
