@@ -172,14 +172,35 @@ export function DiagramSidebar({ schema }: DiagramSidebarProps) {
 
   // Render detailed table view
   if (isTableSelected) {
-    const selectedTable = schema.tables.find(t => t.name === selectedEntityId);
+    // 테이블 찾기 - 스키마.테이블명 또는 테이블명으로 매칭
+    const selectedTable = schema.tables.find(t => {
+      const tableSchema = (t as any).schema;
+      const fullName = tableSchema ? `${tableSchema}.${t.name}` : t.name;
+      return t.name === selectedEntityId || fullName === selectedEntityId;
+    });
     if (!selectedTable) {
       // Table not found, clear selection
       return renderSchemaOverview();
     }
 
+    // 테이블명 매칭 헬퍼 함수 (스키마명 포함/미포함 둘 다 처리)
+    const matchesTable = (relationTableName: string, selectedName: string) => {
+      if (relationTableName === selectedName) return true;
+      // 스키마.테이블명 형식에서 테이블명만 비교
+      if (relationTableName.includes('.')) {
+        const tableName = relationTableName.split('.').pop();
+        if (tableName === selectedName) return true;
+      }
+      // selectedName이 스키마.테이블명 형식인 경우
+      if (selectedName.includes('.')) {
+        const tableName = selectedName.split('.').pop();
+        if (tableName === relationTableName || relationTableName.endsWith(`.${tableName}`)) return true;
+      }
+      return false;
+    };
+
     const relatedRelationships = schema.relationships.filter(
-      rel => rel.fromTable === selectedEntityId || rel.toTable === selectedEntityId
+      rel => matchesTable(rel.fromTable, selectedEntityId!) || matchesTable(rel.toTable, selectedEntityId!)
     );
 
     return (
@@ -332,12 +353,15 @@ export function DiagramSidebar({ schema }: DiagramSidebarProps) {
           </Button>
 
           {expandedSections.tables && (
-            <div className="pb-2">
+            <div className="pb-2 max-h-[40vh] overflow-y-auto">
               {schema.tables.map((table) => {
-                const isSelected = selectedEntityId === table.name;
+                // 스키마.테이블 형식으로 표시
+                const tableSchema = (table as any).schema;
+                const displayName = tableSchema ? `${tableSchema}.${table.name}` : table.name;
+                const isSelected = selectedEntityId === table.name || selectedEntityId === displayName;
                 return (
                   <div
-                    key={table.name}
+                    key={displayName}
                     ref={(el) => {
                       if (el) {
                         tableRefs.current.set(table.name, el);
@@ -345,14 +369,18 @@ export function DiagramSidebar({ schema }: DiagramSidebarProps) {
                         tableRefs.current.delete(table.name);
                       }
                     }}
-                    className={`px-4 py-2 border-l-2 ${
+                    className={`px-4 py-2 border-l-2 cursor-pointer ${
                       isSelected
                         ? 'border-l-primary bg-primary/10'
                         : 'border-l-transparent hover:border-l-primary hover:bg-muted/50'
                     }`}
+                    onClick={() => {
+                      console.log('📋 Table clicked from sidebar:', table.name);
+                      setSelectedEntityId(isSelected ? null : table.name);
+                    }}
                   >
                     <div className={`font-medium text-sm ${isSelected ? 'text-primary' : ''}`}>
-                      {table.name}
+                      {displayName}
                     </div>
                     <div className="text-xs text-muted-foreground">
                       {table.columns.length} columns
@@ -402,7 +430,7 @@ export function DiagramSidebar({ schema }: DiagramSidebarProps) {
           </Button>
 
           {expandedSections.relationships && (
-            <div className="pb-2">
+            <div className="pb-2 max-h-[40vh] overflow-y-auto">
               {schema.relationships.map((rel, index) => {
                 const relationshipId = rel.id || `rel-${index}`;
                 const isHighlighted = highlightedRelationshipId === relationshipId;

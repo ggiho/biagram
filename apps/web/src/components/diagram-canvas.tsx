@@ -263,7 +263,7 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
           if (worldX >= x && worldX <= x + width &&
               worldY >= y && worldY <= y + height) {
             console.log('🎯 Found table at position:', table.name, 'id:', table.id);
-            return table.name; // Use table.name instead of table.id for consistency
+            return table.id; // Use table.id (fullTableName with schema) for sidebar matching
           }
         }
         return null;
@@ -691,7 +691,7 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
           // isSelected 업데이트하고 재렌더링
           tablesRef.current = tablesRef.current.map(table => ({
             ...table,
-            isSelected: table.name === mouseDownTableId,
+            isSelected: table.id === mouseDownTableId,
           }));
           safeRender();
         } else if (!hasMoved && mouseDownRelationshipId) {

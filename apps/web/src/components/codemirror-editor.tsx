@@ -80,7 +80,10 @@ export const CodeMirrorEditor = forwardRef<CodeMirrorEditorRef, CodeMirrorEditor
         // Calculate position in document
         let pos = 0;
         for (let i = 0; i < lineNumber; i++) {
-          pos += lines[i].length + 1; // +1 for newline
+          const line = lines[i];
+          if (line !== undefined) {
+            pos += line.length + 1; // +1 for newline
+          }
         }
         
         // Scroll to position WITHOUT moving cursor
@@ -182,8 +185,7 @@ export const CodeMirrorEditor = forwardRef<CodeMirrorEditorRef, CodeMirrorEditor
         '.cm-selectionMatch': {
           backgroundColor: '#d4ebff',
         },
-      },
-      { priority: 1 }
+      }
     );
 
     const selectionHighlightPlugin = ViewPlugin.fromClass(
@@ -300,14 +302,14 @@ export const CodeMirrorEditor = forwardRef<CodeMirrorEditorRef, CodeMirrorEditor
           const lineText = line.text;
           const tableMatch = lineText.match(/^\s*[Tt]able\s+["']?([a-zA-Z0-9_.]+)["']?\s*{/);
           
-          if (tableMatch) {
+          if (tableMatch && tableMatch[1]) {
             tableName = tableMatch[1];
           } else {
             // Search backwards for the enclosing table
             for (let i = line.number - 1; i >= 1; i--) {
               const prevLine = update.state.doc.line(i);
               const prevTableMatch = prevLine.text.match(/^\s*[Tt]able\s+["']?([a-zA-Z0-9_.]+)["']?\s*{/);
-              if (prevTableMatch) {
+              if (prevTableMatch && prevTableMatch[1]) {
                 tableName = prevTableMatch[1];
                 break;
               }

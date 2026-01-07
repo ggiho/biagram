@@ -296,7 +296,7 @@ export const diagramRouter = createTRPCRouter({
         }
 
         // Convert to DDL
-        const ddl = convertDBMLtoDDL(parseResult.schema, input.dialect, input.includeForeignKeys);
+        const ddl = convertDBMLtoDDL(parseResult.schema as any, input.dialect, input.includeForeignKeys);
 
         console.log('✅ DDL generated successfully, length:', ddl.length, 'includeForeignKeys:', input.includeForeignKeys);
 
