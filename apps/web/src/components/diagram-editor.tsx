@@ -391,7 +391,7 @@ function DiagramEditorContent() {
             {/* Code Editor Panel */}
             {editorOpen && (
               <>
-                <Panel defaultSize={40} minSize={30}>
+                <Panel defaultSize={25} minSize={15}>
                   <div className="flex h-full flex-col">
                     <div className="border-b p-2 flex items-center justify-between">
                       <h3 className="text-sm font-medium">DBML Code</h3>
@@ -451,7 +451,7 @@ function DiagramEditorContent() {
             )}
 
             {/* Diagram Panel */}
-            <Panel defaultSize={editorOpen ? (sidebarOpen ? 40 : 60) : (sidebarOpen ? 80 : 100)} minSize={30}>
+            <Panel defaultSize={editorOpen ? (sidebarOpen ? 55 : 75) : (sidebarOpen ? 80 : 100)} minSize={30}>
               <div className="flex h-full flex-col">
                 <DiagramToolbar />
                 <div className="flex-1 bg-gray-50 dark:bg-gray-900 relative">

@@ -131,8 +131,15 @@ export class CanvasRenderer {
     }
 
     // Render in layers for optimal performance
-    this.renderRelationships(relationships, viewport);
+    // 1. 선택되지 않은 관계선 먼저 렌더링
+    const unselectedRelationships = relationships.filter(r => !r.isSelected);
+    const selectedRelationships = relationships.filter(r => r.isSelected);
+    
+    this.renderRelationships(unselectedRelationships, viewport);
     this.renderTables(tables, viewport, showComments);
+    
+    // 2. 선택된 관계선은 테이블 위에 렌더링
+    this.renderRelationships(selectedRelationships, viewport);
 
     this.lastViewport = { ...viewport };
     this.isDirty = false;
@@ -207,6 +214,11 @@ export class CanvasRenderer {
 
     // Get opacity from table (default to 1.0 if not set)
     const opacity = (table as any).opacity ?? 1.0;
+    
+    // opacity가 0이면 렌더링 스킵
+    if (opacity <= 0) {
+      return;
+    }
 
     // Level of detail based on zoom
     const showDetails = zoom > 0.5;
@@ -454,8 +466,21 @@ export class CanvasRenderer {
    */
   private renderRelationship(relationship: RelationshipRenderData): void {
     const { path, style, isSelected, isHovered, type } = relationship;
+    
+    // @ts-ignore - opacity가 추가될 수 있음
+    const opacity = (relationship as any).opacity;
+    
+    // opacity가 0이면 렌더링 스킵
+    if (opacity !== undefined && opacity <= 0) {
+      return;
+    }
 
     this.ctx.save();
+    
+    // opacity 적용
+    if (opacity !== undefined && opacity < 1) {
+      this.ctx.globalAlpha = opacity;
+    }
 
     // Line style
     let strokeColor = style.color;

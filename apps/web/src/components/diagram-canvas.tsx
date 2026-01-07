@@ -767,7 +767,7 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
               }
               
               // 캔버스 중앙 계산
-              const targetZoom = 0.8;
+              const targetZoom = 0.85;
               const canvasCenterX = canvas.width / 2 / targetZoom;
               const canvasCenterY = canvas.height / 2 / targetZoom;
               
@@ -1791,70 +1791,86 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
           console.log('💾 Saved viewport from useEffect:', savedViewportRef.current);
         }
         
-            // 🎯 두 테이블을 화면 중앙으로 물리적 이동
-            if (fromTable && toTable && canvasRef.current) {
-              // 원래 위치 저장 (복원용)
-              if (!savedTablePositionsRef.current) {
-                savedTablePositionsRef.current = new Map();
-                tablesRef.current.forEach(t => {
-                  savedTablePositionsRef.current!.set(t.id, { x: t.bounds.x, y: t.bounds.y });
-                });
-                console.log('💾 Saved table positions:', savedTablePositionsRef.current.size, 'tables');
-              }
-              
-              // 캔버스 중앙 계산 (canvasRef 사용)
-              const canvasRect = canvasRef.current.getBoundingClientRect();
-              const targetZoom = 0.8;
-              const canvasCenterX = canvasRect.width / 2 / targetZoom;
-              const canvasCenterY = canvasRect.height / 2 / targetZoom;
-              
-              // 테이블 간격
-              const gap = 100;
-              
-              // 참조되는 테이블(toTable)을 왼쪽에, 참조하는 테이블(fromTable)을 오른쪽에 배치
-              const toTableNewX = canvasCenterX - toTable.bounds.width - gap / 2;
-              const fromTableNewX = canvasCenterX + gap / 2;
-              
-              // Y 위치는 두 테이블 중 더 큰 높이를 기준으로 중앙 정렬
-              const maxHeight = Math.max(fromTable.bounds.height, toTable.bounds.height);
-              const toTableNewY = canvasCenterY - maxHeight / 2;
-              const fromTableNewY = canvasCenterY - maxHeight / 2;
-              
-              console.log('🎯 Moving tables physically:', {
-                toTable: { name: toTable.name, newPos: { x: toTableNewX, y: toTableNewY } },
-                fromTable: { name: fromTable.name, newPos: { x: fromTableNewX, y: fromTableNewY } }
+        // 🎯 두 테이블을 화면 중앙으로 물리적 이동
+        if (fromTable && toTable && canvasRef.current) {
+          // 원래 위치 저장 (복원용)
+          if (!savedTablePositionsRef.current) {
+            savedTablePositionsRef.current = new Map();
+            tablesRef.current.forEach(t => {
+              savedTablePositionsRef.current!.set(t.id, { x: t.bounds.x, y: t.bounds.y });
+            });
+            console.log('💾 Saved table positions:', savedTablePositionsRef.current.size, 'tables');
+          }
+          
+          // 캔버스 중앙 계산 (canvasRef 사용)
+          const canvasRect = canvasRef.current.getBoundingClientRect();
+          const targetZoom = 0.85;
+          const canvasCenterX = canvasRect.width / 2 / targetZoom;
+          const canvasCenterY = canvasRect.height / 2 / targetZoom;
+          
+          // 테이블 간격
+          const gap = 100;
+          
+          // 참조되는 테이블(toTable)을 왼쪽에, 참조하는 테이블(fromTable)을 오른쪽에 배치
+          const toTableNewX = canvasCenterX - toTable.bounds.width - gap / 2;
+          const fromTableNewX = canvasCenterX + gap / 2;
+          
+          // Y 위치는 두 테이블 중 더 큰 높이를 기준으로 중앙 정렬
+          const maxHeight = Math.max(fromTable.bounds.height, toTable.bounds.height);
+          const toTableNewY = canvasCenterY - maxHeight / 2;
+          const fromTableNewY = canvasCenterY - maxHeight / 2;
+          
+          console.log('🎯 Moving tables physically (useEffect):', {
+            toTable: { name: toTable.name, newPos: { x: toTableNewX, y: toTableNewY } },
+            fromTable: { name: fromTable.name, newPos: { x: fromTableNewX, y: fromTableNewY } }
+          });
+          
+          // 테이블 위치 업데이트 + 선택된 테이블을 맨 뒤로 (렌더링 시 가장 위에 표시됨)
+          // 다른 테이블들은 dim 처리 (opacity 0.3)
+          const dimmedTables: typeof tablesRef.current = [];
+          let updatedFromTable: typeof tablesRef.current[0] | null = null;
+          let updatedToTable: typeof tablesRef.current[0] | null = null;
+          
+          tablesRef.current.forEach(t => {
+            if (t.id === toTable.id || t.name === highlightedRel.toTable) {
+              updatedToTable = { 
+                ...t, 
+                bounds: { ...t.bounds, x: toTableNewX, y: toTableNewY },
+                // @ts-ignore - Adding opacity property
+                opacity: 1.0,
+              };
+            } else if (t.id === fromTable.id || t.name === highlightedRel.fromTable) {
+              updatedFromTable = { 
+                ...t, 
+                bounds: { ...t.bounds, x: fromTableNewX, y: fromTableNewY },
+                // @ts-ignore - Adding opacity property
+                opacity: 1.0,
+              };
+            } else {
+              dimmedTables.push({
+                ...t,
+                // @ts-ignore - Adding opacity property
+                opacity: 0.3, // dim 처리
               });
-              
-              // 테이블 위치 업데이트
-              tablesRef.current = tablesRef.current.map(t => {
-                if (t.id === toTable.id || t.name === highlightedRel.toTable) {
-                  return { ...t, bounds: { ...t.bounds, x: toTableNewX, y: toTableNewY } };
-                }
-                if (t.id === fromTable.id || t.name === highlightedRel.fromTable) {
-                  return { ...t, bounds: { ...t.bounds, x: fromTableNewX, y: fromTableNewY } };
-                }
-                return t;
-              });
-              
-              // 뷰포트 설정: 80% 줌, 캔버스 중앙으로 팬
-              viewportManager.zoomTo(targetZoom, false);
-              viewportManager.panTo({ x: canvasCenterX, y: canvasCenterY }, true);
             }
+          });
+          
+          // 선택된 테이블을 배열 맨 뒤에 추가 (렌더링 순서상 가장 위에 표시)
+          tablesRef.current = [...dimmedTables];
+          if (updatedToTable) tablesRef.current.push(updatedToTable);
+          if (updatedFromTable) tablesRef.current.push(updatedFromTable);
+          
+          // 뷰포트 설정: 80% 줌, 캔버스 중앙으로 팬
+          viewportManager.zoomTo(targetZoom, false);
+          viewportManager.panTo({ x: canvasCenterX, y: canvasCenterY }, true);
+        }
 
-        // 연결된 테이블 ID 세트
-        const connectedTableIds = new Set([highlightedRel.fromTable, highlightedRel.toTable]);
-
-        // 모든 테이블에 opacity 속성 추가 (연결되지 않은 테이블은 0.3)
-        tablesRef.current = tablesRef.current.map(table => ({
-          ...table,
-          // @ts-ignore - Adding opacity property not in schema
-          opacity: connectedTableIds.has(table.name) ? 1.0 : 0.3,
-        }));
-
-        // 하이라이트된 관계선만 선택 상태로 표시
+        // 모든 관계선 숨김 (두 테이블만 중앙에 표시)
         relationshipsRef.current = relationshipsRef.current.map((rel: any) => ({
           ...rel,
           isSelected: rel.id === highlightedRelationshipId,
+          // @ts-ignore - Adding opacity property
+          opacity: 0.0, // 모든 관계선 숨김
         }));
       }
     } else {
@@ -1891,10 +1907,12 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
         opacity: 1.0,
       }));
 
-      // 모든 관계선 선택 해제
+      // 모든 관계선 선택 해제 및 opacity 복원
       relationshipsRef.current = relationshipsRef.current.map((rel: any) => ({
         ...rel,
         isSelected: false,
+        // @ts-ignore - Restoring opacity
+        opacity: 1.0,
       }));
     }
 
