@@ -117,7 +117,10 @@ export function DiagramSidebar({ schema }: DiagramSidebarProps) {
             variant="ghost"
             size="sm"
             className="mb-2 h-auto p-1"
-            onClick={() => setSelectedEntityId(null)}
+            onClick={() => {
+              setSelectedEntityId(null);
+              setHighlightedRelationshipId(null);
+            }}
           >
             ← Back to Overview
           </Button>
