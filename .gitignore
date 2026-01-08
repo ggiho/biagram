@@ -50,3 +50,6 @@ test-*.mjs
 check-*.js
 playwright-test.js
 *.tsbuildinfo
+
+# SQLite cache
+cache.sqlite
