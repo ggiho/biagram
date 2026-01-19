@@ -161,17 +161,17 @@ export function useFuzzySearch(
     const fuseOptions: IFuseOptions<SearchableItem> = {
       keys: [
         { name: 'tableName', weight: 2.0 },
-        { name: 'columnName', weight: 1.5 },
-        { name: 'searchText', weight: 1.0 },
-        { name: 'columnType', weight: 0.5 },
+        { name: 'columnName', weight: 2.0 }, // 컬럼명 가중치 높임
+        { name: 'searchText', weight: 0.5 },
+        { name: 'columnType', weight: 0.3 },
         { name: 'schemaName', weight: 0.3 },
       ],
       threshold,
       includeScore: true,
       includeMatches: true,
-      minMatchCharLength: 1,
-      ignoreLocation: true, // 위치 무시 (어디서든 매칭)
-      useExtendedSearch: true,
+      minMatchCharLength: 2, // 최소 2글자 이상 매칭
+      ignoreLocation: false, // 위치 고려 (시작부터 매칭 우선)
+      distance: 100, // 매칭 거리 제한
     };
 
     return new Fuse(searchableItems, fuseOptions);
