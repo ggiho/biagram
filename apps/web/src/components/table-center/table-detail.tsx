@@ -86,12 +86,17 @@ export function TableDetail({ spec }: TableDetailProps) {
             <tbody className="divide-y">
               {spec.columns.map((column: ColumnSpecification) => {
                 const isPII = column.description?.startsWith('*');
+                const isPK = column.primaryKey;
+                const isAudit = ['created_by', 'created_at', 'updated_by', 'updated_at'].includes(column.name);
+                
                 return (
                   <tr
                     key={column.name}
                     className={cn(
                       'hover:bg-muted/30 transition-colors',
-                      isPII && 'bg-red-50 dark:bg-red-950/20'
+                      isPK && 'bg-amber-50 dark:bg-amber-950/20',
+                      isPII && 'bg-red-50 dark:bg-red-950/20',
+                      isAudit && !isPK && !isPII && 'bg-muted/30 text-muted-foreground'
                     )}
                   >
                     <td className="p-3 font-mono text-sm truncate" title={column.name}>
