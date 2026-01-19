@@ -42,7 +42,19 @@ export function generateTableSpecification(
 
   // 1. 컬럼 정보 변환 (테이블 이름 전달하여 FK 정확히 판별)
   const fullTableName = table.schema ? `${table.schema}.${table.name}` : table.name;
-  const columns = table.columns.map((col) => convertColumn(col, fullTableName, allRelationships));
+  
+  // Unique 인덱스에 포함된 컬럼 목록 추출
+  const uniqueIndexColumns = new Set<string>();
+  if (table.indexes) {
+    for (const idx of table.indexes) {
+      if (idx.unique && idx.columns.length === 1 && idx.columns[0]) {
+        // 단일 컬럼 unique 인덱스만 컬럼의 unique로 반영
+        uniqueIndexColumns.add(idx.columns[0]);
+      }
+    }
+  }
+  
+  const columns = table.columns.map((col) => convertColumn(col, fullTableName, allRelationships, uniqueIndexColumns));
 
   // 2. 제약 조건 추출
   const constraints = extractConstraints(table, allRelationships);
@@ -138,7 +150,8 @@ export function generateSpecificationSummary(
 function convertColumn(
   column: Column,
   tableName: string,
-  allRelationships: Relationship[]
+  allRelationships: Relationship[],
+  uniqueIndexColumns: Set<string>
 ): ColumnSpecification {
   // 타입 정보 추출 (크기 포함)
   const typeStr = formatColumnType(column.type);
@@ -146,12 +159,15 @@ function convertColumn(
   // 외래 키 정보 찾기 (테이블 이름도 전달하여 정확히 판별)
   const foreignKey = findForeignKeyForColumn(column, tableName, allRelationships);
 
+  // Unique 여부: 컬럼 자체 속성 또는 unique 인덱스에 포함된 경우
+  const isUnique = column.unique ?? uniqueIndexColumns.has(column.name);
+
   return {
     name: column.name,
     type: typeStr,
     nullable: column.nullable ?? true,
     primaryKey: column.primaryKey ?? false,
-    unique: column.unique ?? false,
+    unique: isUnique,
     autoIncrement: column.autoIncrement ?? false,
     defaultValue: column.defaultValue ? String(column.defaultValue) : undefined,
     description: column.note,

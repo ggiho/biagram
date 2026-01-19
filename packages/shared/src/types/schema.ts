@@ -182,6 +182,11 @@ export const TableSchema = z.object({
   schema: z.string().optional(),
   alias: z.string().optional(),
   columns: z.array(ColumnSchema),
+  indexes: z.array(z.object({
+    name: z.string(),
+    columns: z.array(z.string()),
+    unique: z.boolean().default(false),
+  })).optional(),
   note: z.string().optional(),
   color: z.string().optional(),
   headerColor: z.string().optional(),

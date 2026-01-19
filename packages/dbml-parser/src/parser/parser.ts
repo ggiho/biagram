@@ -331,6 +331,11 @@ export class DBMLParser {
       schema: tableNameObj.schema,
       alias,
       columns,
+      indexes: indexes.map(idx => ({
+        name: idx.name,
+        columns: idx.columns,
+        unique: idx.unique,
+      })),
       note: tableNote,
       color: undefined,
       headerColor: undefined,
