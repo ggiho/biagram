@@ -228,8 +228,8 @@ export function createTableStyle(
         iconSpacing: 8,
         shadowColor: '#00000040',
         shadowBlur: 4,
-        schemaColor: schemaColor,
-      }
+        schemaColor,
+      } as TableStyleConfig
     : {
         backgroundColor: '#ffffff',
         borderColor: schemaColor || '#e5e7eb',
@@ -254,8 +254,8 @@ export function createTableStyle(
         iconSpacing: 8,
         shadowColor: '#00000020',
         shadowBlur: 4,
-        schemaColor: schemaColor,
-      };
+        schemaColor,
+      } as TableStyleConfig;
 }
 
 /**

@@ -221,10 +221,10 @@ export function calculateTableDimensions(
   // Table name width calculation
   const tableSchema = table.schema || (table.name.includes('.') ? table.name.split('.')[0] : undefined);
   const tName = table.name.includes('.') ? table.name.split('.')[1] : table.name;
-  const fullName = tableSchema ? `${tableSchema}.${tName}` : tName;
+  const fullName = tableSchema ? `${tableSchema}.${tName}` : (tName || table.name);
 
   // Estimate text width
-  const estimatedNameWidth = fullName.length * 9;
+  const estimatedNameWidth = (fullName || '').length * 9;
   const maxColWidth = Math.max(
     ...(table.columns || []).map((c) => {
       const typeName = typeof c.type === 'string' ? c.type : c.type?.name || '';
@@ -247,7 +247,7 @@ export function getFullTableName(table: {
 }): string {
   const tableSchema = table.schema || (table.name.includes('.') ? table.name.split('.')[0] : undefined);
   const tableName = table.name.includes('.') ? table.name.split('.')[1] : table.name;
-  return tableSchema ? `${tableSchema}.${tableName}` : tableName;
+  return tableSchema ? `${tableSchema}.${tableName}` : (tableName || table.name);
 }
 
 /**
