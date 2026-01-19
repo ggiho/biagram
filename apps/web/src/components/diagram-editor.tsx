@@ -220,6 +220,8 @@ function DiagramEditorContent() {
     } else {
       // Replace
       setCode(dbml);
+      // 새 스키마로 교체했으므로 테이블 위치 초기화
+      setTablePositions({});
     }
 
     toast({
@@ -231,6 +233,8 @@ function DiagramEditorContent() {
   const handleDBImport = useCallback((dbml: string) => {
     console.log('📥 DB Import received:', dbml.length, 'characters');
     setCode(dbml);
+    // 새 스키마를 가져왔으므로 테이블 위치 초기화 (새로 레이아웃 계산)
+    setTablePositions({});
     toast({
       title: 'Database Imported',
       description: 'Schema successfully imported from database',

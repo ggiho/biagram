@@ -53,6 +53,7 @@
     "codemirror": "^6.0.2",
     "copy-webpack-plugin": "^13.0.1",
     "drizzle-orm": "^0.29.1",
+    "elkjs": "^0.11.0",
     "lucia": "^3.0.1",
     "lucide-react": "^0.294.0",
     "monaco-editor": "^0.45.0",

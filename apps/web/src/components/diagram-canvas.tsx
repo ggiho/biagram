@@ -5,6 +5,7 @@ import { DiagramEngine } from '@biagram/diagram-engine';
 import type { TableRenderData, RelationshipRenderData, ThemeConfig } from '@biagram/shared';
 import { useDiagramEngine } from '@/contexts/diagram-context';
 import { useTheme } from '@/contexts/theme-context';
+import { calculateOrthogonalRoute } from '@/lib/edge-routing';
 
 interface DiagramCanvasProps {
   schema: any | null;
@@ -15,208 +16,6 @@ interface DiagramCanvasProps {
   onTableDoubleClick?: (tableName: string) => void;
 }
 
-// 🚀 충돌 회피 라우팅: 테이블을 피해가는 경로 계산
-interface TableBounds {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
-
-interface Point {
-  x: number;
-  y: number;
-}
-
-/**
- * 선분이 사각형과 교차하는지 확인
- */
-function lineIntersectsRect(
-  p1: Point,
-  p2: Point,
-  rect: TableBounds,
-  padding: number = 10
-): boolean {
-  const left = rect.x - padding;
-  const right = rect.x + rect.width + padding;
-  const top = rect.y - padding;
-  const bottom = rect.y + rect.height + padding;
-
-  // 선분이 완전히 사각형 바깥에 있는 경우
-  if (Math.max(p1.x, p2.x) < left || Math.min(p1.x, p2.x) > right) return false;
-  if (Math.max(p1.y, p2.y) < top || Math.min(p1.y, p2.y) > bottom) return false;
-
-  // 수평선 체크
-  if (p1.y === p2.y) {
-    return p1.y >= top && p1.y <= bottom;
-  }
-
-  // 수직선 체크
-  if (p1.x === p2.x) {
-    return p1.x >= left && p1.x <= right;
-  }
-
-  // 대각선의 경우 (orthogonal routing에서는 거의 발생하지 않음)
-  // 간단한 bounding box 체크
-  return true;
-}
-
-/**
- * 경로가 특정 테이블(장애물)과 충돌하는지 확인
- */
-function pathCollidesWithTable(
-  controlPoints: Point[],
-  start: Point,
-  end: Point,
-  obstacle: TableBounds,
-  padding: number = 15
-): boolean {
-  const allPoints = [start, ...controlPoints, end];
-  
-  for (let i = 0; i < allPoints.length - 1; i++) {
-    const p1 = allPoints[i];
-    const p2 = allPoints[i + 1];
-    if (p1 && p2 && lineIntersectsRect(p1, p2, obstacle, padding)) {
-      return true;
-    }
-  }
-  return false;
-}
-
-/**
- * 충돌 회피 경로 계산 - 테이블을 피해서 우회
- * 모든 장애물을 검사하고 경로를 조정
- */
-function calculateAvoidancePath(
-  start: Point,
-  end: Point,
-  startSide: 'left' | 'right',
-  endSide: 'left' | 'right',
-  obstacles: TableBounds[],
-  fromTableBounds: TableBounds,
-  toTableBounds: TableBounds
-): Point[] {
-  const GAP = 30; // 테이블에서 떨어진 거리
-  const PADDING = 20; // 장애물 주변 여유 공간
-  
-  // 기본 controlPoints 계산
-  let controlPoints: Point[] = [];
-  
-  if (startSide === 'right' && endSide === 'left') {
-    const midX = (start.x + end.x) / 2;
-    controlPoints = [
-      { x: midX, y: start.y },
-      { x: midX, y: end.y }
-    ];
-  } else if (startSide === 'left' && endSide === 'right') {
-    const midX = (start.x + end.x) / 2;
-    controlPoints = [
-      { x: midX, y: start.y },
-      { x: midX, y: end.y }
-    ];
-  } else if (startSide === 'right' && endSide === 'right') {
-    const outerX = Math.max(fromTableBounds.x + fromTableBounds.width, toTableBounds.x + toTableBounds.width) + GAP * 2;
-    controlPoints = [
-      { x: outerX, y: start.y },
-      { x: outerX, y: end.y }
-    ];
-  } else {
-    const outerX = Math.min(fromTableBounds.x, toTableBounds.x) - GAP * 2;
-    controlPoints = [
-      { x: outerX, y: start.y },
-      { x: outerX, y: end.y }
-    ];
-  }
-
-  // 충돌하는 장애물들 찾기
-  const collidingObstacles = obstacles.filter(obstacle => {
-    // fromTable과 toTable은 제외
-    if (
-      (Math.abs(obstacle.x - fromTableBounds.x) < 1 && Math.abs(obstacle.y - fromTableBounds.y) < 1) ||
-      (Math.abs(obstacle.x - toTableBounds.x) < 1 && Math.abs(obstacle.y - toTableBounds.y) < 1)
-    ) {
-      return false;
-    }
-    return pathCollidesWithTable(controlPoints, start, end, obstacle, PADDING);
-  });
-
-  if (collidingObstacles.length === 0) {
-    return controlPoints;
-  }
-
-  // 모든 충돌 장애물의 경계 계산
-  let minObstacleX = Infinity;
-  let maxObstacleX = -Infinity;
-  let minObstacleY = Infinity;
-  let maxObstacleY = -Infinity;
-
-  for (const obstacle of collidingObstacles) {
-    minObstacleX = Math.min(minObstacleX, obstacle.x);
-    maxObstacleX = Math.max(maxObstacleX, obstacle.x + obstacle.width);
-    minObstacleY = Math.min(minObstacleY, obstacle.y);
-    maxObstacleY = Math.max(maxObstacleY, obstacle.y + obstacle.height);
-  }
-
-  // 우회 방향 결정: 위/아래/좌/우 중 가장 짧은 경로
-  const routeTop = minObstacleY - PADDING;
-  const routeBottom = maxObstacleY + PADDING;
-  const routeLeft = minObstacleX - PADDING;
-  const routeRight = maxObstacleX + PADDING;
-
-  // 시작점과 끝점에서 각 우회 경로까지의 거리 계산
-  const distToTop = Math.abs(start.y - routeTop) + Math.abs(end.y - routeTop);
-  const distToBottom = Math.abs(start.y - routeBottom) + Math.abs(end.y - routeBottom);
-  const distToLeft = Math.abs(start.x - routeLeft) + Math.abs(end.x - routeLeft);
-  const distToRight = Math.abs(start.x - routeRight) + Math.abs(end.x - routeRight);
-
-  // 현재 경로 방향 고려 (수직선 기반)
-  const midX = controlPoints[0]?.x || (start.x + end.x) / 2;
-  const isVerticalMidInObstacle = midX > minObstacleX - PADDING && midX < maxObstacleX + PADDING;
-
-  if (isVerticalMidInObstacle) {
-    // 수직 중간선이 장애물과 겹침 → 위 또는 아래로 우회
-    if (distToTop <= distToBottom) {
-      // 위로 우회
-      controlPoints = [
-        { x: start.x + (startSide === 'right' ? GAP : -GAP), y: start.y },
-        { x: start.x + (startSide === 'right' ? GAP : -GAP), y: routeTop },
-        { x: end.x + (endSide === 'left' ? -GAP : GAP), y: routeTop },
-        { x: end.x + (endSide === 'left' ? -GAP : GAP), y: end.y }
-      ];
-    } else {
-      // 아래로 우회
-      controlPoints = [
-        { x: start.x + (startSide === 'right' ? GAP : -GAP), y: start.y },
-        { x: start.x + (startSide === 'right' ? GAP : -GAP), y: routeBottom },
-        { x: end.x + (endSide === 'left' ? -GAP : GAP), y: routeBottom },
-        { x: end.x + (endSide === 'left' ? -GAP : GAP), y: end.y }
-      ];
-    }
-  } else {
-    // 수직 중간선은 괜찮지만 수평선이 겹칠 수 있음
-    const minY = Math.min(start.y, end.y);
-    const maxY = Math.max(start.y, end.y);
-    
-    if (minY < maxObstacleY + PADDING && maxY > minObstacleY - PADDING) {
-      // 수평선이 장애물과 겹침 → 좌 또는 우로 우회
-      if (distToLeft <= distToRight) {
-        // 왼쪽으로 우회
-        controlPoints = [
-          { x: routeLeft, y: start.y },
-          { x: routeLeft, y: end.y }
-        ];
-      } else {
-        // 오른쪽으로 우회
-        controlPoints = [
-          { x: routeRight, y: start.y },
-          { x: routeRight, y: end.y }
-        ];
-      }
-    }
-  }
-
-  return controlPoints;
-}
 
 /**
  * 새로운 아키텍처:
@@ -769,14 +568,9 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
                   }
                 }
 
-                // 🚀 충돌 회피: 다른 테이블들을 장애물로 수집
-                const obstacles: TableBounds[] = tablesRef.current
-                  .filter(t => t.name !== schemaRel.fromTable && t.name !== schemaRel.toTable &&
-                               t.id !== schemaRel.fromTable && t.id !== schemaRel.toTable)
-                  .map(t => t.bounds);
-
-                // 충돌 회피 경로 계산
-                const controlPoints = calculateAvoidancePath(
+                // 🚀 장애물 회피 orthogonal 경로 계산
+                const obstacles = tablesRef.current.map(t => t.bounds);
+                const controlPoints = calculateOrthogonalRoute(
                   { x: startX, y: startY },
                   { x: endX, y: endY },
                   fromSide,
@@ -1273,9 +1067,10 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
           tablesBySchema.get(key)!.push(table);
         });
 
-        // 각 테이블의 예상 크기 계산
+        // 각 테이블의 예상 크기 계산 (실제 렌더링 크기와 일치하도록)
         const getTableDimensions = (table: any) => {
           const columnCount = table.columns?.length || 0;
+          // 실제 렌더링과 동일: Math.max(100, columnCount * 25 + 50)
           const height = Math.max(100, columnCount * 25 + 50);
           
           // 테이블명 길이 기반 동적 너비
@@ -1284,23 +1079,25 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
           const fullName = tableSchema ? `${tableSchema}.${tName}` : tName;
           
           // 대략적인 텍스트 너비 계산 (캔버스 없이)
-          const estimatedNameWidth = fullName.length * 8; // 평균 문자 너비 8px
+          // 실제 렌더링: maxColumnWidth + padding * 2 + 50, padding = 12
+          const estimatedNameWidth = fullName.length * 9; // 평균 문자 너비
           const maxColWidth = Math.max(...(table.columns || []).map((c: any) => 
-            (`${c.name} ${c.type || ''}`).length * 7
+            (`${c.name} ${typeof c.type === 'string' ? c.type : c.type?.name || ''}`).length * 8
           ), 0);
           
-          const width = Math.max(200, Math.max(estimatedNameWidth, maxColWidth) + 80);
+          // 실제 렌더링 공식과 유사하게: max(200, maxWidth + 24 + 50)
+          const width = Math.max(200, Math.max(estimatedNameWidth, maxColWidth) + 74);
           return { width, height };
         };
 
         // 스키마별로 테이블 위치 미리 계산 (저장된 위치 없는 것만)
         // 🎯 가로로 넓게 펼치는 그리드 레이아웃
         const precomputedPositions = new Map<string, { x: number; y: number }>();
-        const TABLE_GAP_X = 50; // 테이블 간 가로 여백
-        const TABLE_GAP_Y = 50; // 테이블 간 세로 여백
+        const TABLE_GAP_X = 100; // 테이블 간 가로 여백 (넉넉하게)
+        const TABLE_GAP_Y = 80; // 테이블 간 세로 여백 (넉넉하게)
         const START_X = 50;
         const START_Y = 50;
-        const MAX_ROW_WIDTH = 2400; // 최대 행 너비 (이후 줄바꿈)
+        const MAX_ROW_WIDTH = 3500; // 최대 행 너비 (이후 줄바꿈)
 
         // 모든 테이블을 하나의 그리드로 배치 (스키마별 세로 구분 제거)
         // 대신 스키마 순서대로 정렬하여 같은 스키마 테이블이 근처에 배치되도록
@@ -1320,13 +1117,14 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
         let currentY = START_Y;
         let rowMaxHeight = 0;
 
-        for (const table of sortedTables) {
+        // 저장된 위치가 없는 테이블만 필터링하여 배치
+        const tablesToLayout = sortedTables.filter((table: any) => {
           const tableName = table.name;
-          const savedPosition = initialTablePositions?.[tableName];
-          
-          // 저장된 위치가 있으면 건너뛰기
-          if (savedPosition) continue;
+          return !initialTablePositions?.[tableName];
+        });
 
+        for (const table of tablesToLayout) {
+          const tableName = table.name;
           const { width, height } = getTableDimensions(table);
 
           // 새 행 시작 조건: 최대 행 너비 초과 시
@@ -1679,14 +1477,9 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
               }
             }
 
-            // 🚀 충돌 회피: 다른 테이블들을 장애물로 수집
-            const obstacles: TableBounds[] = allProcessedTables
-              .filter(t => t.name !== rel.fromTable && t.name !== rel.toTable &&
-                           t.id !== rel.fromTable && t.id !== rel.toTable)
-              .map(t => t.bounds);
-
-            // 충돌 회피 경로 계산
-            const controlPoints = calculateAvoidancePath(
+            // 🚀 장애물 회피 orthogonal 경로 계산
+            const obstacles = allProcessedTables.map(t => t.bounds);
+            const controlPoints = calculateOrthogonalRoute(
               { x: startX, y: startY },
               { x: endX, y: endY },
               fromSide,

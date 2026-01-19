@@ -202,6 +202,30 @@ export const diagramRouter = createTRPCRouter({
           enums?: any[];
         };
         
+        // Helper function to format column type with size/precision/scale
+        const formatColumnType = (type: any): string => {
+          if (typeof type === 'string') {
+            return type;
+          }
+          if (!type || !type.name) {
+            return 'unknown';
+          }
+          
+          const typeName = type.name;
+          
+          // Handle precision and scale (e.g., decimal(10,2))
+          if (type.precision !== undefined && type.scale !== undefined) {
+            return `${typeName}(${type.precision},${type.scale})`;
+          }
+          
+          // Handle size (e.g., varchar(255))
+          if (type.size !== undefined) {
+            return `${typeName}(${type.size})`;
+          }
+          
+          return typeName;
+        };
+
         // Transform schema to the format expected by the frontend
         const tables = schema.tables.map((table: any, index: number) => {
           // Debug: Log table info
@@ -215,7 +239,7 @@ export const diagramRouter = createTRPCRouter({
           
           const columns = table.columns.map((col: any) => ({
             name: col.name,
-            type: typeof col.type === 'string' ? col.type : col.type?.name || 'unknown',
+            type: formatColumnType(col.type),
             isPrimaryKey: col.primaryKey || false,
             // FK는 references가 있거나 ref 속성이 있는 경우
             isForeignKey: !!(col.references || col.ref),

@@ -157,7 +157,7 @@ export function DBImportDialog({ onImport, trigger }: DBImportDialogProps) {
         const highConfidence = new Set(
           data.relationships
             .filter((r: InferredRelationship) => r.confidence === 'high')
-            .map((r: InferredRelationship) => `${r.fromTable}.${r.fromColumn}->${r.toTable}.${r.toColumn}`)
+            .map((r: InferredRelationship) => `${r.fromSchema}.${r.fromTable}.${r.fromColumn}->${r.toSchema}.${r.toTable}.${r.toColumn}`)
         );
         setSelectedRelationships(highConfidence);
 
@@ -219,7 +219,7 @@ export function DBImportDialog({ onImport, trigger }: DBImportDialogProps) {
       inferredRelationships
         .filter((r) => r.confidence === confidence)
         .forEach((r) => {
-          const key = `${r.fromTable}.${r.fromColumn}->${r.toTable}.${r.toColumn}`;
+          const key = `${r.fromSchema}.${r.fromTable}.${r.fromColumn}->${r.toSchema}.${r.toTable}.${r.toColumn}`;
           if (select) {
             newSet.add(key);
           } else {
@@ -234,7 +234,7 @@ export function DBImportDialog({ onImport, trigger }: DBImportDialogProps) {
     // 선택된 관계만 DBML Ref로 변환
     const selectedRefs = inferredRelationships
       .filter((r) => {
-        const key = `${r.fromTable}.${r.fromColumn}->${r.toTable}.${r.toColumn}`;
+        const key = `${r.fromSchema}.${r.fromTable}.${r.fromColumn}->${r.toSchema}.${r.toTable}.${r.toColumn}`;
         return selectedRelationships.has(key);
       })
       .map((r) => {
@@ -448,9 +448,15 @@ export function DBImportDialog({ onImport, trigger }: DBImportDialogProps) {
 
         {step === 'import' && (
           <div className="py-8 text-center">
-            <Database className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-            <p className="text-sm text-muted-foreground mb-2">
-              Connection established successfully.
+            {/* 성공 아이콘 - 초록 원형 배경 + 체크 아이콘 */}
+            <div className="mx-auto mb-4 relative w-16 h-16">
+              <div className="absolute inset-0 bg-green-100 dark:bg-green-900/30 rounded-full animate-pulse" />
+              <div className="absolute inset-2 bg-green-500 rounded-full flex items-center justify-center">
+                <CheckCircle2 className="h-8 w-8 text-white" />
+              </div>
+            </div>
+            <p className="text-base font-medium text-green-600 dark:text-green-400 mb-2">
+              Connection established successfully!
             </p>
             <p className="text-sm text-muted-foreground">
               Click Import to fetch your database schema and convert it to DBML.
@@ -462,10 +468,17 @@ export function DBImportDialog({ onImport, trigger }: DBImportDialogProps) {
           <div className="space-y-4">
             {inferredRelationships.length === 0 ? (
               <div className="py-6 text-center">
-                <Link2 className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+                {/* 정보 아이콘 - 파란 원형 배경 */}
+                <div className="mx-auto mb-4 relative w-16 h-16">
+                  <div className="absolute inset-0 bg-blue-100 dark:bg-blue-900/30 rounded-full" />
+                  <div className="absolute inset-2 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center">
+                    <Link2 className="h-7 w-7 text-white" />
+                  </div>
+                </div>
+                <p className="text-base font-medium text-foreground mb-2">
+                  No physical foreign keys found
+                </p>
                 <p className="text-sm text-muted-foreground mb-4">
-                  No physical foreign keys were found.
-                  <br />
                   Would you like to infer relationships based on column naming patterns?
                 </p>
               </div>
@@ -502,7 +515,7 @@ export function DBImportDialog({ onImport, trigger }: DBImportDialogProps) {
                 <div className="h-[400px] overflow-y-auto rounded-md border p-2">
                   <div className="space-y-2">
                     {inferredRelationships.map((rel) => {
-                      const key = `${rel.fromTable}.${rel.fromColumn}->${rel.toTable}.${rel.toColumn}`;
+                      const key = `${rel.fromSchema}.${rel.fromTable}.${rel.fromColumn}->${rel.toSchema}.${rel.toTable}.${rel.toColumn}`;
                       const isSelected = selectedRelationships.has(key);
                       const confidenceColor = {
                         high: 'text-green-600 bg-green-50',
@@ -520,6 +533,7 @@ export function DBImportDialog({ onImport, trigger }: DBImportDialogProps) {
                         >
                           <Checkbox
                             checked={isSelected}
+                            onClick={(e) => e.stopPropagation()}
                             onCheckedChange={() => handleToggleRelationship(key)}
                             className="mt-0.5"
                           />

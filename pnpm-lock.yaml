@@ -198,6 +198,9 @@ importers:
       drizzle-orm:
         specifier: ^0.29.1
         version: 0.29.5(@types/react@18.3.24)(postgres@3.4.7)(react@18.3.1)
+      elkjs:
+        specifier: ^0.11.0
+        version: 0.11.0
       lucia:
         specifier: ^3.0.1
         version: 3.2.2
@@ -4564,6 +4567,10 @@ packages:
 
   /electron-to-chromium@1.5.224:
     resolution: {integrity: sha512-kWAoUu/bwzvnhpdZSIc6KUyvkI1rbRXMT0Eq8pKReyOyaPZcctMli+EgvcN1PAvwVc7Tdo4Fxi2PsLNDU05mdg==}
+
+  /elkjs@0.11.0:
+    resolution: {integrity: sha512-u4J8h9mwEDaYMqo0RYJpqNMFDoMK7f+pu4GjcV+N8jIC7TRdORgzkfSjTJemhqONFfH6fBI3wpysgWbhgVWIXw==}
+    dev: false
 
   /emoji-regex@8.0.0:
     resolution: {integrity: sha512-MSjYzcWNOA0ewAHpz0MxpYFvwg6yjy1NG3xteoqz644VCo/RPgnr1/GGt+ic3iJTzQ8Eu3TdM14SawnVUmGE6A==}
