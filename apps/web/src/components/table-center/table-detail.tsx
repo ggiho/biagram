@@ -114,6 +114,7 @@ export function TableDetail({ spec }: TableDetailProps) {
                         {column.foreignKey && <ConstraintBadge type="fk" />}
                         {column.unique && <ConstraintBadge type="unique" />}
                         {!column.nullable && <ConstraintBadge type="required" />}
+                        {column.autoIncrement && <ConstraintBadge type="autoIncrement" />}
                       </div>
                     </td>
                     <td className="p-3 text-sm text-muted-foreground" title={column.description || '-'}>
@@ -207,8 +208,9 @@ function StatCard({ icon, label, value, colorClass }: StatCardProps) {
 const CONSTRAINT_CONFIG = {
   pk: { label: 'PK', className: 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300' },
   fk: { label: 'FK', className: 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300' },
-  unique: { label: 'UQ', className: 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300' },
+  unique: { label: 'UQ', className: 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300' },
   required: { label: 'NOT NULL', className: 'bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300' },
+  autoIncrement: { label: 'AUTO INCREMENT', className: 'bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300' },
 } as const;
 
 function ConstraintBadge({ type }: { type: keyof typeof CONSTRAINT_CONFIG }) {
