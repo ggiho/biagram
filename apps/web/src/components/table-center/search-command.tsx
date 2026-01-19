@@ -3,9 +3,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Search, X, Table, Columns, MessageSquare, Key, Link2, ArrowRight, Command, Lock } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useFuzzySearch, type SearchResultGroup, type SearchableItem } from '@/hooks/use-fuzzy-search';
+import { useFuzzySearch, type SearchResultGroup, type SearchableItem, type SearchResult } from '@/hooks/use-fuzzy-search';
 import type { TableSpecification } from '@biagram/shared';
-import type { FuseResult } from 'fuse.js';
 
 interface SearchCommandProps {
   open: boolean;
@@ -46,7 +45,7 @@ function ResultItem({
   isSelected,
   onClick,
 }: {
-  result: FuseResult<SearchableItem>;
+  result: SearchResult;
   isSelected: boolean;
   onClick: () => void;
 }) {
@@ -210,7 +209,7 @@ export function SearchCommand({
 
   const { query, search, clear, groupedResults, totalCount, isEmpty } = useFuzzySearch(
     specifications,
-    { threshold: 0.3, limit: 30 } // 0.3 = 적당한 유사도 허용
+    { limit: 30 }
   );
 
   // 필터링된 결과

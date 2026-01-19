@@ -1,10 +1,9 @@
 /**
- * Fuzzy Search Hook
- * Fuse.js 기반 클라이언트 사이드 검색
+ * Search Hook
+ * 정확한 substring 매칭 기반 클라이언트 사이드 검색
  */
 
 import { useMemo, useState, useCallback } from 'react';
-import Fuse, { type IFuseOptions, type FuseResult } from 'fuse.js';
 import type { TableSpecification } from '@biagram/shared';
 
 // 검색 결과 아이템 타입
@@ -22,11 +21,22 @@ export interface SearchableItem {
   isPrimaryKey: boolean | undefined;
   isForeignKey: boolean | undefined;
   foreignKeyRef: string | undefined;
-  isPII: boolean | undefined; // PII 컬럼 (설명이 *로 시작)
+  isPII: boolean | undefined;
   // 검색용 통합 텍스트
   searchText: string;
   // 원본 데이터 참조
   spec: TableSpecification;
+}
+
+// 검색 결과 (FuseResult 호환 형태)
+export interface SearchResult {
+  item: SearchableItem;
+  score: number;
+  matches: Array<{
+    key: string;
+    indices: Array<[number, number]>;
+    value: string;
+  }>;
 }
 
 // 검색 결과 그룹
@@ -34,12 +44,11 @@ export interface SearchResultGroup {
   type: 'table' | 'column' | 'comment';
   label: string;
   icon: string;
-  results: Array<FuseResult<SearchableItem>>;
+  results: SearchResult[];
 }
 
 // 훅 옵션
-interface UseFuzzySearchOptions {
-  threshold?: number; // 0.0 = 완전 일치, 1.0 = 모든 것 매칭
+interface UseSearchOptions {
   limit?: number;
 }
 
@@ -70,12 +79,8 @@ function buildSearchableItems(specifications: TableSpecification[]): SearchableI
 
     // 2. 각 컬럼
     for (const column of spec.columns) {
-      // FK 정보: { referencedTable, referencedColumn }
       const fk = column.foreignKey;
-      const fkRef = fk
-        ? `${fk.referencedTable}.${fk.referencedColumn}`
-        : undefined;
-      // PII 판단: 설명이 *로 시작하면 PII
+      const fkRef = fk ? `${fk.referencedTable}.${fk.referencedColumn}` : undefined;
       const isPII = column.description?.startsWith('*') ?? false;
 
       items.push({
@@ -88,7 +93,7 @@ function buildSearchableItems(specifications: TableSpecification[]): SearchableI
         columnType: column.type,
         columnDescription: column.description,
         isPrimaryKey: column.primaryKey,
-        isForeignKey: !!fk, // FK 객체가 있으면 true
+        isForeignKey: !!fk,
         foreignKeyRef: fkRef,
         isPII,
         searchText: [column.name, column.type, column.description].filter(Boolean).join(' '),
@@ -141,13 +146,96 @@ function buildSearchableItems(specifications: TableSpecification[]): SearchableI
 }
 
 /**
- * Fuse.js 기반 퍼지 검색 훅
+ * 문자열에서 검색어 위치 찾기
+ */
+function findMatchIndices(text: string, query: string): [number, number][] {
+  const indices: [number, number][] = [];
+  const lowerText = text.toLowerCase();
+  const lowerQuery = query.toLowerCase();
+  
+  let startIndex = 0;
+  let index: number;
+  
+  while ((index = lowerText.indexOf(lowerQuery, startIndex)) !== -1) {
+    indices.push([index, index + query.length - 1]);
+    startIndex = index + 1;
+  }
+  
+  return indices;
+}
+
+/**
+ * 아이템 검색 및 점수 계산
+ */
+function searchItem(item: SearchableItem, query: string): SearchResult | null {
+  const lowerQuery = query.toLowerCase();
+  const matches: SearchResult['matches'] = [];
+  let bestScore = Infinity;
+
+  // 테이블명 검색
+  if (item.tableName) {
+    const lowerName = item.tableName.toLowerCase();
+    if (lowerName.includes(lowerQuery)) {
+      const indices = findMatchIndices(item.tableName, query);
+      matches.push({ key: 'tableName', indices, value: item.tableName });
+      // 정확히 일치하면 최고 점수, 시작부터 일치하면 높은 점수, 포함하면 낮은 점수
+      if (lowerName === lowerQuery) {
+        bestScore = Math.min(bestScore, 0);
+      } else if (lowerName.startsWith(lowerQuery)) {
+        bestScore = Math.min(bestScore, 0.1);
+      } else {
+        bestScore = Math.min(bestScore, 0.3);
+      }
+    }
+  }
+
+  // 컬럼명 검색
+  if (item.columnName) {
+    const lowerName = item.columnName.toLowerCase();
+    if (lowerName.includes(lowerQuery)) {
+      const indices = findMatchIndices(item.columnName, query);
+      matches.push({ key: 'columnName', indices, value: item.columnName });
+      if (lowerName === lowerQuery) {
+        bestScore = Math.min(bestScore, 0);
+      } else if (lowerName.startsWith(lowerQuery)) {
+        bestScore = Math.min(bestScore, 0.1);
+      } else {
+        bestScore = Math.min(bestScore, 0.3);
+      }
+    }
+  }
+
+  // 설명 검색 (컬럼 또는 테이블)
+  const description = item.columnDescription || item.tableDescription;
+  if (description) {
+    const lowerDesc = description.toLowerCase();
+    if (lowerDesc.includes(lowerQuery)) {
+      const key = item.columnDescription ? 'columnDescription' : 'tableDescription';
+      const indices = findMatchIndices(description, query);
+      matches.push({ key, indices, value: description });
+      bestScore = Math.min(bestScore, 0.5); // 설명 매칭은 이름 매칭보다 낮은 우선순위
+    }
+  }
+
+  if (matches.length === 0) {
+    return null;
+  }
+
+  return {
+    item,
+    score: bestScore,
+    matches,
+  };
+}
+
+/**
+ * Substring 매칭 기반 검색 훅
  */
 export function useFuzzySearch(
   specifications: TableSpecification[],
-  options: UseFuzzySearchOptions = {}
+  options: UseSearchOptions = {}
 ) {
-  const { threshold = 0.3, limit = 50 } = options;
+  const { limit = 50 } = options;
   const [query, setQuery] = useState('');
 
   // 검색 가능한 아이템 목록 생성
@@ -156,37 +244,31 @@ export function useFuzzySearch(
     [specifications]
   );
 
-  // Fuse 인스턴스 생성
-  const fuse = useMemo(() => {
-    const fuseOptions: IFuseOptions<SearchableItem> = {
-      keys: [
-        { name: 'tableName', weight: 2.0 },
-        { name: 'columnName', weight: 2.0 },
-        { name: 'columnDescription', weight: 1.0 }, // 설명 검색 추가
-        { name: 'tableDescription', weight: 0.8 },
-      ],
-      threshold,
-      includeScore: true,
-      includeMatches: true,
-      minMatchCharLength: 3, // 최소 3글자 이상 매칭
-      ignoreLocation: true,
-      // findAllMatches 제거 - 더 정확한 결과 위해
-    };
-
-    return new Fuse(searchableItems, fuseOptions);
-  }, [searchableItems, threshold]);
-
   // 검색 수행
   const results = useMemo(() => {
-    if (!query.trim()) {
+    const trimmedQuery = query.trim();
+    if (!trimmedQuery || trimmedQuery.length < 2) {
       return [];
     }
-    return fuse.search(query, { limit });
-  }, [fuse, query, limit]);
+
+    const matchedResults: SearchResult[] = [];
+
+    for (const item of searchableItems) {
+      const result = searchItem(item, trimmedQuery);
+      if (result) {
+        matchedResults.push(result);
+      }
+    }
+
+    // 점수순 정렬 (낮을수록 좋음) 후 limit 적용
+    return matchedResults
+      .sort((a, b) => a.score - b.score)
+      .slice(0, limit);
+  }, [searchableItems, query, limit]);
 
   // 타입별로 그룹핑
   const groupedResults = useMemo((): SearchResultGroup[] => {
-    const groups: Record<string, FuseResult<SearchableItem>[]> = {
+    const groups: Record<string, SearchResult[]> = {
       table: [],
       column: [],
       comment: [],
@@ -235,7 +317,7 @@ export function useFuzzySearch(
     results,
     groupedResults,
     totalCount,
-    isEmpty: query.trim() !== '' && results.length === 0,
-    isSearching: query.trim() !== '',
+    isEmpty: query.trim().length >= 2 && results.length === 0,
+    isSearching: query.trim().length >= 2,
   };
 }
