@@ -210,7 +210,7 @@ export function SearchCommand({
 
   const { query, search, clear, groupedResults, totalCount, isEmpty } = useFuzzySearch(
     specifications,
-    { threshold: 0.1, limit: 30 } // 0.1 = 매우 정확한 매칭만 허용
+    { threshold: 0.3, limit: 30 } // 0.3 = 적당한 유사도 허용
   );
 
   // 필터링된 결과
