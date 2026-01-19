@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useEffect, useCallback } from 'react';
+import { useRef, useEffect, useCallback, useState } from 'react';
 import { useTableCenter } from '@/hooks/use-table-center';
 import {
   TableCenterHeader,
@@ -13,6 +13,7 @@ import {
   EmptyState,
   TableListSkeleton,
 } from '@/components/table-center';
+import { SearchCommand } from '@/components/table-center/search-command';
 
 export default function TableCenterPage() {
   const {
@@ -53,10 +54,11 @@ export default function TableCenterPage() {
   } = useTableCenter();
 
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const [isSearchCommandOpen, setIsSearchCommandOpen] = useState(false);
 
-  // Cmd+K 단축키로 검색창 포커스
+  // Cmd+K 단축키로 검색 Command 열기
   const handleOpenSearch = useCallback(() => {
-    searchInputRef.current?.focus();
+    setIsSearchCommandOpen(true);
   }, []);
 
   useEffect(() => {
@@ -84,6 +86,14 @@ export default function TableCenterPage() {
 
   return (
     <div className="flex h-screen flex-col bg-background">
+      {/* Search Command (Spotlight-style) */}
+      <SearchCommand
+        open={isSearchCommandOpen}
+        onOpenChange={setIsSearchCommandOpen}
+        specifications={sortedSpecifications}
+        onSelectTable={handleSelectTable}
+      />
+
       {/* Header */}
       <TableCenterHeader
         tableCount={summaries.length}
