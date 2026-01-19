@@ -166,54 +166,66 @@ function findMatchIndices(text: string, query: string): [number, number][] {
 
 /**
  * 아이템 검색 및 점수 계산
+ * - table 타입: 테이블명, 테이블 설명만 검색
+ * - column 타입: 컬럼명만 검색 (테이블명 제외!)
+ * - comment 타입: 설명만 검색
  */
 function searchItem(item: SearchableItem, query: string): SearchResult | null {
   const lowerQuery = query.toLowerCase();
   const matches: SearchResult['matches'] = [];
   let bestScore = Infinity;
 
-  // 테이블명 검색
-  if (item.tableName) {
+  // 타입별로 검색 대상 분리
+  if (item.type === 'table') {
+    // 테이블 타입: 테이블명으로만 검색
     const lowerName = item.tableName.toLowerCase();
     if (lowerName.includes(lowerQuery)) {
       const indices = findMatchIndices(item.tableName, query);
       matches.push({ key: 'tableName', indices, value: item.tableName });
-      // 정확히 일치하면 최고 점수, 시작부터 일치하면 높은 점수, 포함하면 낮은 점수
       if (lowerName === lowerQuery) {
-        bestScore = Math.min(bestScore, 0);
+        bestScore = 0;
       } else if (lowerName.startsWith(lowerQuery)) {
-        bestScore = Math.min(bestScore, 0.1);
+        bestScore = 0.1;
       } else {
-        bestScore = Math.min(bestScore, 0.3);
+        bestScore = 0.3;
       }
     }
-  }
-
-  // 컬럼명 검색
-  if (item.columnName) {
-    const lowerName = item.columnName.toLowerCase();
-    if (lowerName.includes(lowerQuery)) {
-      const indices = findMatchIndices(item.columnName, query);
-      matches.push({ key: 'columnName', indices, value: item.columnName });
-      if (lowerName === lowerQuery) {
-        bestScore = Math.min(bestScore, 0);
-      } else if (lowerName.startsWith(lowerQuery)) {
-        bestScore = Math.min(bestScore, 0.1);
-      } else {
-        bestScore = Math.min(bestScore, 0.3);
+    // 테이블 설명에서도 검색
+    if (item.tableDescription) {
+      const lowerDesc = item.tableDescription.toLowerCase();
+      if (lowerDesc.includes(lowerQuery)) {
+        const indices = findMatchIndices(item.tableDescription, query);
+        matches.push({ key: 'tableDescription', indices, value: item.tableDescription });
+        bestScore = Math.min(bestScore, 0.5);
       }
     }
-  }
-
-  // 설명 검색 (컬럼 또는 테이블)
-  const description = item.columnDescription || item.tableDescription;
-  if (description) {
-    const lowerDesc = description.toLowerCase();
-    if (lowerDesc.includes(lowerQuery)) {
-      const key = item.columnDescription ? 'columnDescription' : 'tableDescription';
-      const indices = findMatchIndices(description, query);
-      matches.push({ key, indices, value: description });
-      bestScore = Math.min(bestScore, 0.5); // 설명 매칭은 이름 매칭보다 낮은 우선순위
+  } else if (item.type === 'column') {
+    // 컬럼 타입: 컬럼명으로만 검색 (테이블명 제외!)
+    if (item.columnName) {
+      const lowerName = item.columnName.toLowerCase();
+      if (lowerName.includes(lowerQuery)) {
+        const indices = findMatchIndices(item.columnName, query);
+        matches.push({ key: 'columnName', indices, value: item.columnName });
+        if (lowerName === lowerQuery) {
+          bestScore = 0;
+        } else if (lowerName.startsWith(lowerQuery)) {
+          bestScore = 0.1;
+        } else {
+          bestScore = 0.3;
+        }
+      }
+    }
+  } else if (item.type === 'comment') {
+    // 코멘트 타입: 설명에서만 검색
+    const description = item.columnDescription || item.tableDescription;
+    if (description) {
+      const lowerDesc = description.toLowerCase();
+      if (lowerDesc.includes(lowerQuery)) {
+        const key = item.columnDescription ? 'columnDescription' : 'tableDescription';
+        const indices = findMatchIndices(description, query);
+        matches.push({ key, indices, value: description });
+        bestScore = 0.3;
+      }
     }
   }
 
