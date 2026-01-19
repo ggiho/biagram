@@ -165,7 +165,7 @@ function ResultItem({
           </span>
         </div>
         <div className="text-sm text-foreground truncate">
-          "{highlightMatches(item.columnDescription || item.tableDescription || '', getHighlightIndices('searchText'))}"
+          {highlightMatches(item.columnDescription || item.tableDescription || '', getHighlightIndices('searchText'))}
         </div>
       </div>
     </button>
