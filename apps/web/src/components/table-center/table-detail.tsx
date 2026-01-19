@@ -201,7 +201,7 @@ function StatCard({ icon, label, value, colorClass }: StatCardProps) {
 
 const CONSTRAINT_CONFIG = {
   pk: { label: 'PK', className: 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300' },
-  fk: { label: 'FK', className: 'bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300' },
+  fk: { label: 'FK', className: 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300' },
   unique: { label: 'UQ', className: 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300' },
   required: { label: 'NOT NULL', className: 'bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300' },
 } as const;

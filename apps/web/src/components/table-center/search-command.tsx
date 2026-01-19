@@ -122,7 +122,7 @@ function ResultItem({
               </span>
             )}
             {item.isForeignKey && (
-              <span className="inline-flex items-center gap-0.5 text-[10px] text-purple-600 dark:text-purple-400">
+              <span className="inline-flex items-center gap-0.5 text-[10px] text-green-600 dark:text-green-400">
                 <Link2 className="h-2.5 w-2.5" />
                 FK{item.foreignKeyRef && ` → ${item.foreignKeyRef}`}
               </span>
