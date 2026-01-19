@@ -96,7 +96,6 @@ export function TableDetail({ spec }: TableDetailProps) {
                   >
                     <td className="p-3 font-mono text-sm truncate" title={column.name}>
                       <div className="flex items-center gap-1.5">
-                        {column.primaryKey && <Key className="h-3.5 w-3.5 text-amber-500 shrink-0" />}
                         {isPII && <Lock className="h-3.5 w-3.5 text-red-500 shrink-0" />}
                         <span className="truncate">{column.name}</span>
                       </div>
