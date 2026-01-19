@@ -170,8 +170,8 @@ export function useFuzzySearch(
       includeScore: true,
       includeMatches: true,
       minMatchCharLength: 2, // 최소 2글자 이상 매칭
-      ignoreLocation: false, // 위치 고려 (시작부터 매칭 우선)
-      distance: 100, // 매칭 거리 제한
+      ignoreLocation: true, // 어디서든 매칭
+      findAllMatches: true,
     };
 
     return new Fuse(searchableItems, fuseOptions);
