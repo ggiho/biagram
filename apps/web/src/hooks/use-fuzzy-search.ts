@@ -22,6 +22,7 @@ export interface SearchableItem {
   isPrimaryKey: boolean | undefined;
   isForeignKey: boolean | undefined;
   foreignKeyRef: string | undefined;
+  isPII: boolean | undefined; // PII 컬럼 (설명이 *로 시작)
   // 검색용 통합 텍스트
   searchText: string;
   // 원본 데이터 참조
@@ -62,6 +63,7 @@ function buildSearchableItems(specifications: TableSpecification[]): SearchableI
       isPrimaryKey: undefined,
       isForeignKey: undefined,
       foreignKeyRef: undefined,
+      isPII: undefined,
       searchText: [spec.tableName, spec.schemaName, spec.description].filter(Boolean).join(' '),
       spec,
     });
@@ -73,6 +75,8 @@ function buildSearchableItems(specifications: TableSpecification[]): SearchableI
       const fkRef = fk
         ? `${fk.referencedTable}.${fk.referencedColumn}`
         : undefined;
+      // PII 판단: 설명이 *로 시작하면 PII
+      const isPII = column.description?.startsWith('*') ?? false;
 
       items.push({
         id: `column:${spec.tableName}.${column.name}`,
@@ -86,6 +90,7 @@ function buildSearchableItems(specifications: TableSpecification[]): SearchableI
         isPrimaryKey: column.primaryKey,
         isForeignKey: !!fk, // FK 객체가 있으면 true
         foreignKeyRef: fkRef,
+        isPII,
         searchText: [column.name, column.type, column.description].filter(Boolean).join(' '),
         spec,
       });
@@ -104,6 +109,7 @@ function buildSearchableItems(specifications: TableSpecification[]): SearchableI
           isPrimaryKey: undefined,
           isForeignKey: undefined,
           foreignKeyRef: undefined,
+          isPII,
           searchText: column.description,
           spec,
         });
@@ -124,6 +130,7 @@ function buildSearchableItems(specifications: TableSpecification[]): SearchableI
         isPrimaryKey: undefined,
         isForeignKey: undefined,
         foreignKeyRef: undefined,
+        isPII: undefined,
         searchText: spec.description,
         spec,
       });

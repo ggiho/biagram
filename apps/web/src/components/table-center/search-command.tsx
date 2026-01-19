@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Search, X, Table, Columns, MessageSquare, Key, Link2, ArrowRight, Command } from 'lucide-react';
+import { Search, X, Table, Columns, MessageSquare, Key, Link2, ArrowRight, Command, Lock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useFuzzySearch, type SearchResultGroup, type SearchableItem } from '@/hooks/use-fuzzy-search';
 import type { TableSpecification } from '@biagram/shared';
@@ -127,7 +127,13 @@ function ResultItem({
                 FK{item.foreignKeyRef && ` → ${item.foreignKeyRef}`}
               </span>
             )}
-            {item.columnDescription && (
+            {item.isPII && (
+              <span className="inline-flex items-center gap-0.5 text-[10px] text-red-600 dark:text-red-400">
+                <Lock className="h-2.5 w-2.5" />
+                PII
+              </span>
+            )}
+            {item.columnDescription && !item.isPII && (
               <span className="text-xs text-muted-foreground truncate">
                 {item.columnDescription.substring(0, 40)}
               </span>
