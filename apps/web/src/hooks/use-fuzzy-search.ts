@@ -68,8 +68,10 @@ function buildSearchableItems(specifications: TableSpecification[]): SearchableI
 
     // 2. 각 컬럼
     for (const column of spec.columns) {
-      const fkRef = column.foreignKey
-        ? `${(column as any).references?.table || ''}.${(column as any).references?.column || ''}`
+      // FK 정보: { referencedTable, referencedColumn }
+      const fk = column.foreignKey;
+      const fkRef = fk
+        ? `${fk.referencedTable}.${fk.referencedColumn}`
         : undefined;
 
       items.push({
@@ -82,7 +84,7 @@ function buildSearchableItems(specifications: TableSpecification[]): SearchableI
         columnType: column.type,
         columnDescription: column.description,
         isPrimaryKey: column.primaryKey,
-        isForeignKey: !!column.foreignKey,
+        isForeignKey: !!fk, // FK 객체가 있으면 true
         foreignKeyRef: fkRef,
         searchText: [column.name, column.type, column.description].filter(Boolean).join(' '),
         spec,
