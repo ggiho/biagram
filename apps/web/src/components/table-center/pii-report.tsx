@@ -1,6 +1,6 @@
 'use client';
 
-import { Shield, Download, AlertTriangle } from 'lucide-react';
+import { Lock, Download, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -75,7 +75,7 @@ export function PIIReport({ specifications, onSelectTable }: PIIReportProps) {
       <div className="mb-6 flex items-start justify-between">
         <div>
           <h2 className="text-2xl font-bold flex items-center gap-2">
-            <Shield className="h-6 w-6 text-red-500" />
+            <Lock className="h-6 w-6 text-red-500" />
             PII Columns Report
           </h2>
           <p className="text-sm text-muted-foreground mt-2">
@@ -147,7 +147,7 @@ export function PIIReport({ specifications, onSelectTable }: PIIReportProps) {
                   </td>
                   <td className="p-3">
                     <div className="flex items-center gap-1.5">
-                      <Shield className="h-3.5 w-3.5 text-red-500 shrink-0" />
+                      <Lock className="h-3.5 w-3.5 text-red-500 shrink-0" />
                       <span className="font-mono text-sm">{row.column}</span>
                     </div>
                   </td>
@@ -161,7 +161,7 @@ export function PIIReport({ specifications, onSelectTable }: PIIReportProps) {
       ) : (
         <div className="flex flex-col items-center justify-center py-12 text-center">
           <div className="flex h-16 w-16 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30 mb-4">
-            <Shield className="h-8 w-8 text-green-600 dark:text-green-400" />
+            <Lock className="h-8 w-8 text-green-600 dark:text-green-400" />
           </div>
           <p className="text-lg font-medium">No PII Columns Found</p>
           <p className="text-sm text-muted-foreground mt-1">

@@ -1,6 +1,6 @@
 'use client';
 
-import { Key, Link2, Shield, FileWarning } from 'lucide-react';
+import { Key, Link2, Lock, FileWarning } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -47,7 +47,7 @@ export function FilterTabs({
         <FilterButton
           active={filterPII}
           onClick={() => onFilterPIIChange(!filterPII)}
-          icon={<Shield className="h-3 w-3" />}
+          icon={<Lock className="h-3 w-3" />}
           label="PII"
         />
       </div>

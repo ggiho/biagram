@@ -1,6 +1,6 @@
 'use client';
 
-import { ChevronDown, ChevronRight, Table, Columns, Link2, Shield } from 'lucide-react';
+import { ChevronDown, ChevronRight, Table, Columns, Link2, Lock, Key } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ExtendedSummary } from '@/types/table-center';
 
@@ -142,7 +142,7 @@ export function TableList({
                             <StatBadge icon={<Link2 className="h-3 w-3" />} value={summary.relationshipCount} />
                             {summary.piiCount !== undefined && summary.piiCount > 0 && (
                               <span className="inline-flex items-center gap-1 text-xs text-red-600 dark:text-red-400 font-medium">
-                                <Shield className="h-3 w-3" />
+                                <Lock className="h-3 w-3" />
                                 {summary.piiCount}
                               </span>
                             )}
