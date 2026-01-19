@@ -1,0 +1,1377 @@
+// Database: mysql
+// Version: 8.0.39
+// Generated at: 2026-01-19T05:40:36.628Z
+
+// Schema: admin_portal
+Table admin_portal.auth_group {
+  auth_group_id binary [pk, not null, note: '아이디']
+  external_number int [not null, note: '관리번호']
+  is_active tinyint [not null, note: '사용여부']
+  group_name varchar(100) [not null, note: '그룹명']
+  remark varchar(1000) [note: '비고']
+  owner varchar(30) [not null, note: '그룹 정보 관리자']
+  created_by varchar(50) [not null, note: '생성자']
+  created_at datetime [not null, default: CURRENT_TIMESTAMP, note: '생성일시']
+  updated_by varchar(50) [note: '수정자']
+  updated_at datetime [note: '수정일시']
+
+}
+
+Table admin_portal.auth_group_menu_permission {
+  auth_group_menu_permission_id binary [pk, not null, note: '아이디']
+  auth_group_id binary [not null, note: '그룹 아이디']
+  menu_code varchar(30) [not null, note: '메뉴 코드']
+  is_permitted tinyint [not null, default: 0, note: '메뉴 권한, 1:가능, 0:불가능(안보임)']
+  created_by varchar(50) [not null, note: '생성자']
+  created_at datetime [not null, default: CURRENT_TIMESTAMP, note: '생성일시']
+  updated_by varchar(50) [note: '수정자']
+  updated_at datetime [note: '수정일시']
+
+}
+
+Table admin_portal.code {
+  code_id binary [pk, not null, note: 'UUID - 코드값 고유 식별자']
+  code_group varchar(100) [not null, note: '코드 그룹명']
+  sort_order int [note: '정렬 순서']
+  table_name varchar(50) [note: '테이블명']
+  column_name varchar(50) [note: '컬럼명']
+  code varchar(50) [not null, note: '코드 값']
+  code_name varchar(100) [not null, note: '코드명']
+  description varchar(500) [not null, note: '코드 설명']
+  is_active tinyint [not null, default: 1, note: '활성 여부']
+  created_by varchar(50) [not null, note: '등록자']
+  created_at datetime [not null, default: CURRENT_TIMESTAMP, note: '등록 일시']
+  updated_by varchar(50) [note: '수정자']
+  updated_at datetime [note: '수정 일시']
+
+  indexes {
+    (code_group, code) [unique]
+  }
+
+  Note: '공통 코드 값'
+}
+
+Table admin_portal.department {
+  department_id binary [pk, not null, note: '아이디']
+  department_code varchar(10) [not null, note: '소속 코드']
+  department_name varchar(50) [not null, note: '소속 이름']
+  owner varchar(30) [not null, note: '관리자 사용자 id']
+  created_by varchar(50) [not null, note: '생성자']
+  created_at datetime [not null, default: CURRENT_TIMESTAMP, note: '생성일시']
+  updated_by varchar(50) [note: '수정자']
+  updated_at datetime [note: '수정일시']
+
+  indexes {
+    department_code [unique]
+  }
+}
+
+Table admin_portal.faq {
+  faq_id binary [pk, not null]
+  category_code varchar(50) [not null, note: '카테고리 코드']
+  external_number int [not null, note: '관리번호']
+  question varchar(1000) [not null, note: '질문']
+  answer text [not null, note: '답변']
+  tag varchar(1000) [note: '검색태그']
+  is_modifiable tinyint [default: 1, note: '수정가능여부']
+  is_active tinyint [default: 0, note: '전시여부']
+  created_by varchar(50) [not null, note: '생성자']
+  created_at datetime [not null, default: CURRENT_TIMESTAMP, note: '생성일시']
+  updated_by varchar(50) [note: '수정자']
+  updated_at datetime [note: '수정일시']
+
+  indexes {
+    category_code
+  }
+}
+
+Table admin_portal.faq_attachment {
+  faq_attachments_id binary [pk, not null]
+  faq_id binary [not null, note: 'faq id']
+  file_path varchar(500) [not null, note: '파일위치']
+  file_name varchar(100) [note: '파일이름']
+  file_size int [default: 0, note: '파일사이즈']
+  created_by varchar(50) [not null, note: '생성자']
+  created_at datetime [not null, default: CURRENT_TIMESTAMP, note: '생성일시']
+  updated_by varchar(50) [note: '수정자']
+  updated_at datetime [note: '수정일시']
+
+  indexes {
+    faq_id
+  }
+}
+
+Table admin_portal.faq_view {
+  faq_view_id binary [pk, not null]
+  faq_id binary [not null, note: 'faq id']
+  view_count int [default: 1, note: '조회수']
+  view_date date [not null, note: '조회일자']
+
+  indexes {
+    (faq_id, view_date) [unique]
+  }
+}
+
+Table admin_portal.history {
+  history_id binary [pk, not null]
+  external_number int
+  menu_code varchar(50)
+  menu_level_1_code varchar(30) [not null]
+  menu_level_2_code varchar(30)
+  category_name varchar(100)
+  event_name varchar(100) [not null, note: '이벤트 이름']
+  event_target varchar(50)
+  title varchar(1000)
+  content varchar(1000)
+  created_by varchar(50) [not null, note: '생성자']
+  created_at datetime [not null, default: CURRENT_TIMESTAMP, note: '생성일시']
+  updated_by varchar(50) [note: '수정자']
+  updated_at datetime [note: '수정일시']
+
+}
+
+Table admin_portal.history_menu {
+  history_menu_id binary [pk, not null]
+  menu_code varchar(50) [not null, note: '메뉴 코드']
+  menu_name varchar(100) [not null, note: '메뉴 이름']
+  menu_order int [not null, note: '메뉴 순서']
+  created_by varchar(50) [not null, note: '생성자']
+  created_at datetime [not null, default: CURRENT_TIMESTAMP, note: '생성일시']
+  updated_by varchar(50) [note: '수정자']
+  updated_at datetime [note: '수정일시']
+
+  indexes {
+    menu_code [unique]
+  }
+  indexes {
+    menu_order
+  }
+}
+
+Table admin_portal.individual {
+  individual_id binary [pk, not null]
+  external_number int [not null, note: '관리번호']
+  title varchar(1000) [not null, note: '제목']
+  term_id varchar(30) [not null]
+  remark varchar(2000)
+  content text [not null, note: '내용']
+  is_active tinyint [not null]
+  is_modifiable tinyint [default: 1, note: '수정가능여부']
+  created_by varchar(50) [not null, note: '생성자']
+  created_at datetime [not null, default: CURRENT_TIMESTAMP, note: '생성일시']
+  updated_by varchar(50) [note: '수정자']
+  updated_at datetime [note: '수정일시']
+
+  indexes {
+    external_number [unique]
+  }
+}
+
+Table admin_portal.menu {
+  menu_id binary [pk, not null, note: '아이디']
+  menu_code varchar(30) [not null, note: '메뉴 코드']
+  parent_menu_code varchar(30) [note: '상위 메뉴 코드']
+  menu_name varchar(20) [not null, note: '메뉴 이름']
+  menu_url varchar(50) [note: '경로 주소']
+  menu_depth tinyint [note: '메뉴의 depth']
+  menu_display_order tinyint [note: '메뉴 순서']
+  is_active tinyint [not null, default: 1, note: '전시 여부, 1:전시, 0:미전시(보이지 않음)']
+  created_by varchar(50) [not null, note: '생성자']
+  created_at datetime [not null, default: CURRENT_TIMESTAMP, note: '생성일시']
+  updated_by varchar(50) [note: '수정자']
+  updated_at datetime [note: '수정일시']
+
+}
+
+Table admin_portal.notice {
+  notice_id binary [pk, not null]
+  category_code varchar(50) [not null, note: '카테고리 코드']
+  external_number int [not null, note: '관리번호']
+  title varchar(1000) [not null, note: '제목']
+  content text [not null, note: '콘텐츠']
+  views int [default: 0, note: '조회수']
+  priority_ind varchar(10) [default: 'n', note: '상단배치여부']
+  is_modifiable tinyint [default: 1, note: '수정가능여부']
+  is_active tinyint [not null, default: 0, note: '전시여부']
+  created_by varchar(50) [not null, note: '생성자']
+  created_at datetime [not null, default: CURRENT_TIMESTAMP, note: '생성일시']
+  updated_by varchar(50) [note: '수정자']
+  updated_at datetime [note: '수정일시']
+  is_priority tinyint
+
+  indexes {
+    category_code
+  }
+}
+
+Table admin_portal.notice_attachment {
+  notice_attachment_id binary [pk, not null]
+  notice_id binary [not null, note: '공지 id']
+  file_path varchar(500) [not null, note: '파일위치']
+  file_name varchar(100) [note: '파일이름']
+  file_size int [default: 0, note: '파일사이즈']
+  created_by varchar(50) [not null, note: '생성자']
+  created_at datetime [not null, default: CURRENT_TIMESTAMP, note: '생성일시']
+  updated_by varchar(50) [note: '수정자']
+  updated_at datetime [note: '수정일시']
+
+  indexes {
+    notice_id
+  }
+}
+
+Table admin_portal.popup_image {
+  popup_image_id binary [pk, not null]
+  external_number int [not null, note: '관리번호']
+  title varchar(1000) [not null, note: '제목']
+  publication_start_date datetime [not null, note: '게재시작일']
+  publication_end_date datetime [not null, note: '게재종료일']
+  link_type varchar(10) [default: '', note: '_: 사용안함, n: 공지사항, u: url']
+  link_content varchar(100) [note: 'link']
+  popup_width int [default: 510, note: '팡업 유형 width px']
+  popup_button_color varchar(10) [default: '#ffffff']
+  app_publication_type varchar(10) [default: 'y', note: 'app 게재범위 "y": 전체, "a": android, "i": ios, "n": 오픈 안함']
+  app_deep_link varchar(100) [note: 'app deep link']
+  is_priority tinyint [default: 0, note: '우선출력여부']
+  is_active tinyint [default: 0, note: '전시여부']
+  is_modifiable tinyint [default: 1, note: '수정가능여부']
+  created_by varchar(50) [not null, note: '생성자']
+  created_at datetime [not null, default: CURRENT_TIMESTAMP, note: '생성일시']
+  updated_by varchar(50) [note: '수정자']
+  updated_at datetime [note: '수정일시']
+
+  indexes {
+    external_number [unique]
+  }
+}
+
+Table admin_portal.popup_image_attachment {
+  popup_image_attachment_id binary [pk, not null]
+  popup_image_id binary [not null, note: 'popup_image id']
+  image_type varchar(10) [default: 'p', note: '팝업타입 p: "pc", m: "mobile"']
+  file_path varchar(500) [not null, note: '파일위치']
+  file_name varchar(100) [not null, note: '파일이름']
+  file_size int [default: 0, note: '파일사이즈']
+  created_by varchar(50) [not null, note: '생성자']
+  created_at datetime [not null, default: CURRENT_TIMESTAMP, note: '생성일시']
+  updated_by varchar(50) [note: '수정자']
+  updated_at datetime [note: '수정일시']
+
+  indexes {
+    popup_image_id
+  }
+}
+
+Table admin_portal.popup_text {
+  popup_text_id binary [pk, not null]
+  category_code varchar(50) [not null, note: '카테고리 코드']
+  external_number int [not null, note: '관리번호']
+  title varchar(1000) [not null, note: '제목']
+  content text [not null, note: '콘텐츠']
+  publication_start_date datetime [not null, note: '게재시작일']
+  publication_end_date datetime [not null, note: '게재종료일']
+  link_type varchar(10) [default: '', note: '_: 사용안함, n: 공지사항, u: url']
+  link_content varchar(100) [note: 'link']
+  app_publication_type varchar(10) [default: 'y', note: 'app 게재범위 "y": 전체, "a": android, "i": ios, "n": 오픈 안함']
+  app_deep_link varchar(100) [note: 'app deep link']
+  is_priority tinyint [default: 0, note: '우선출력여부']
+  is_active tinyint [default: 0, note: '전시여부']
+  is_modifiable tinyint [default: 1, note: '수정가능여부']
+  created_by varchar(50) [not null, note: '생성자']
+  created_at datetime [not null, default: CURRENT_TIMESTAMP, note: '생성일시']
+  updated_by varchar(50) [note: '수정자']
+  updated_at datetime [note: '수정일시']
+
+  indexes {
+    category_code
+  }
+  indexes {
+    external_number [unique]
+  }
+}
+
+Table admin_portal.privacy {
+  privacy_id binary [pk, not null]
+  external_number int [not null, note: '관리번호']
+  title varchar(1000) [not null, note: '제목']
+  content text [not null, note: '내용']
+  is_modifiable tinyint [default: 1, note: '수정가능여부']
+  is_active tinyint [default: 0, note: '전시여부']
+  status_code varchar(10) [not null, default: 'c', note: '상태 c: 현행 시행, p: 이전']
+  effective_date date [not null, note: '시행일자']
+  created_by varchar(50) [not null, note: '생성자']
+  created_at datetime [not null, default: CURRENT_TIMESTAMP, note: '생성일시']
+  updated_by varchar(50) [note: '수정자']
+  updated_at datetime [note: '수정일시']
+
+  indexes {
+    external_number [unique]
+  }
+}
+
+Table admin_portal.product {
+  product_id binary [pk, not null]
+  client_offer_id binary
+  external_number int [not null, note: '관리번호']
+  is_registrable tinyint [default: 0, note: '가입가능 여부']
+  is_modifiable tinyint [default: 1, note: '수정가능여부']
+  is_active tinyint [default: 0, note: '전시여부']
+  active_order int [note: '전시 순서']
+  product_url varchar(100) [note: '상품 url']
+  client_product_sku_nbr varchar(50)
+  created_by varchar(50) [not null, note: '생성자']
+  created_at datetime [not null, default: CURRENT_TIMESTAMP, note: '생성일시']
+  updated_by varchar(50) [note: '수정자']
+  updated_at datetime [note: '수정일시']
+
+  indexes {
+    client_product_sku_nbr [unique]
+  }
+  indexes {
+    external_number [unique]
+  }
+}
+
+Table admin_portal.product_information {
+  product_information_id binary [pk, not null]
+  product_id binary [not null, note: '상품 id']
+  information_type varchar(20) [not null, note: 'product: 상품, registration: 가입, compensation: 보상, other: 기타']
+  information text [note: '안내 문구']
+  information_url varchar(100) [note: '안내 문구 url']
+  created_by varchar(50) [not null, note: '생성자']
+  created_at datetime [not null, default: CURRENT_TIMESTAMP, note: '생성일시']
+  updated_by varchar(50) [note: '수정자']
+  updated_at datetime [note: '수정일시']
+
+  indexes {
+    (product_id, information_type) [unique]
+  }
+}
+
+Table admin_portal.product_notice {
+  product_notice_id binary [pk, not null]
+  program_id binary
+  external_number int [not null, note: '관리번호']
+  product_url_code varchar(50) [note: '핵심 코드']
+  is_active tinyint [default: 0, note: '전시여부']
+  is_modifiable tinyint [default: 1, note: '수정가능여부']
+  client_product_sku_nbr varchar(50)
+  created_by varchar(50) [not null, note: '생성자']
+  created_at datetime [not null, default: CURRENT_TIMESTAMP, note: '생성일시']
+  updated_by varchar(50) [note: '수정자']
+  updated_at datetime [note: '수정일시']
+
+  indexes {
+    client_product_sku_nbr [unique]
+  }
+  indexes {
+    external_number [unique]
+  }
+
+  Note: '상품 안내 사항'
+}
+
+Table admin_portal.product_notice_information {
+  product_notice_information_id binary [pk, not null]
+  product_notice_id binary [not null, note: '상품 안내사항 ID']
+  information text [note: '안내 문구']
+  information_url varchar(100) [note: '안내 문구 url']
+  created_by varchar(50) [not null, note: '생성자']
+  created_at datetime [not null, default: CURRENT_TIMESTAMP, note: '생성일시']
+  updated_by varchar(50) [note: '수정자']
+  updated_at datetime [note: '수정일시']
+
+  indexes {
+    product_notice_id
+  }
+
+  Note: '상품 안내 사항 내용 영역 HTML 정보'
+}
+
+Table admin_portal.sequence {
+  sequence_name varchar(30) [pk, not null]
+  sequence_number bigint [not null, default: 10000001]
+
+}
+
+Table admin_portal.service_term {
+  service_term_id binary [pk, not null]
+  external_number int [not null, note: '관리번호']
+  title varchar(1000) [not null, note: '제목']
+  content text [not null, note: '내용']
+  is_modifiable tinyint [default: 1, note: '수정가능여부']
+  is_active tinyint [default: 0, note: '전시여부']
+  status_code varchar(10) [not null, default: 'c', note: '상태 c: 현행 시행, p: 이전']
+  effective_date date [not null, note: '시행일자']
+  created_by varchar(50) [not null, note: '생성자']
+  created_at datetime [not null, default: CURRENT_TIMESTAMP, note: '생성일시']
+  updated_by varchar(50) [note: '수정자']
+  updated_at datetime [note: '수정일시']
+
+  indexes {
+    external_number [unique]
+  }
+}
+
+Table admin_portal.user {
+  user_id binary [pk, not null, note: '아이디']
+  external_number int [not null, note: '관리번호']
+  is_active tinyint [not null, note: '사용여부']
+  login_id varchar(30) [not null, note: '사용자 id (로그인 아이디)']
+  user_name varchar(30) [not null, note: '이름 (한글)']
+  department_code varchar(10) [note: '소속 코드']
+  owner varchar(30) [note: '사용자 정보 관리자']
+  last_login datetime [note: '마지막 로그인 일시']
+  email varchar(100)
+  created_by varchar(50) [not null, note: '생성자']
+  created_at datetime [not null, default: CURRENT_TIMESTAMP, note: '생성일시']
+  updated_by varchar(50) [note: '수정자']
+  updated_at datetime [note: '수정일시']
+
+  indexes {
+    login_id [unique]
+  }
+}
+
+Table admin_portal.user_auth {
+  user_auth_id binary [pk, not null, note: '아이디']
+  user_id binary [not null, note: '사용자 테이블 아이디']
+  auth_group_id binary [not null, note: '권한 그룹 테이블 아이디']
+  created_date datetime [not null, default: CURRENT_TIMESTAMP, note: '등록일시']
+  created_by varchar(30) [not null, note: '등록자']
+  updated_date datetime [note: '수정일시']
+  updated_by varchar(30) [note: '수정자']
+  created_at datetime [not null]
+  updated_at datetime
+
+
+  Note: '유저 권한'
+}
+
+
+// Schema: asset
+Table asset.agreement {
+  agreement_id binary [pk, not null, note: 'UUID - 계약 식별자']
+  service_management_number varchar(50) [not null, note: '서비스 관리 번호']
+  customer_id binary [not null, note: '고객 ID']
+  program_id binary [not null, note: '상품 ID']
+  agreement_status_code varchar(50) [not null, note: '계약 상태 코드']
+  agreement_start_at datetime [not null, note: '계약 시작일시']
+  termination_at datetime [note: '해지일시']
+  is_active tinyint [not null, default: 1, note: '활성 여부']
+  is_test_account tinyint [default: 0, note: '테스트 계정 여부']
+  created_by varchar(50) [not null, note: '등록자']
+  created_at datetime [not null, default: CURRENT_TIMESTAMP, note: '등록 일시']
+  updated_by varchar(50) [note: '수정자']
+  updated_at datetime [note: '수정 일시']
+
+  indexes {
+    (service_management_number, program_id, agreement_start_at) [unique]
+  }
+
+  Note: '계약 정보'
+}
+
+
+// Schema: claim
+Table claim.address {
+  address_id binary [pk, not null, note: 'UUID - 주소 식별자']
+  claim_id binary [not null, note: 'UUID - claim.claim 테이블 클레임 식별자(FK)']
+  address_type varchar(100) [not null, note: '주소타입 - reference.code (수거박스 수령지, 접수기기 발송지, 접수기기 배송지, 접수 기기 반송지, 교체기기 배송지)']
+  address_main varchar(500) [note: '*기본 주소']
+  address_detail varchar(500) [note: '*상세 주소']
+  postal_code varchar(10) [note: '우편번호']
+  recipient_name varchar(500) [not null, note: '*수령인 이름']
+  notification_number varchar(100) [note: '*주소별 알림수신 연락처']
+  created_by varchar(50) [not null, note: '생성자']
+  created_at datetime [not null, note: '생성 일시']
+  updated_by varchar(50) [note: '수정자']
+  updated_at datetime [note: '수정 일시']
+
+
+  Note: '사용자 주소 정보'
+}
+
+Table claim.claim {
+  claim_id binary [pk, not null, note: 'UUID - 클레임 고유 식별자 (기존 CUSTOMER_CASE_ID)']
+  claim_number int [not null, increment, note: '클레임 번호 (기존 CUSTOMER_CASE_NUMBER)']
+  agreement_id binary [not null]
+  claim_status_code varchar(40) [not null, note: '클레임 상태 코드']
+  claim_type_code varchar(40) [not null, note: '클레임 유형 코드']
+  device_manufactured_year char(4) [not null, note: '접수 기기 제조연도 (YYYY)']
+  device_brand_name varchar(100) [not null, note: '접수 기기 브랜드']
+  is_collection_box_req tinyint [default: 0, note: '수거 박스 수령 여부 (1: true, 0: false)']
+  notification_number varchar(100) [note: '*알림 수신 연락처']
+  pickup_date date [note: '택배 수거 확정 일자']
+  incident_at datetime [not null, note: '사고 발생 일시']
+  claim_start_at datetime [note: '클레임 시작 일시']
+  claim_end_at datetime [note: '클레임 종료 일시']
+  cancelled_at datetime [note: '취소 일시']
+  payment_expired_at datetime [note: '결제 만료 시한']
+  created_by varchar(50) [not null, note: '등록자']
+  created_at datetime [not null, default: CURRENT_TIMESTAMP, note: '등록 일시']
+  updated_by varchar(50) [note: '수정자']
+  updated_at datetime [note: '수정 일시']
+
+  indexes {
+    claim_number [unique]
+  }
+
+  Note: '클레임 (통합 케이스) - 기존 CUSTOMER_CASE'
+}
+
+Table claim.claim_cancel_history {
+  claim_cancel_history_id binary [pk, not null, note: '취소 이력 PK']
+  claim_id binary [not null, note: 'claim 테이블 참조 FK']
+  cancel_reason_code varchar(40) [not null, note: '취소 사유 코드 (NEW_PURCHASE, FEE_DISSATISFACTION 등)']
+  cancel_reason_detail text [note: '기타 사유일 경우 직접 입력 내용']
+  created_by varchar(50) [not null, note: '등록자']
+  created_at datetime [not null, default: CURRENT_TIMESTAMP, note: '등록 일시']
+  updated_by varchar(50) [note: '수정자']
+  updated_at datetime [note: '수정 일시']
+
+
+  Note: '클레임 취소 상세 이력'
+}
+
+Table claim.claim_device {
+  claim_device_id binary [pk, not null, note: 'UUID - 접수 기기 상세 정보 식별자']
+  claim_id binary [not null, note: 'UUID - 클레임 식별자 (FK)']
+  category_code varchar(50) [note: '검수 확정 카테고리']
+  brand_code varchar(100) [note: '검수 확정 브랜드']
+  manufactured_year char(4) [note: '검수 확정 제조년 (YYYY)']
+  serial_number varchar(100) [note: '시리얼번호']
+  model_name varchar(200) [note: '모델명']
+  cpu varchar(50) [note: '검수 확정 CPU 스펙']
+  ram varchar(50) [note: '검수 확정 RAM 스펙']
+  ssd varchar(50) [note: '검수 확정 SSD 스펙']
+  gpu varchar(50) [note: '검수 확정 GPU 스펙']
+  inspection_result varchar(20) [note: '검수 결과 (PASS, REJECT)']
+  inspection_reject_reason text [note: '부적합 사유']
+  inspected_at datetime [note: '검수일시']
+  inspector_name varchar(100) [note: '검수자명']
+  created_by varchar(50) [not null, note: '생성자']
+  created_at datetime [not null, default: CURRENT_TIMESTAMP, note: '생성일시']
+  updated_by varchar(50) [note: '수정자']
+  updated_at datetime [note: '수정일시']
+
+  indexes {
+    claim_id [unique]
+  }
+
+  Note: '접수 기기 검수 정보'
+}
+
+Table claim.claim_document {
+  claim_document_id binary [pk, not null, note: 'UUID - 클레임 서류 식별자 (PK)']
+  claim_id binary [not null, note: '클레임 ID']
+  document_id binary [not null, note: '문서 ID']
+  document_status_code varchar(40) [not null, note: '서류 제출 상태 코드']
+  reviewed_at datetime [note: '검토 완료 일시']
+  reviewed_by varchar(100) [note: '검토자']
+  review_comment text [note: '검토 코멘트 또는 비고']
+  is_active tinyint [not null, default: 1, note: '활성 여부']
+  created_by varchar(50) [not null, note: '생성자']
+  created_at datetime [not null, default: CURRENT_TIMESTAMP, note: '생성 일시']
+  updated_by varchar(50) [note: '수정자']
+  updated_at datetime [note: '수정 일시']
+
+  indexes {
+    claim_id
+  }
+  indexes {
+    created_at
+  }
+  indexes {
+    updated_at
+  }
+
+  Note: '클레임 서류'
+}
+
+Table claim.claim_shipping {
+  shipping_id binary [pk, not null, note: 'UUID - 운송 정보 식별자']
+  claim_id binary [not null, note: 'UUID - 클레임 식별자 (FK)']
+  shipping_type varchar(50) [not null, note: '운송 유형']
+  carrier_name varchar(100) [note: '운송사명']
+  tracking_number varchar(100) [note: '운송장번호']
+  shipped_at datetime [note: '발송일시']
+  delivered_at datetime [note: '배송완료일시']
+  recipient_name varchar(100) [note: '수령인명']
+  created_by varchar(50) [not null, note: '생성자']
+  created_at datetime [not null, default: CURRENT_TIMESTAMP, note: '생성일시']
+  updated_by varchar(50) [note: '수정자']
+  updated_at datetime [note: '수정일시']
+
+  indexes {
+    claim_id
+  }
+  indexes {
+    shipping_type
+  }
+
+  Note: '클레임 운송 정보'
+}
+
+Table claim.claim_status_history {
+  claim_status_history_id binary [pk, not null, note: 'Auto Increment 이력 식별자 (PK)']
+  sequence bigint [not null, increment, note: '시퀀스']
+  claim_id binary [not null, note: '클레임 ID']
+  from_status_code varchar(40) [note: '변경 전 클레임 상태 코드']
+  to_status_code varchar(40) [not null, note: '변경 후 클레임 상태 코드']
+  status_changed_at datetime [not null, note: '상태 변경 일시']
+  is_active tinyint [not null, note: '활성 여부']
+  created_by varchar(50) [not null, note: '등록자']
+  created_at datetime [not null, default: CURRENT_TIMESTAMP, note: '등록 일시']
+  updated_by varchar(50) [note: '수정자']
+  updated_at datetime [note: '수정 일시']
+
+  indexes {
+    sequence [unique]
+  }
+
+  Note: '클레임 상태 변경 이력'
+}
+
+Table claim.payment {
+  payment_id binary [pk, not null, note: '결제 고유 식별자']
+  service_order_number varchar(20) [note: '서비스 주문 번호']
+  claim_id binary [not null, note: '클레임 고유 식별자']
+  billing_gateway_session_id varchar(50) [not null, note: 'Billing Gateway 세션 ID']
+  billing_gateway_token varchar(50) [not null, note: 'Billing Gateway 인증 토큰']
+  billing_transaction_id varchar(50) [not null, note: 'Billing Gateway 거래 ID']
+  fee int [not null, default: 0, note: '결제 금액']
+  payment_method varchar(50) [not null, note: '결제 수단']
+  created_by varchar(50) [not null, note: '생성자']
+  created_at datetime [not null, note: '생성일시']
+  updated_by varchar(50) [note: '수정자']
+  updated_at datetime [note: '수정일시']
+
+  indexes {
+    claim_id
+  }
+  indexes {
+    service_order_number [unique]
+  }
+
+  Note: '결제 정보 테이블'
+}
+
+Table claim.replacement_product {
+  replacement_product_id binary [pk, not null, note: '교체 상품 고유 식별자']
+  claim_id binary [not null, note: '클레임 고유 식별자']
+  product_id int [not null, note: '뉴퍼마켓의 product_id']
+  title varchar(100) [not null, note: '상품제목']
+  model_name varchar(100) [not null, note: '모델명']
+  brand_name varchar(100) [not null, note: '제조사명']
+  category_name varchar(100) [not null, note: '카테고리']
+  exchange_type varchar(100) [not null, note: '교체 기기 타입 코드']
+  created_by varchar(50) [not null, note: '생성자']
+  created_at datetime [not null, note: '생성일시']
+  updated_by varchar(50) [note: '수정자']
+  updated_at datetime [note: '수정일시']
+
+
+  Note: '교체 상품 정보 테이블'
+}
+
+
+// Schema: customer
+Table customer.customer {
+  customer_id binary [pk, not null, note: 'UUID - 고객 식별자']
+  customer_name varchar(500) [note: '*고객명']
+  customer_type_code varchar(10) [note: '고객 유형 코드']
+  birth_date varchar(100) [note: '*생년월일(YYYY-MM-DD)']
+  gender char(1) [note: '성별']
+  contact_number varchar(100) [note: '*연락처']
+  is_active tinyint [not null, default: 1, note: '활성 여부']
+  created_by varchar(50) [not null, note: '생성자']
+  created_at datetime [not null, default: CURRENT_TIMESTAMP, note: '생성 일시']
+  updated_by varchar(50) [note: '수정자']
+  updated_at datetime [note: '수정 일시']
+
+
+  Note: '고객 기본 정보'
+}
+
+Table customer.customer_history {
+  customer_history_id binary [pk, not null, note: 'UUID - 고객 정보 변경 식별자']
+  customer_id binary [note: '고객 ID']
+  column_name varchar(30) [note: '변경된 컬럼']
+  before_value varchar(500) [note: '변경 전 값']
+  after_value varchar(500) [note: '변경 후 값']
+  created_by varchar(50) [not null, note: '생성자']
+  created_at datetime [not null, default: CURRENT_TIMESTAMP, note: '생성 일시']
+  updated_by varchar(50) [note: '수정자']
+  updated_at datetime [note: '수정 일시']
+
+
+  Note: '고객 정보 변경 이력'
+}
+
+Table customer.identification {
+  identification_id binary [pk, not null, note: 'UUID - 신원 식별자']
+  customer_id binary [not null, note: '고객 ID']
+  identification_type_code varchar(20) [not null, note: '증명 타입 코드']
+  identification_number varchar(100) [not null, note: '*신원번호']
+  is_active tinyint [not null, default: 1, note: '활성 여부']
+  created_by varchar(50) [not null]
+  created_at datetime [not null, default: CURRENT_TIMESTAMP]
+  updated_by varchar(50)
+  updated_at datetime
+
+
+  Note: '고객 신원 정보'
+}
+
+Table customer.join_request {
+  join_request_id binary [pk, not null]
+  program_id binary [note: '가입신청 상품 ID (UUID)']
+  request_number int [not null, increment, note: '가입신청 번호']
+  status_code varchar(30) [not null, default: 'WAIT', note: '신청 처리 상태 코드']
+  sub_status_code varchar(30) [note: 'status_code에 종속되는 처리 상태 코드']
+  requested_at datetime [not null, default: CURRENT_TIMESTAMP, note: '신청일시']
+  service_management_number varchar(20) [not null, note: '서비스 관리번호']
+  customer_name varchar(1000) [note: '고객 명']
+  contact_number varchar(255) [note: '고객 전화번호']
+  birth_date varchar(100) [note: '생년월일']
+  created_by varchar(50) [not null, note: '생성자']
+  created_at datetime [not null, note: '생성 일시']
+  updated_by varchar(50) [note: '수정자']
+  updated_at datetime [note: '수정 일시']
+
+  indexes {
+    requested_at
+  }
+  indexes {
+    request_number [unique]
+  }
+
+  Note: '가입 신청 정보'
+}
+
+Table customer.join_request_history {
+  join_request_history_id binary [pk, not null]
+  join_request_id binary [not null]
+  status_code varchar(30) [not null, default: 'WAIT', note: '신청 처리 상태 코드']
+  sub_status_code varchar(30) [note: 'status_code에 종속되는 처리 상태 코드']
+  content text [note: '처리 내역']
+  created_by varchar(50) [not null, note: '생성자']
+  created_at datetime [not null, note: '생성 일시']
+  updated_by varchar(50) [note: '수정자']
+  updated_at datetime [note: '수정 일시']
+
+  indexes {
+    join_request_id
+  }
+
+  Note: '가입 신청 처리 이력 정보'
+}
+
+
+// Schema: document
+Table document.document {
+  document_id binary [pk, not null, note: 'UUID - 문서 식별자 (PK)']
+  document_seq int [not null, increment, note: '입력 순서를 보장하는 시퀀스 키']
+  document_type_code varchar(100) [not null, note: '문서 유형 코드']
+  document_name varchar(255) [not null]
+  requirement_type varchar(100) [not null, note: '1. 필수: REQUIRED, 2. 선택: OPTIONAL, 3. 필수 택1: REQUIRED_CHOICE']
+  requirement_group varchar(100) [note: 'REQUIRED_CHOICE 유형의 문서가 속하는 그룹']
+  s3_path varchar(1000) [note: 'S3 상 문서 템플릿 경로']
+  is_template tinyint [not null, default: 0, note: '템플릿 여부']
+  is_active tinyint [not null, default: 1, note: '활성 여부']
+  created_by varchar(50) [not null, note: '생성자']
+  created_at datetime [not null, default: CURRENT_TIMESTAMP, note: '생성일시']
+  updated_by varchar(50) [note: '수정자']
+  updated_at datetime [note: '수정일시']
+
+  indexes {
+    document_seq [unique]
+  }
+  indexes {
+    (document_type_code, document_name) [unique]
+  }
+
+  Note: '문서 마스터'
+}
+
+Table document.document_review_history {
+  document_review_id binary [pk, not null, note: 'UUID - 문서 검토 이력 식별자 (PK)']
+  claim_document_id binary [not null, note: '클레임 서류 ID']
+  review_round tinyint [not null, default: 1, note: '검토 차수']
+  review_status_code varchar(40) [not null, note: '검토 상태 코드']
+  reviewed_at datetime [note: '검토 완료 일시']
+  reviewed_by varchar(50) [note: '검토자']
+  review_comment text [note: '검토 의견 또는 비고']
+  created_by varchar(50) [not null, note: '생성자']
+  created_at datetime [not null, default: CURRENT_TIMESTAMP, note: '생성일시']
+  updated_by varchar(50) [note: '수정자']
+  updated_at datetime [note: '수정일시']
+
+  indexes {
+    claim_document_id
+  }
+
+  Note: '문서 검토 이력'
+}
+
+
+// Schema: interaction
+Table interaction.consultation {
+  consultation_id binary [pk, not null, note: 'UUID - 상담 정보 식별자']
+  consultation_type varchar(50) [not null, note: '문의 유형']
+  device_type varchar(50) [note: '기기 유형']
+  wrap_up_code varchar(30) [note: '마무리값']
+  interaction_id binary [note: 'interaction.interaction 테이블 고객 소통 정보 식별자']
+  consultation_note text [not null, note: '상담 내용']
+  channel varchar(10) [note: '상담채널']
+  is_active tinyint [not null, note: '활성 여부']
+  created_by varchar(255) [not null, note: '생성자']
+  created_at datetime [not null, note: '생성 일시']
+  updated_by varchar(255) [note: '수정자']
+  updated_at datetime [note: '수정 일시']
+
+  indexes {
+    created_at
+  }
+  indexes {
+    created_by
+  }
+
+  Note: '고객 상담 정보'
+}
+
+Table interaction.interaction {
+  interaction_id binary [pk, not null, note: 'UUID - 연락 식별자']
+  agreement_id binary [note: 'asset.agreement 테이블 계약 식별자']
+  claim_id binary [note: 'claim.claim 테이블 보상 접수 식별자']
+  sequence bigint [not null, increment, note: '시퀀스']
+  call_type varchar(10) [not null, note: '통화 유형']
+  interaction_start_at datetime [not null, note: '통화 시작 시간']
+  caller_number varchar(255) [not null, note: '통화자 발신 번호']
+  preferred_contact_number varchar(255) [note: '알림 수신 연락처']
+  is_active tinyint [not null, note: '활성 여부']
+  created_by varchar(255) [not null, note: '생성자']
+  created_at datetime [not null, note: '생성 일시']
+  updated_by varchar(255) [note: '수정자']
+  updated_at datetime [note: '수정 일시']
+
+  indexes {
+    agreement_id
+  }
+  indexes {
+    caller_number
+  }
+  indexes {
+    created_by
+  }
+  indexes {
+    preferred_contact_number
+  }
+  indexes {
+    sequence [unique]
+  }
+
+  Note: '고객 소통 정보'
+}
+
+
+// Schema: notification
+Table notification.notification {
+  notification_id binary [pk, not null, note: 'UUID - 알림 발송 이력 식별자 (PK)']
+  notification_template_id binary [note: '알림 템플릿 ID']
+  customer_id binary [note: '고객 ID']
+  agreement_id binary [note: '계약 ID']
+  claim_id binary [note: '클레임 ID']
+  sent_to varchar(128) [not null, note: '수신자 연락처 또는 이메일 주소']
+  message_content text [not null, note: '발송된 메시지 본문']
+  message_type_code varchar(10) [not null, note: '메시지 유형']
+  is_active tinyint [not null, default: 1, note: '활성 여부']
+  created_by varchar(50) [not null, note: '생성자']
+  created_at datetime [not null, default: CURRENT_TIMESTAMP, note: '생성일시']
+  updated_by varchar(50) [note: '수정자']
+  updated_at datetime [note: '수정일시']
+
+
+  Note: '발송된 알림'
+}
+
+Table notification.notification_template {
+  template_id binary [pk, not null, note: 'UUID - 알림 템플릿 식별자 (PK)']
+  template_name varchar(255) [not null, note: '템플릿명']
+  message_subject varchar(255) [not null, note: '메시지 제목']
+  template_body text [not null, note: '메시지 본문 내용']
+  template_type_code varchar(10) [not null, note: '템플릿 유형']
+  template_code varchar(30) [note: '외부 시스템 연동용 템플릿 코드']
+  attachment_url varchar(400) [note: '첨부 파일 또는 이미지 URL']
+  is_active tinyint [not null, default: 1, note: '활성 여부']
+  created_by varchar(50) [not null, note: '생성자']
+  created_at datetime [not null, default: CURRENT_TIMESTAMP, note: '생성일시']
+  updated_by varchar(50) [note: '수정자']
+  updated_at datetime [note: '수정일시']
+
+
+  Note: '알림 템플릿'
+}
+
+
+// Schema: product
+Table product.program {
+  program_id binary [pk, not null, note: 'UUID - 프로그램 고유 식별자']
+  program_code varchar(50) [not null, note: '프로그램 코드']
+  program_name varchar(100) [note: '프로그램 명칭']
+  program_group_name varchar(100) [note: '프로그램 그룹 명칭']
+  program_subgroup_name varchar(100)
+  program_sku_code varchar(50) [note: 'SKT 상품코드']
+  customer_type_code varchar(20) [note: '가입 가능 고객 유형']
+  max_submission_count int [not null, default: 1, note: '프로그램 최대 접수 가능 횟수']
+  program_start_date date [note: '프로그램 제공 시작일']
+  program_end_date date [note: '프로그램 제공 종료일']
+  is_active tinyint [not null, default: 1, note: '활성 여부']
+  created_by varchar(50) [not null, note: '생성자']
+  created_at datetime [not null, default: CURRENT_TIMESTAMP, note: '생성 일시']
+  updated_by varchar(50) [note: '수정자']
+  updated_at datetime [note: '수정 일시']
+
+
+  Note: '보험/케어 상품(Program)'
+}
+
+
+// Schema: reference
+Table reference.code {
+  code_id binary [pk, not null, note: 'UUID - 코드값 고유 식별자']
+  code_group varchar(100) [not null, note: '코드 그룹명']
+  sort_order int [note: '정렬 순서']
+  schema_name varchar(50)
+  table_name varchar(50) [note: '테이블명']
+  column_name varchar(50) [note: '컬럼명']
+  code varchar(50) [not null, note: '코드 값']
+  code_name varchar(100) [not null, note: '코드명']
+  description varchar(500) [not null, note: '코드 설명']
+  is_active tinyint [not null, default: 1, note: '활성 여부']
+  created_by varchar(50) [not null, note: '등록자']
+  created_at datetime [not null, default: CURRENT_TIMESTAMP, note: '등록 일시']
+  updated_by varchar(50) [note: '수정자']
+  updated_at datetime [note: '수정 일시']
+
+  indexes {
+    (code_group, code) [unique]
+  }
+
+  Note: '공통 코드 값'
+}
+
+Table reference.code_mapping {
+  code_mapping_id binary [not null, note: 'UUID - 코드 매핑 ID']
+  mapping_group varchar(100) [not null, note: '매핑 그룹']
+  sort_order int [default: 0, note: '정렬 순서']
+  parent_code varchar(50) [not null, note: '부모 코드']
+  child_code varchar(50) [not null, note: '자식 코드']
+  attribute varchar(100) [note: '추가 속성']
+  description varchar(500) [note: '매핑 그룹에 대한 설명']
+  is_active tinyint [not null, default: 1, note: '활성 여부']
+  created_by varchar(50) [not null, note: '생성자']
+  created_at datetime [not null, default: CURRENT_TIMESTAMP, note: '생성일시']
+  updated_by varchar(50) [note: '수정자']
+  updated_at datetime [note: '수정일시']
+
+  indexes {
+    mapping_group
+  }
+  indexes {
+    parent_code
+  }
+  indexes {
+    (mapping_group, parent_code, child_code) [unique]
+  }
+
+  Note: '코드 간 매핑 관계'
+}
+
+Table reference.config_param {
+  config_param_id binary [pk, not null, note: 'UUID - Config 파라미터 식별']
+  config_key varchar(200) [not null, note: '설정 키']
+  config_value varchar(1000) [not null, note: '설정 값']
+  config_group varchar(200) [not null, note: '설정 그룹']
+  description varchar(500) [not null, note: '설정에 대한 설명']
+  is_active tinyint [not null, default: 1, note: '사용여부']
+  created_by varchar(50) [not null, note: '생성자']
+  created_at datetime [not null, default: CURRENT_TIMESTAMP, note: '생성일시']
+  updated_by varchar(50) [note: '수정자']
+  updated_at datetime [note: '수정일시']
+
+  indexes {
+    config_group
+  }
+  indexes {
+    config_key [unique]
+  }
+
+  Note: '설정 파라미터'
+}
+
+Table reference.newper_master_product {
+  product_id binary [pk, not null, note: 'UUID - 상품 식별자']
+  category varchar(50) [not null, note: '카테고리']
+  product_name varchar(500) [not null, note: '상품명']
+  description varchar(500) [note: '상품 상세 설명']
+  brand varchar(50) [not null, note: '브랜드']
+  condition varchar(20) [not null, note: '상품 상태']
+  cpu varchar(50) [note: 'CPU 스펙']
+  ram varchar(50) [note: 'RAM 스펙']
+  ssd varchar(50) [note: 'SSD 스펙']
+  gpu varchar(50) [note: 'GPU 스펙']
+  version varchar(10) [not null, default: '1.0.0', note: '마스터데이터 버전']
+  is_active tinyint [not null, default: 1, note: '활성 여부']
+  created_by varchar(50) [not null, note: '생성자']
+  created_at datetime [not null, default: CURRENT_TIMESTAMP, note: '생성 일시']
+  updated_by varchar(50) [note: '수정자']
+  updated_at datetime [note: '수정 일시']
+
+  indexes {
+    category
+  }
+
+  Note: '뉴퍼마켓 마스터 상품 데이터'
+}
+
+Table reference.service_fee {
+  service_fee_id binary [pk, not null, note: '주문 수수료 고유 식별자']
+  category_name varchar(50) [not null, note: '카테고리']
+  exchange_type varchar(100) [not null, note: '교체 기기 타입 코드']
+  is_apple tinyint [not null, default: 0, note: 'Apple 제품 여부']
+  fee int [not null, note: '서비스 이용료']
+  is_active tinyint [not null, default: 1, note: '활성화 여부']
+  created_by varchar(50) [not null, note: '생성자']
+  created_at datetime [not null, note: '생성일시']
+  updated_by varchar(50) [note: '수정자']
+  updated_at datetime [note: '수정일시']
+
+  indexes {
+    (category_name, exchange_type, is_apple) [unique]
+  }
+
+  Note: '서비스 이용료 마스터 테이블'
+}
+
+
+// Schema: security
+Table security.agent_customer_access_log {
+  agent_customer_access_log_id binary [pk, not null, note: 'UUID - 접근 로그 식별자 (PK)']
+  log_at datetime [note: '고객 데이터 조회/처리 실행 시각']
+  application_ip_address varchar(45) [note: '접속 애플리케이션 IP 주소']
+  user_name varchar(200) [note: '상담사 이름']
+  user_ip_address varchar(45) [note: '상담사 접속 IP 주소']
+  customer_id binary [note: '고객 ID']
+  customer_name varchar(1000) [note: '*고객명']
+  horizon_page_id varchar(45) [note: '조회/처리한 Horizon 페이지 ID']
+  skp_function_code varchar(45) [note: '실행된 기능 코드']
+  pii_record_count int [note: '화면에 노출된 개인정보 레코드 개수']
+  is_sent tinyint [note: '로그 전송 여부']
+  sent_at datetime [note: '로그 전송 완료 시각']
+  created_by varchar(50) [not null, note: '생성자']
+  created_at datetime [pk, not null, default: CURRENT_TIMESTAMP, note: '생성일시']
+  updated_by varchar(50) [note: '수정자']
+  updated_at datetime [note: '수정일시']
+
+  indexes {
+    created_at
+  }
+  indexes {
+    is_sent
+  }
+
+  Note: '상담사의 고객정보 조회/처리 로그'
+}
+
+Table security.user {
+  user_id binary [pk, not null, note: '사용자 ID (UUID)']
+  login_id varchar(10) [not null, note: '사용자 사번']
+  user_role varchar(100) [not null, note: '사용자 역할']
+  user_name varchar(200) [not null, note: '사용자 이름']
+  display_name varchar(200) [not null, note: '사용자 한글 이름']
+  last_login_at datetime [note: '최근 로그인 일시']
+  email_address varchar(256) [not null, note: '사용자 이메일']
+  is_active tinyint [not null, default: 1, note: '활성 여부']
+  created_by varchar(50) [not null, note: '생성자']
+  created_at datetime [not null, note: '생성 일시']
+  updated_by varchar(50) [note: '수정자']
+  updated_at datetime [note: '수정 일시']
+
+  indexes {
+    email_address [unique]
+  }
+
+  Note: '사용자 정보'
+}
+
+Table security.user_login_log {
+  user_login_log_id binary [pk, not null, note: 'UUID - 유저 로그인 로그 ID']
+  user_id varchar(50) [not null, note: '유저 ID']
+  login_at datetime [not null, note: '로그인 일시']
+  logout_at datetime [note: '로그아웃 일시']
+  user_ip_address varchar(50) [not null, note: '유저 IP 주소']
+  created_by varchar(50) [not null, note: '생성자']
+  created_at datetime [not null, default: CURRENT_TIMESTAMP, note: '생성일시']
+  updated_by varchar(50) [note: '수정자']
+  updated_at datetime [note: '수정일시']
+
+
+  Note: '유저 로그인 로그'
+}
+
+
+// Schema: survey
+Table survey.survey_answer {
+  survey_answer_id binary [pk, not null, note: '개별 응답 고유 식별자']
+  survey_submission_id binary [not null, note: '제출 고유 식별자']
+  survey_question_id binary [not null, note: '질문 고유 식별자']
+  answer_value tinyint [not null, note: '응답 값']
+  is_active tinyint [not null, default: 1, note: '개별 응답 사용여부']
+  created_at datetime [not null, note: '생성 일시']
+  created_by varchar(50) [not null, note: '생성자']
+  updated_at datetime [note: '수정 일시']
+  updated_by varchar(50) [note: '수정자']
+
+
+  Note: '고객만족도 개별 응답 테이블'
+}
+
+Table survey.survey_group {
+  survey_group_id binary [pk, not null, note: '질문 그룹 고유 식별자']
+  title varchar(500) [not null, note: '질문 그룹 제목']
+  information varchar(500) [not null, note: '만족도 조사 안내문구']
+  is_text_input_enabled tinyint [not null, default: 0, note: '텍스트 입력 사용 여부']
+  text_input_guide varchar(500) [note: '텍스트 입력 안내 문구']
+  is_active tinyint [not null, default: 1, note: '질문 그룹 사용여부']
+  created_at datetime [not null, note: '생성일시']
+  created_by varchar(50) [not null, note: '생성자']
+  updated_at datetime [note: '수정일시']
+  updated_by varchar(50) [note: '수정자']
+
+
+  Note: '고객만족도 질문 그룹 테이블'
+}
+
+Table survey.survey_history {
+  survey_history_id binary [pk, not null, note: '히스토리 고유 식별자']
+  survey_group_id binary [not null, note: '히스토리 시작 시점의 질문 그룹 ID']
+  domain_type varchar(50) [not null, note: '도메인 타입']
+  domain_id binary [not null, note: '도메인 고유 식별자']
+  delivery_channel varchar(20) [not null, default: 'SMS', note: '서베이 전달 채널']
+  survey_status varchar(20) [not null, default: 'STARTED', note: '서베이 진행 상태']
+  expired_at datetime [note: '만료 일시']
+  responded_at datetime [note: '응답 일시']
+  created_at datetime [not null, note: '히스토리 시작 일시']
+  created_by varchar(50) [not null, note: '히스토리 생성자']
+  updated_at datetime [note: '수정 일시']
+  updated_by varchar(50) [note: '수정자']
+
+
+  Note: '고객만족도 히스토리 테이블'
+}
+
+Table survey.survey_question {
+  survey_question_id binary [pk, not null, note: '질문 고유 식별자']
+  survey_group_id binary [not null, note: '질문 그룹 고유 식별자']
+  question varchar(300) [not null, note: '질문 내용']
+  answer_type tinyint [not null, default: 1, note: '응답방식']
+  display_order int [not null, default: 0, note: '질문 표시 순서']
+  is_active tinyint [not null, default: 1, note: '질문 사용여부']
+  created_at datetime [not null, note: '생성 일시']
+  created_by varchar(50) [not null, note: '생성자']
+  updated_at datetime [note: '수정 일시']
+  updated_by varchar(50) [note: '수정자']
+
+  indexes {
+    (survey_group_id, display_order)
+  }
+
+  Note: '고객만족도 질문 테이블'
+}
+
+Table survey.survey_submission {
+  survey_submission_id binary [pk, not null, note: '제출 고유 식별자']
+  survey_history_id binary [not null, note: '고객만족도 히스토리 고유 식별자']
+  survey_group_id binary [not null, note: '질문 그룹 고유 식별자']
+  text_input_content text [note: '텍스트 입력 응답 내용']
+  is_active tinyint [not null, default: 1, note: '응답 사용여부']
+  created_at datetime [not null, note: '생성 일시']
+  created_by varchar(50) [not null, note: '생성자']
+  updated_at datetime [note: '수정 일시']
+  updated_by varchar(50) [note: '수정자']
+
+
+  Note: '고객만족도 제출 테이블'
+}
+
+
+// Schema: test
+Table test.parameter {
+  id int [pk, not null, increment]
+  param_name varchar(30)
+  param_value json
+
+}
+
+
+// Schema: ufit
+Table ufit.em_log {
+  TRAN_PR int [not null]
+  TRAN_REFKEY varchar(40)
+  TRAN_ID varchar(20)
+  TRAN_PHONE varchar(15) [not null]
+  TRAN_CALLBACK varchar(15)
+  TRAN_STATUS char(1)
+  TRAN_DATE datetime [not null]
+  TRAN_RSLTDATE datetime
+  TRAN_REPORTDATE datetime
+  TRAN_RSLT varchar(4)
+  TRAN_NET varchar(3)
+  TRAN_MSG varchar(255)
+  TRAN_ETC1 varchar(64)
+  TRAN_ETC2 varchar(16)
+  TRAN_ETC3 varchar(16)
+  TRAN_ETC4 int
+  TRAN_TYPE int [not null]
+}
+
+Table ufit.em_tran {
+  TRAN_PR int [pk, not null, increment]
+  TRAN_REFKEY varchar(40)
+  TRAN_ID varchar(20)
+  TRAN_PHONE varchar(15) [not null]
+  TRAN_CALLBACK varchar(15)
+  TRAN_STATUS char(1)
+  TRAN_DATE datetime [not null]
+  TRAN_RSLTDATE datetime
+  TRAN_REPORTDATE datetime
+  TRAN_RSLT varchar(4)
+  TRAN_NET varchar(3)
+  TRAN_MSG varchar(255)
+  TRAN_ETC1 varchar(64)
+  TRAN_ETC2 varchar(16)
+  TRAN_ETC3 varchar(16)
+  TRAN_ETC4 int
+  TRAN_TYPE int [not null]
+
+}
+
+Table ufit.em_tran_kakao {
+  KKO_SEQ int [pk, not null, increment]
+  SENDER_KEY varchar(40) [not null]
+  TEMPLATE_CODE varchar(128)
+  NATION_CODE varchar(5) [not null]
+  MESSAGE varchar(2000)
+  RE_PART varchar(1)
+  RE_TYPE varchar(3)
+  RE_BODY varchar(2000)
+  RE_SUBJECT varchar(40)
+  USER_KEY varchar(30)
+  AD_FLAG varchar(1)
+  RESPONSE_METHOD varchar(8)
+  TIMEOUT int
+  ATTACHED_FILE_1 varchar(100)
+  ATTACHED_FILE_2 varchar(100)
+  ATTACHED_FILE_3 varchar(100)
+  ATTACHED_FILE_4 varchar(100)
+  ATTACHED_FILE_5 varchar(100)
+
+}
+
+Table ufit.em_tran_mms {
+  MMS_SEQ int [pk, not null, increment]
+  FILE_CNT int [not null]
+  BUILD_YN char(1)
+  MMS_BODY varchar(2000)
+  MMS_SUBJECT varchar(40)
+  FILE_TYPE1 varchar(3)
+  FILE_TYPE2 varchar(3)
+  FILE_TYPE3 varchar(3)
+  FILE_TYPE4 varchar(3)
+  FILE_TYPE5 varchar(3)
+  FILE_NAME1 varchar(100)
+  FILE_NAME2 varchar(100)
+  FILE_NAME3 varchar(100)
+  FILE_NAME4 varchar(100)
+  FILE_NAME5 varchar(100)
+  SERVICE_DEP1 varchar(3)
+  SERVICE_DEP2 varchar(3)
+  SERVICE_DEP3 varchar(3)
+  SERVICE_DEP4 varchar(3)
+  SERVICE_DEP5 varchar(3)
+  SKN_FILE_NAME varchar(255)
+
+}
+
+Table ufit.em_tran_rcs {
+  RCS_SEQ int [pk, not null, increment]
+  COPY_ALLOWED varchar(1)
+  CHATBOT_ID varchar(40) [not null]
+  FOOTER varchar(64)
+  HEADER varchar(1)
+  MESSAGEBASE_ID varchar(40) [not null]
+  BUTTONS varchar(2000)
+  RCS_BODY varchar(2000)
+  AGENCY_ID varchar(20)
+  GROUP_ID varchar(20)
+  BRAND_KEY varchar(64)
+  AGENCY_KEY varchar(64)
+  RE_PART varchar(1)
+  RE_TYPE varchar(3)
+  RE_BODY varchar(2000)
+  RE_SUBJECT varchar(40)
+  ATTACHED_FILE_1 varchar(100)
+  ATTACHED_FILE_2 varchar(100)
+  ATTACHED_FILE_3 varchar(100)
+  ATTACHED_FILE_4 varchar(100)
+  ATTACHED_FILE_5 varchar(100)
+
+}
+
+// Relationships
+Ref: admin_portal.auth_group_menu_permission.auth_group_id > admin_portal.auth_group.auth_group_id
+Ref: admin_portal.faq_attachment.faq_id > admin_portal.faq.faq_id
+Ref: admin_portal.faq_view.faq_id > admin_portal.faq.faq_id
+Ref: admin_portal.notice_attachment.notice_id > admin_portal.notice.notice_id
+Ref: admin_portal.popup_image_attachment.popup_image_id > admin_portal.popup_image.popup_image_id
+Ref: admin_portal.product_information.product_id > admin_portal.product.product_id
+Ref: admin_portal.product_information.product_id > reference.newper_master_product.product_id
+Ref: admin_portal.product_notice.program_id > product.program.program_id
+Ref: admin_portal.product_notice_information.product_notice_id > admin_portal.product_notice.product_notice_id
+Ref: admin_portal.user_auth.user_id > admin_portal.user.user_id
+Ref: admin_portal.user_auth.user_id > security.user.user_id
+Ref: admin_portal.user_auth.auth_group_id > admin_portal.auth_group.auth_group_id
+Ref: asset.agreement.customer_id > customer.customer.customer_id
+Ref: asset.agreement.program_id > product.program.program_id
+Ref: claim.address.claim_id > claim.claim.claim_id
+Ref: claim.claim.agreement_id > asset.agreement.agreement_id
+Ref: claim.claim_cancel_history.claim_id > claim.claim.claim_id
+Ref: claim.claim_device.claim_id > claim.claim.claim_id
+Ref: claim.claim_document.claim_id > claim.claim.claim_id
+Ref: claim.claim_document.document_id > document.document.document_id
+Ref: claim.claim_shipping.claim_id > claim.claim.claim_id
+Ref: claim.claim_status_history.claim_id > claim.claim.claim_id
+Ref: claim.payment.claim_id > claim.claim.claim_id
+Ref: claim.replacement_product.claim_id > claim.claim.claim_id
+Ref: customer.customer_history.customer_id > customer.customer.customer_id
+Ref: customer.identification.customer_id > customer.customer.customer_id
+Ref: customer.join_request.program_id > product.program.program_id
+Ref: customer.join_request_history.join_request_id > customer.join_request.join_request_id
+Ref: document.document_review_history.claim_document_id > claim.claim_document.claim_document_id
+Ref: interaction.consultation.interaction_id > interaction.interaction.interaction_id
+Ref: interaction.interaction.agreement_id > asset.agreement.agreement_id
+Ref: interaction.interaction.claim_id > claim.claim.claim_id
+Ref: notification.notification.notification_template_id > notification.notification_template.template_id
+Ref: notification.notification.customer_id > customer.customer.customer_id
+Ref: notification.notification.agreement_id > asset.agreement.agreement_id
+Ref: notification.notification.claim_id > claim.claim.claim_id
+Ref: security.agent_customer_access_log.customer_id > customer.customer.customer_id
+Ref: survey.survey_answer.survey_submission_id > survey.survey_submission.survey_submission_id
+Ref: survey.survey_answer.survey_question_id > survey.survey_question.survey_question_id
+Ref: survey.survey_history.survey_group_id > survey.survey_group.survey_group_id
+Ref: survey.survey_question.survey_group_id > survey.survey_group.survey_group_id
+Ref: survey.survey_submission.survey_history_id > survey.survey_history.survey_history_id
+Ref: survey.survey_submission.survey_group_id > survey.survey_group.survey_group_id
+Ref: ufit.em_log.TRAN_PR > ufit.em_tran.TRAN_PR

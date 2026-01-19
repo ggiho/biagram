@@ -194,11 +194,9 @@ function convertColumn(
  * Convert an index to DBML
  */
 function convertIndex(index: { name: string; columns: string[]; unique: boolean }): string {
-  const indexType = index.unique ? 'unique' : '';
-
   // DBML syntax:
-  // - Single column: name [unique]
-  // - Multiple columns: (col1, col2) [unique]
+  // - Single column: name [unique, name: "index_name"]
+  // - Multiple columns: (col1, col2) [unique, name: "index_name"]
   let columns: string;
   if (index.columns.length === 1) {
     columns = index.columns[0] || '';
@@ -206,9 +204,18 @@ function convertIndex(index: { name: string; columns: string[]; unique: boolean 
     columns = `(${index.columns.join(', ')})`;
   }
 
-  if (indexType) {
+  // Build attributes array
+  const attrs: string[] = [];
+  if (index.unique) {
+    attrs.push('unique');
+  }
+  if (index.name) {
+    attrs.push(`name: '${index.name}'`);
+  }
+
+  if (attrs.length > 0) {
     return `indexes {
-    ${columns} [${indexType}]
+    ${columns} [${attrs.join(', ')}]
   }`;
   } else {
     return `indexes {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Search, X, Table, Columns, MessageSquare, Key, Link2, ArrowRight, Command, Lock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useFuzzySearch, type SearchResultGroup, type SearchableItem, type SearchResult } from '@/hooks/use-fuzzy-search';
@@ -73,13 +73,14 @@ function ResultItem({
         </div>
         <div className="flex-1 min-w-0">
           <div className="font-medium text-sm truncate">
+            {item.schemaName && (
+              <>
+                <span className="text-blue-500 dark:text-blue-400 font-normal">{item.schemaName}</span>
+                <span className="text-muted-foreground/50 font-normal">.</span>
+              </>
+            )}
             {highlightMatches(item.tableName, getHighlightIndices('tableName'))}
           </div>
-          {item.schemaName && (
-            <div className="text-xs text-muted-foreground truncate">
-              Schema: {item.schemaName}
-            </div>
-          )}
           {item.tableDescription && (
             <div className="text-xs text-muted-foreground truncate mt-0.5">
               {item.tableDescription.substring(0, 60)}
@@ -106,10 +107,16 @@ function ResultItem({
           <Columns className="h-3.5 w-3.5" />
         </div>
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             <span className="text-xs text-muted-foreground">
-              {item.schemaName && <span className="text-purple-500 dark:text-purple-400">{item.schemaName}.</span>}
-              {item.tableName}.
+              {item.schemaName && (
+                <>
+                  <span className="text-purple-500 dark:text-purple-400">{item.schemaName}</span>
+                  <span className="text-muted-foreground/40">.</span>
+                </>
+              )}
+              <span>{item.tableName}</span>
+              <span className="text-muted-foreground/40">.</span>
             </span>
             <span className="font-medium text-sm">
               {highlightMatches(item.columnName || '', getHighlightIndices('columnName'))}
@@ -149,7 +156,9 @@ function ResultItem({
     );
   }
 
-  // comment
+  // comment - 컬럼 코멘트면 컬럼 아이콘, 테이블 코멘트면 테이블 아이콘
+  const isColumnComment = !!item.columnName;
+  
   return (
     <button
       onClick={onClick}
@@ -159,14 +168,26 @@ function ResultItem({
         isSelected && 'bg-primary/10 ring-1 ring-primary/30'
       )}
     >
-      <div className="flex h-7 w-7 items-center justify-center rounded-md bg-green-100 dark:bg-green-900/40 text-green-600 dark:text-green-400">
-        <MessageSquare className="h-3.5 w-3.5" />
-      </div>
+      {isColumnComment ? (
+        <div className="flex h-7 w-7 items-center justify-center rounded-md bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400">
+          <Columns className="h-3.5 w-3.5" />
+        </div>
+      ) : (
+        <div className="flex h-7 w-7 items-center justify-center rounded-md bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400">
+          <Table className="h-3.5 w-3.5" />
+        </div>
+      )}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
           <span className="text-xs text-muted-foreground">
+            {item.schemaName && (
+              <>
+                <span className={isColumnComment ? "text-purple-500 dark:text-purple-400" : "text-blue-500 dark:text-blue-400"}>{item.schemaName}</span>
+                <span className="text-muted-foreground/40">.</span>
+              </>
+            )}
             {item.tableName}
-            {item.columnName && `.${item.columnName}`}
+            {item.columnName && <><span className="text-muted-foreground/40">.</span>{item.columnName}</>}
           </span>
         </div>
         <div className="text-sm text-foreground truncate">
@@ -212,14 +233,167 @@ export function SearchCommand({
     { limit: 30 }
   );
 
+  // 검색어 없을 때 보여줄 기본 결과 (탭별로 다르게)
+  const defaultResults: SearchResult[] = useMemo(() => {
+    if (activeFilter === 'table' || activeFilter === 'all') {
+      // 테이블 목록
+      const tables = specifications.slice(0, activeFilter === 'all' ? 5 : 10).map((spec) => ({
+        item: {
+          id: `table:${spec.tableName}`,
+          type: 'table' as const,
+          tableName: spec.tableName,
+          schemaName: spec.schemaName,
+          tableDescription: spec.description,
+          columnName: undefined,
+          columnType: undefined,
+          columnDescription: undefined,
+          isPrimaryKey: undefined,
+          isForeignKey: undefined,
+          foreignKeyRef: undefined,
+          isPII: undefined,
+          searchText: spec.tableName,
+          spec,
+        },
+        score: 0,
+        matches: [],
+      }));
+      
+      if (activeFilter === 'table') return tables;
+      
+      // All 탭: 테이블 + 컬럼
+      const columns: SearchResult[] = [];
+      
+      for (const spec of specifications) {
+        for (const col of spec.columns) {
+          if (columns.length >= 5) break;
+          columns.push({
+            item: {
+              id: `column:${spec.tableName}.${col.name}`,
+              type: 'column' as const,
+              tableName: spec.tableName,
+              schemaName: spec.schemaName,
+              tableDescription: undefined,
+              columnName: col.name,
+              columnType: col.type,
+              columnDescription: col.description,
+              isPrimaryKey: col.primaryKey,
+              isForeignKey: !!col.foreignKey,
+              foreignKeyRef: col.foreignKey ? `${col.foreignKey.referencedTable}.${col.foreignKey.referencedColumn}` : undefined,
+              isPII: col.description?.startsWith('*') ?? false,
+              searchText: col.name,
+              spec,
+            },
+            score: 0,
+            matches: [],
+          });
+        }
+        if (columns.length >= 5) break;
+      }
+      
+      return [...tables, ...columns];
+    }
+    
+    if (activeFilter === 'column') {
+      // 컬럼 목록
+      const columns: SearchResult[] = [];
+      for (const spec of specifications) {
+        for (const col of spec.columns) {
+          if (columns.length >= 15) break;
+          columns.push({
+            item: {
+              id: `column:${spec.tableName}.${col.name}`,
+              type: 'column' as const,
+              tableName: spec.tableName,
+              schemaName: spec.schemaName,
+              tableDescription: undefined,
+              columnName: col.name,
+              columnType: col.type,
+              columnDescription: col.description,
+              isPrimaryKey: col.primaryKey,
+              isForeignKey: !!col.foreignKey,
+              foreignKeyRef: col.foreignKey ? `${col.foreignKey.referencedTable}.${col.foreignKey.referencedColumn}` : undefined,
+              isPII: col.description?.startsWith('*') ?? false,
+              searchText: col.name,
+              spec,
+            },
+            score: 0,
+            matches: [],
+          });
+        }
+        if (columns.length >= 15) break;
+      }
+      return columns;
+    }
+    
+    /* Comments 탭 - 나중에 필요할 수 있으므로 주석 처리
+    if (activeFilter === 'comment') {
+      // 코멘트 목록
+      const comments: SearchResult[] = [];
+      for (const spec of specifications) {
+        if (spec.description && comments.length < 10) {
+          comments.push({
+            item: {
+              id: `comment:${spec.tableName}:table`,
+              type: 'comment' as const,
+              tableName: spec.tableName,
+              schemaName: spec.schemaName,
+              tableDescription: spec.description,
+              columnName: undefined,
+              columnType: undefined,
+              columnDescription: undefined,
+              isPrimaryKey: undefined,
+              isForeignKey: undefined,
+              foreignKeyRef: undefined,
+              isPII: undefined,
+              searchText: spec.description,
+              spec,
+            },
+            score: 0,
+            matches: [],
+          });
+        }
+        for (const col of spec.columns) {
+          if (col.description && comments.length < 10) {
+            comments.push({
+              item: {
+                id: `comment:${spec.tableName}.${col.name}`,
+                type: 'comment' as const,
+                tableName: spec.tableName,
+                schemaName: spec.schemaName,
+                tableDescription: undefined,
+                columnName: col.name,
+                columnType: undefined,
+                columnDescription: col.description,
+                isPrimaryKey: undefined,
+                isForeignKey: undefined,
+                foreignKeyRef: undefined,
+                isPII: col.description?.startsWith('*') ?? false,
+                searchText: col.description,
+                spec,
+              },
+              score: 0,
+              matches: [],
+            });
+          }
+          if (comments.length >= 10) break;
+        }
+        if (comments.length >= 10) break;
+      }
+      return comments;
+    }
+    */
+    
+    return [];
+  }, [specifications, activeFilter]);
+
   // 필터링된 결과
   const filteredGroups =
     activeFilter === 'all'
       ? groupedResults
       : groupedResults.filter((g) => g.type === activeFilter);
 
-  // 전체 결과 배열 (선택용)
-  const allResults = filteredGroups.flatMap((g) => g.results);
+  // 전체 결과 배열 (선택용) - 검색어 없으면 기본 결과 사용
+  const allResults = query.trim() ? filteredGroups.flatMap((g) => g.results) : defaultResults;
 
   // 열릴 때 포커스
   useEffect(() => {
@@ -279,9 +453,9 @@ export function SearchCommand({
           break;
         case 'Tab':
           e.preventDefault();
-          // 필터 순환
-          const filters = ['all', 'table', 'column', 'comment'] as const;
-          const currentIdx = filters.indexOf(activeFilter);
+          // 필터 순환 (comment 탭 제거됨)
+          const filters = ['all', 'table', 'column'] as const;
+          const currentIdx = filters.indexOf(activeFilter as 'all' | 'table' | 'column');
           const nextFilter = filters[(currentIdx + 1) % filters.length] ?? 'all';
           setActiveFilter(nextFilter);
           break;
@@ -370,6 +544,7 @@ export function SearchCommand({
               <Columns className="h-3.5 w-3.5" />
               Columns
             </button>
+            {/* Comments 탭 - 나중에 필요할 수 있으므로 주석 처리
             <button
               onClick={() => setActiveFilter('comment')}
               className={cn(
@@ -382,6 +557,7 @@ export function SearchCommand({
               <MessageSquare className="h-3.5 w-3.5" />
               Comments
             </button>
+            */}
             <span className="ml-auto text-xs text-muted-foreground">
               Tab to switch
             </span>
@@ -393,13 +569,92 @@ export function SearchCommand({
             className="max-h-[400px] overflow-y-auto p-2"
           >
             {!query.trim() ? (
-              <div className="py-12 text-center">
-                <Search className="h-10 w-10 text-muted-foreground/50 mx-auto mb-3" />
-                <p className="text-sm text-muted-foreground">
-                  Start typing to search tables, columns, and comments
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Use Tab to filter by type
+              <div className="space-y-2">
+                {activeFilter === 'all' ? (
+                  // All 탭: 그룹별로 표시
+                  <>
+                    {defaultResults.filter(r => r.item.type === 'table').length > 0 && (
+                      <div>
+                        <div className="px-2 py-1.5 flex items-center justify-between">
+                          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1">
+                            <Table className="h-3 w-3" /> Tables
+                          </span>
+                          <span className="text-xs text-muted-foreground">{specifications.length}</span>
+                        </div>
+                        <div className="space-y-0.5">
+                          {defaultResults.filter(r => r.item.type === 'table').map((result, idx) => (
+                            <div key={result.item.id} data-selected={selectedIndex === idx}>
+                              <ResultItem result={result} isSelected={selectedIndex === idx} onClick={() => handleSelect(result.item)} />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {defaultResults.filter(r => r.item.type === 'column').length > 0 && (
+                      <div>
+                        <div className="px-2 py-1.5 flex items-center gap-1">
+                          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1">
+                            <Columns className="h-3 w-3" /> Columns
+                          </span>
+                        </div>
+                        <div className="space-y-0.5">
+                          {defaultResults.filter(r => r.item.type === 'column').map((result, idx) => {
+                            const globalIdx = defaultResults.filter(r => r.item.type === 'table').length + idx;
+                            return (
+                              <div key={result.item.id} data-selected={selectedIndex === globalIdx}>
+                                <ResultItem result={result} isSelected={selectedIndex === globalIdx} onClick={() => handleSelect(result.item)} />
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                    {/* Comments 섹션 - 나중에 필요할 수 있으므로 주석 처리
+                    {defaultResults.filter(r => r.item.type === 'comment').length > 0 && (
+                      <div>
+                        <div className="px-2 py-1.5 flex items-center gap-1">
+                          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1">
+                            <MessageSquare className="h-3 w-3" /> Comments
+                          </span>
+                        </div>
+                        <div className="space-y-0.5">
+                          {defaultResults.filter(r => r.item.type === 'comment').map((result, idx) => {
+                            const globalIdx = defaultResults.filter(r => r.item.type === 'table').length + defaultResults.filter(r => r.item.type === 'column').length + idx;
+                            return (
+                              <div key={result.item.id} data-selected={selectedIndex === globalIdx}>
+                                <ResultItem result={result} isSelected={selectedIndex === globalIdx} onClick={() => handleSelect(result.item)} />
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                    */}
+                  </>
+                ) : (
+                  // 단일 탭
+                  <>
+                    <div className="px-2 py-1.5 flex items-center justify-between">
+                      <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1">
+                        {activeFilter === 'table' && <><Table className="h-3 w-3" /> Recent Tables</>}
+                        {activeFilter === 'column' && <><Columns className="h-3 w-3" /> Recent Columns</>}
+                        {/* {activeFilter === 'comment' && <><MessageSquare className="h-3 w-3" /> Recent Comments</>} */}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {activeFilter === 'table' && `${specifications.length} total`}
+                      </span>
+                    </div>
+                    <div className="space-y-0.5">
+                      {defaultResults.map((result, idx) => (
+                        <div key={result.item.id} data-selected={selectedIndex === idx}>
+                          <ResultItem result={result} isSelected={selectedIndex === idx} onClick={() => handleSelect(result.item)} />
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+                <p className="text-xs text-center text-muted-foreground pt-2 border-t mt-2">
+                  Type to search all items
                 </p>
               </div>
             ) : isEmpty ? (

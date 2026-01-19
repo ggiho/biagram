@@ -134,6 +134,7 @@ export function useTableCenter() {
         description: spec.description,
         columnCount: spec.stats.columnCount,
         relationshipCount: spec.stats.relationshipCount,
+        indexCount: spec.stats.indexCount,
         hasIndexes: spec.stats.indexCount > 0,
         hasForeignKeys: spec.stats.foreignKeyCount > 0,
         tags: spec.tags,
@@ -212,7 +213,16 @@ export function useTableCenter() {
   // 선택된 테이블 스펙
   const selectedSpec = useMemo(() => {
     if (!selectedTable || sortedSpecifications.length === 0) return null;
-    const spec = sortedSpecifications.find((s) => s.tableName === selectedTable);
+    
+    // 테이블 찾기 (tableName 또는 schema.tableName 형식 모두 지원)
+    const spec = sortedSpecifications.find((s) => {
+      // 직접 매칭
+      if (s.tableName === selectedTable) return true;
+      // schema.table 형식으로 매칭
+      const fullName = s.schemaName ? `${s.schemaName}.${s.tableName}` : s.tableName;
+      return fullName === selectedTable;
+    });
+    
     if (!spec) return null;
 
     // 스키마 추출
@@ -264,6 +274,18 @@ export function useTableCenter() {
   const handleSelectTable = useCallback((tableName: string) => {
     setSelectedTable(tableName);
     setShowPIIReport(false);
+    
+    // schema.table 형식인 경우 스키마 자동 확장
+    if (tableName.includes('.')) {
+      const schema = tableName.split('.')[0];
+      if (schema) {
+        setExpandedSchemas((prev) => {
+          const next = new Set(prev);
+          next.add(schema);
+          return next;
+        });
+      }
+    }
   }, []);
 
   // PII 리포트 토글

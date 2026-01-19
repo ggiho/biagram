@@ -177,12 +177,20 @@ function searchItem(item: SearchableItem, query: string): SearchResult | null {
 
   // 타입별로 검색 대상 분리
   if (item.type === 'table') {
-    // 테이블 타입: 테이블명으로만 검색
+    // 테이블 타입: 테이블명, 스키마.테이블명으로 검색
     const lowerName = item.tableName.toLowerCase();
-    if (lowerName.includes(lowerQuery)) {
+    const fullName = item.schemaName ? `${item.schemaName}.${item.tableName}` : item.tableName;
+    const lowerFullName = fullName.toLowerCase();
+    
+    // 스키마.테이블명 전체로 검색
+    if (lowerFullName.includes(lowerQuery)) {
       const indices = findMatchIndices(item.tableName, query);
       matches.push({ key: 'tableName', indices, value: item.tableName });
-      if (lowerName === lowerQuery) {
+      if (lowerFullName === lowerQuery) {
+        bestScore = 0;
+      } else if (lowerFullName.startsWith(lowerQuery)) {
+        bestScore = 0.05;
+      } else if (lowerName === lowerQuery) {
         bestScore = 0;
       } else if (lowerName.startsWith(lowerQuery)) {
         bestScore = 0.1;
@@ -190,6 +198,12 @@ function searchItem(item: SearchableItem, query: string): SearchResult | null {
         bestScore = 0.3;
       }
     }
+    // 스키마명만으로도 검색
+    else if (item.schemaName && item.schemaName.toLowerCase().includes(lowerQuery)) {
+      matches.push({ key: 'schemaName', indices: findMatchIndices(item.schemaName, query), value: item.schemaName });
+      bestScore = 0.4;
+    }
+    
     // 테이블 설명에서도 검색
     if (item.tableDescription) {
       const lowerDesc = item.tableDescription.toLowerCase();
@@ -200,7 +214,7 @@ function searchItem(item: SearchableItem, query: string): SearchResult | null {
       }
     }
   } else if (item.type === 'column') {
-    // 컬럼 타입: 컬럼명으로만 검색 (테이블명 제외!)
+    // 컬럼 타입: 컬럼명 + 컬럼 설명 검색
     if (item.columnName) {
       const lowerName = item.columnName.toLowerCase();
       if (lowerName.includes(lowerQuery)) {
@@ -213,6 +227,15 @@ function searchItem(item: SearchableItem, query: string): SearchResult | null {
         } else {
           bestScore = 0.3;
         }
+      }
+    }
+    // 컬럼 설명에서도 검색
+    if (item.columnDescription) {
+      const lowerDesc = item.columnDescription.toLowerCase();
+      if (lowerDesc.includes(lowerQuery)) {
+        const indices = findMatchIndices(item.columnDescription, query);
+        matches.push({ key: 'columnDescription', indices, value: item.columnDescription });
+        bestScore = Math.min(bestScore, 0.5);
       }
     }
   } else if (item.type === 'comment') {

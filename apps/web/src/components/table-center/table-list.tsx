@@ -1,33 +1,13 @@
 'use client';
 
-import { ChevronDown, ChevronRight, Table, Columns, Link2, Lock, Key } from 'lucide-react';
+import { ChevronDown, ChevronRight, Table, Columns, Link2, Lock, ListTree } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ExtendedSummary } from '@/types/table-center';
-
-// 텍스트 하이라이트 헬퍼
-function highlightText(text: string, query: string) {
-  if (!query.trim()) return text;
-  const parts = text.split(new RegExp(`(${query})`, 'gi'));
-  return (
-    <>
-      {parts.map((part, i) =>
-        part.toLowerCase() === query.toLowerCase() ? (
-          <mark key={i} className="bg-yellow-200 dark:bg-yellow-800/60 text-foreground rounded-sm px-0.5">
-            {part}
-          </mark>
-        ) : (
-          part
-        )
-      )}
-    </>
-  );
-}
 
 interface TableListProps {
   tablesBySchema: Map<string, ExtendedSummary[]>;
   expandedSchemas: Set<string>;
   selectedTable: string | null;
-  searchQuery: string;
   onToggleSchema: (schema: string) => void;
   onSelectTable: (tableName: string) => void;
 }
@@ -36,7 +16,6 @@ export function TableList({
   tablesBySchema,
   expandedSchemas,
   selectedTable,
-  searchQuery,
   onToggleSchema,
   onSelectTable,
 }: TableListProps) {
@@ -46,6 +25,9 @@ export function TableList({
     return a.localeCompare(b);
   });
 
+  // 전체 테이블 수 계산
+  const totalTableCount = sortedSchemas.reduce((acc, [, tables]) => acc + tables.length, 0);
+
   if (sortedSchemas.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center p-8 text-center">
@@ -54,7 +36,7 @@ export function TableList({
         </div>
         <p className="text-sm font-medium">No tables found</p>
         <p className="text-xs text-muted-foreground mt-1">
-          {searchQuery ? 'Try a different search term' : 'Create a diagram in the editor first'}
+          Create a diagram in the editor first
         </p>
       </div>
     );
@@ -62,6 +44,12 @@ export function TableList({
 
   return (
     <div className="flex flex-col">
+      {/* 전체 테이블 수 */}
+      <div className="px-3 py-2 border-b bg-muted/30">
+        <span className="text-xs text-muted-foreground">
+          {totalTableCount} {totalTableCount === 1 ? 'table' : 'tables'}
+        </span>
+      </div>
       {sortedSchemas.map(([schema, tables]) => {
         if (tables.length === 0) return null;
         const isExpanded = expandedSchemas.has(schema);
@@ -114,32 +102,19 @@ export function TableList({
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1 min-w-0">
                           <div className="font-medium truncate text-sm">
-                            {searchQuery.trim() ? highlightText(pureTableName, searchQuery) : pureTableName}
+                            {pureTableName}
                           </div>
                           {summary.description && (
                             <p className="text-xs text-muted-foreground mt-1 line-clamp-1">
-                              {searchQuery.trim()
-                                ? highlightText(summary.description, searchQuery)
-                                : summary.description}
+                              {summary.description}
                             </p>
-                          )}
-                          
-                          {/* Highlights from search */}
-                          {summary.highlights && summary.highlights.length > 0 && (
-                            <div className="mt-1.5 space-y-0.5">
-                              {summary.highlights.slice(0, 2).map((h, idx) => (
-                                <div key={idx} className="text-xs text-blue-600 dark:text-blue-400 truncate">
-                                  {h.field === 'column' && `Column: ${h.text}`}
-                                  {h.field === 'description' && `Match: ${h.text}`}
-                                </div>
-                              ))}
-                            </div>
                           )}
 
                           {/* Stats */}
                           <div className="flex items-center gap-3 mt-2">
                             <StatBadge icon={<Columns className="h-3 w-3" />} value={summary.columnCount} />
                             <StatBadge icon={<Link2 className="h-3 w-3" />} value={summary.relationshipCount} />
+                            <StatBadge icon={<ListTree className="h-3 w-3" />} value={summary.indexCount ?? 0} />
                             {summary.piiCount !== undefined && summary.piiCount > 0 && (
                               <span className="inline-flex items-center gap-1 text-xs text-red-600 dark:text-red-400 font-medium">
                                 <Lock className="h-3 w-3" />

@@ -43,27 +43,55 @@ export function generateTableSpecification(
   // 1. 컬럼 정보 변환 (테이블 이름 전달하여 FK 정확히 판별)
   const fullTableName = table.schema ? `${table.schema}.${table.name}` : table.name;
   
-  // Unique 인덱스에 포함된 컬럼 목록 추출
-  const uniqueIndexColumns = new Set<string>();
-  if (table.indexes) {
+  // Unique 인덱스에 포함된 컬럼 목록 추출 (컬럼 순서 기준으로 번호 부여)
+  // 1단계: 각 컬럼이 어떤 인덱스에 속하는지 매핑 (인덱스 ID 사용)
+  const columnToIndexId = new Map<string, number>(); // 컬럼명 → 인덱스 ID
+  let indexId = 0;
+  if (table.indexes && table.indexes.length > 0) {
     for (const idx of table.indexes) {
-      if (idx.unique && idx.columns.length === 1 && idx.columns[0]) {
-        // 단일 컬럼 unique 인덱스만 컬럼의 unique로 반영
-        uniqueIndexColumns.add(idx.columns[0]);
+      if (idx && idx.unique && idx.columns && idx.columns.length > 0) {
+        for (const col of idx.columns) {
+          if (col && !columnToIndexId.has(col)) {
+            columnToIndexId.set(col, indexId);
+          }
+        }
+        indexId++;
       }
     }
   }
+  const totalUniqueIndexCount = indexId;
+
+  // 2단계: 컬럼 순서대로 순회하면서 UK 번호 부여
+  const indexIdToNumber = new Map<number, number>(); // 인덱스 ID → UK 번호
+  let ukNumber = 1;
+  const uniqueIndexColumns = new Map<string, number>(); // 컬럼명 → UK 번호
+
+  for (const col of table.columns) {
+    const idxId = columnToIndexId.get(col.name);
+    if (idxId !== undefined) {
+      if (!indexIdToNumber.has(idxId)) {
+        // 이 인덱스가 처음 등장 → 새 번호 부여
+        indexIdToNumber.set(idxId, ukNumber);
+        ukNumber++;
+      }
+      uniqueIndexColumns.set(col.name, indexIdToNumber.get(idxId)!);
+    }
+  }
   
-  const columns = table.columns.map((col) => convertColumn(col, fullTableName, allRelationships, uniqueIndexColumns));
+  const columns = table.columns.map((col) => convertColumn(col, fullTableName, allRelationships, uniqueIndexColumns, totalUniqueIndexCount));
 
   // 2. 제약 조건 추출
   const constraints = extractConstraints(table, allRelationships);
 
-  // 3. 인덱스 정보 (향후 확장)
-  const indexes: IndexSpecification[] = [];
+  // 3. 인덱스 정보
+  const indexes: IndexSpecification[] = (table.indexes || []).map((idx) => ({
+    name: idx.name || (idx.columns || []).join(', '), // Use original name or column list
+    columns: idx.columns || [],
+    unique: idx.unique || false,
+  }));
 
-  // 4. 관계 분석
-  const relationships = analyzeTableRelationships(table.name, allRelationships);
+  // 4. 관계 분석 (스키마 포함 전체 이름으로 검색)
+  const relationships = analyzeTableRelationships(fullTableName, allRelationships);
   const relationshipStats = calculateRelationshipStats(relationships);
 
   // 5. 통계 계산
@@ -136,6 +164,7 @@ export function generateSpecificationSummary(
     description: spec.description,
     columnCount: spec.stats.columnCount,
     relationshipCount: spec.stats.relationshipCount,
+    indexCount: spec.stats.indexCount,
     hasIndexes: spec.stats.indexCount > 0,
     hasForeignKeys: spec.stats.foreignKeyCount > 0,
     tags: spec.tags,
@@ -151,7 +180,8 @@ function convertColumn(
   column: Column,
   tableName: string,
   allRelationships: Relationship[],
-  uniqueIndexColumns: Set<string>
+  uniqueIndexColumns: Map<string, number>,
+  totalUniqueIndexCount: number
 ): ColumnSpecification {
   // 타입 정보 추출 (크기 포함)
   const typeStr = formatColumnType(column.type);
@@ -160,7 +190,12 @@ function convertColumn(
   const foreignKey = findForeignKeyForColumn(column, tableName, allRelationships);
 
   // Unique 여부: 컬럼 자체 속성 또는 unique 인덱스에 포함된 경우
-  const isUnique = column.unique ?? uniqueIndexColumns.has(column.name);
+  const isUnique = column.unique || uniqueIndexColumns.has(column.name);
+  
+  // UK가 2개 이상일 때만 번호 부여
+  const uniqueIndexNumber = totalUniqueIndexCount >= 2 
+    ? uniqueIndexColumns.get(column.name) 
+    : undefined;
 
   return {
     name: column.name,
@@ -168,6 +203,7 @@ function convertColumn(
     nullable: column.nullable ?? true,
     primaryKey: column.primaryKey ?? false,
     unique: isUnique,
+    uniqueIndexNumber,
     autoIncrement: column.autoIncrement ?? false,
     defaultValue: column.defaultValue ? String(column.defaultValue) : undefined,
     description: column.note,

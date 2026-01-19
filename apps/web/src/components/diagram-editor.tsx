@@ -367,32 +367,28 @@ function DiagramEditorContent() {
         <header className="flex h-14 items-center justify-between border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4 shadow-sm">
           {/* Logo & Title */}
           <div className="flex items-center gap-3">
-            <Link href="/" className="flex items-center gap-2 transition-opacity hover:opacity-80">
+            {/* Biagram 로고 - 현재 페이지 */}
+            <div className="flex items-center gap-2">
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold text-sm">
                 B
               </div>
               <h1 className="text-lg font-semibold tracking-tight">Biagram</h1>
-            </Link>
+            </div>
+
             <div className="h-6 w-px bg-border" />
-            <span className="text-sm text-muted-foreground">Untitled Diagram</span>
+
+            {/* Table Center Link */}
+            <Link 
+              href="/table-center" 
+              className="flex items-center gap-2 px-2 py-1 rounded-md hover:bg-muted transition-colors"
+            >
+              <FileText className="h-4 w-4 text-primary" />
+              <span className="font-semibold">Table Center</span>
+            </Link>
           </div>
 
           {/* Actions - Grouped with dropdowns */}
           <div className="flex items-center gap-2">
-            {/* Table Center Link */}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="ghost" size="sm" asChild>
-                  <Link href="/table-center">
-                    <FileText className="h-4 w-4" />
-                    <span className="sr-only md:not-sr-only md:ml-2">Table Center</span>
-                  </Link>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Manage all tables</TooltipContent>
-            </Tooltip>
-
-            <div className="h-6 w-px bg-border" />
 
             {/* Import Dropdown */}
             <DropdownMenu>
@@ -403,7 +399,7 @@ function DiagramEditorContent() {
                   <ChevronDown className="h-3 w-3 opacity-50" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuContent align="end" className="w-56">
                 <DropdownMenuLabel>Import From</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => setImportDialogOpen(true)}>

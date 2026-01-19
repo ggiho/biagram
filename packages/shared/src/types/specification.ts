@@ -20,6 +20,7 @@ export const ColumnSpecificationSchema = z.object({
   nullable: z.boolean().default(true),
   primaryKey: z.boolean().default(false),
   unique: z.boolean().default(false),
+  uniqueIndexNumber: z.number().optional(), // UK가 여러 개일 때 구분용 (1부터 시작)
   autoIncrement: z.boolean().default(false),
 
   // 기본값 및 설명
@@ -168,6 +169,7 @@ export const SpecificationSummarySchema = z.object({
   // 요약 통계
   columnCount: z.number(),
   relationshipCount: z.number(),
+  indexCount: z.number(),
   hasIndexes: z.boolean(),
   hasForeignKeys: z.boolean(),
 

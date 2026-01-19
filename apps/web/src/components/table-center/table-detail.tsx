@@ -1,38 +1,38 @@
 'use client';
 
-import { Columns, Link2, Key, Fingerprint, ArrowRightLeft, Lock } from 'lucide-react';
+import { Columns, Link2, Key, Fingerprint, ArrowRightLeft, Lock, ListTree } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { TableSpecification } from '@/types/table-center';
 import type { ColumnSpecification } from '@biagram/shared';
 
 interface TableDetailProps {
   spec: TableSpecification;
+  onSelectTable?: (tableName: string) => void;
 }
 
-export function TableDetail({ spec }: TableDetailProps) {
+export function TableDetail({ spec, onSelectTable }: TableDetailProps) {
   return (
     <div className="p-6 animate-in fade-in slide-in-from-right-4 duration-300">
       {/* Header */}
       <div className="mb-6">
-        <div className="flex items-start justify-between">
-          <div>
-            <h2 className="text-2xl font-bold">{spec.tableName}</h2>
-            {spec.schemaName && (
-              <p className="text-sm text-muted-foreground mt-1">
-                Schema: <span className="font-medium">{spec.schemaName}</span>
-              </p>
-            )}
-          </div>
-        </div>
+        <h2 className="text-2xl font-bold">
+          {spec.schemaName && (
+            <>
+              <span className="text-muted-foreground font-normal">{spec.schemaName}</span>
+              <span className="text-muted-foreground/50 font-normal">.</span>
+            </>
+          )}
+          {spec.tableName}
+        </h2>
         {spec.description && (
-          <p className="text-sm text-muted-foreground mt-3 leading-relaxed">
+          <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
             {spec.description}
           </p>
         )}
       </div>
 
       {/* Statistics Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-6">
         <StatCard
           icon={<Columns className="h-4 w-4" />}
           label="Columns"
@@ -56,6 +56,12 @@ export function TableDetail({ spec }: TableDetailProps) {
           label="Foreign Keys"
           value={spec.stats.foreignKeyCount}
           colorClass="text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/30"
+        />
+        <StatCard
+          icon={<ListTree className="h-4 w-4" />}
+          label="Indexes"
+          value={spec.indexes?.length ?? 0}
+          colorClass="text-cyan-600 dark:text-cyan-400 bg-cyan-100 dark:bg-cyan-900/30"
         />
       </div>
 
@@ -89,6 +95,18 @@ export function TableDetail({ spec }: TableDetailProps) {
                 const isPK = column.primaryKey;
                 const isAudit = ['created_by', 'created_at', 'updated_by', 'updated_at'].includes(column.name);
                 
+                const isFK = !!column.foreignKey;
+                const referencedTable = column.foreignKey?.referencedTable;
+                
+                const handleRowClick = () => {
+                  if (isFK && referencedTable && onSelectTable) {
+                    onSelectTable(referencedTable);
+                  }
+                };
+                
+                // FK 행일 때는 전체 row에 이동 툴팁만 표시
+                const fkTooltip = isFK && referencedTable ? `→ ${referencedTable} 로 이동` : undefined;
+                
                 return (
                   <tr
                     key={column.name}
@@ -96,28 +114,31 @@ export function TableDetail({ spec }: TableDetailProps) {
                       'hover:bg-muted/30 transition-colors',
                       isPK && 'bg-amber-50 dark:bg-amber-950/20',
                       isPII && 'bg-red-50 dark:bg-red-950/20',
-                      isAudit && !isPK && !isPII && 'bg-muted/30 text-muted-foreground'
+                      isAudit && !isPK && !isPII && 'bg-muted/30 text-muted-foreground',
+                      isFK && onSelectTable && 'cursor-pointer hover:bg-green-50 dark:hover:bg-green-950/20'
                     )}
+                    onClick={handleRowClick}
+                    title={fkTooltip}
                   >
-                    <td className="p-3 font-mono text-sm truncate" title={column.name}>
+                    <td className="p-3 font-mono text-sm truncate" title={fkTooltip || column.name}>
                       <div className="flex items-center gap-1.5">
                         {isPII && <Lock className="h-3.5 w-3.5 text-red-500 shrink-0" />}
                         <span className="truncate">{column.name}</span>
                       </div>
                     </td>
-                    <td className="p-3 text-sm text-muted-foreground truncate" title={column.type}>
+                    <td className="p-3 text-sm text-muted-foreground truncate" title={fkTooltip || column.type}>
                       {column.type}
                     </td>
-                    <td className="p-3">
+                    <td className="p-3" title={fkTooltip}>
                       <div className="flex flex-wrap gap-1">
                         {column.primaryKey && <ConstraintBadge type="pk" />}
-                        {column.foreignKey && <ConstraintBadge type="fk" />}
-                        {column.unique && <ConstraintBadge type="unique" />}
+                        {isFK && <ConstraintBadge type="fk" />}
+                        {column.unique && <ConstraintBadge type="unique" number={column.uniqueIndexNumber} />}
                         {!column.nullable && <ConstraintBadge type="required" />}
                         {column.autoIncrement && <ConstraintBadge type="autoIncrement" />}
                       </div>
                     </td>
-                    <td className="p-3 text-sm text-muted-foreground" title={column.description || '-'}>
+                    <td className="p-3 text-sm text-muted-foreground" title={fkTooltip || column.description || '-'}>
                       <div className="line-clamp-2">
                         {isPII ? column.description?.substring(1).trim() || '-' : column.description || '-'}
                       </div>
@@ -129,6 +150,57 @@ export function TableDetail({ spec }: TableDetailProps) {
           </table>
         </div>
       </div>
+
+      {/* Indexes */}
+      {spec.indexes && spec.indexes.length > 0 && (
+        <div className="mb-8">
+          <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+            <ListTree className="h-4 w-4 text-muted-foreground" />
+            Indexes
+          </h3>
+          <div className="border rounded-lg overflow-hidden">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/50">
+                <tr>
+                  <th className="text-left p-3 font-medium text-muted-foreground">NAME</th>
+                  <th className="text-left p-3 font-medium text-muted-foreground">COLUMNS</th>
+                  <th className="text-left p-3 font-medium text-muted-foreground">TYPE</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {spec.indexes.map((idx, i) => (
+                  <tr key={i} className="hover:bg-muted/30 transition-colors">
+                    <td className="p-3 font-mono text-xs">{idx.name}</td>
+                    <td className="p-3">
+                      <div className="flex flex-wrap gap-1">
+                        {idx.columns.map((col, j) => (
+                          <span
+                            key={j}
+                            className="inline-block px-2 py-0.5 text-xs font-medium bg-muted rounded"
+                          >
+                            {col}
+                          </span>
+                        ))}
+                      </div>
+                    </td>
+                    <td className="p-3">
+                      {idx.unique ? (
+                        <span className="inline-block px-1.5 py-0.5 text-[10px] font-medium rounded bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300">
+                          UNIQUE
+                        </span>
+                      ) : (
+                        <span className="inline-block px-1.5 py-0.5 text-[10px] font-medium rounded bg-muted text-muted-foreground">
+                          INDEX
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* Relationships */}
       {(spec.relationships.incoming.length > 0 || spec.relationships.outgoing.length > 0) && (
@@ -208,16 +280,18 @@ function StatCard({ icon, label, value, colorClass }: StatCardProps) {
 const CONSTRAINT_CONFIG = {
   pk: { label: 'PK', className: 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300' },
   fk: { label: 'FK', className: 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300' },
-  unique: { label: 'UQ', className: 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300' },
-  required: { label: 'NOT NULL', className: 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300' },
+  unique: { label: 'UK', className: 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300' },
+  required: { label: 'NOT NULL', className: 'bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300' },
   autoIncrement: { label: 'AUTO INCREMENT', className: 'bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300' },
 } as const;
 
-function ConstraintBadge({ type }: { type: keyof typeof CONSTRAINT_CONFIG }) {
+function ConstraintBadge({ type, number }: { type: keyof typeof CONSTRAINT_CONFIG; number?: number }) {
   const config = CONSTRAINT_CONFIG[type];
+  // UK일 때 번호가 있으면 UK1, UK2 등으로 표시
+  const label = type === 'unique' && number ? `${config.label}${number}` : config.label;
   return (
     <span className={cn('inline-block px-1.5 py-0.5 text-[10px] font-medium rounded', config.className)}>
-      {config.label}
+      {label}
     </span>
   );
 }

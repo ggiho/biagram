@@ -834,7 +834,7 @@ export class DBMLParser {
 
     return {
       id: this.generateId(),
-      name: indexName || `idx_${columns.join('_')}`,
+      name: indexName || '', // Use original name if provided, otherwise empty
       tableName: '', // Will be set by parent table
       columns,
       type: indexType,

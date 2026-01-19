@@ -1,9 +1,8 @@
 'use client';
 
-import { Search, ArrowUpDown, Loader2 } from 'lucide-react';
+import { Search, ArrowUpDown } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import {
   Select,
   SelectContent,
@@ -14,42 +13,33 @@ import {
 import type { SortBy, SortOrder } from '@/types/table-center';
 
 interface SearchBarProps {
-  searchQuery: string;
-  onSearchChange: (value: string) => void;
   sortBy: SortBy;
   onSortByChange: (value: SortBy) => void;
   sortOrder: SortOrder;
   onSortOrderToggle: () => void;
-  isSearching?: boolean;
-  inputRef?: React.RefObject<HTMLInputElement>;
+  onOpenSearch: () => void;
 }
 
 export function SearchBar({
-  searchQuery,
-  onSearchChange,
   sortBy,
   onSortByChange,
   sortOrder,
   onSortOrderToggle,
-  isSearching,
-  inputRef,
+  onOpenSearch,
 }: SearchBarProps) {
   return (
     <div className="p-4 border-b space-y-3">
-      {/* Search Input */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          ref={inputRef}
-          placeholder="Search tables, columns..."
-          value={searchQuery}
-          onChange={(e) => onSearchChange(e.target.value)}
-          className="pl-9 pr-9"
-        />
-        {isSearching && (
-          <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground animate-spin" />
-        )}
-      </div>
+      {/* Search Trigger */}
+      <button
+        onClick={onOpenSearch}
+        className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-muted-foreground bg-muted/50 hover:bg-muted rounded-lg border border-transparent hover:border-border transition-colors"
+      >
+        <Search className="h-4 w-4" />
+        <span className="flex-1 text-left">Search tables, columns...</span>
+        <kbd className="hidden sm:inline-flex h-5 select-none items-center gap-1 rounded border bg-background px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
+          <span className="text-xs">⌘</span>K
+        </kbd>
+      </button>
 
       {/* Sort Controls */}
       <div className="flex gap-2">
