@@ -133,9 +133,12 @@ function ResultItem({
                 PII
               </span>
             )}
-            {item.columnDescription && !item.isPII && (
+            {item.columnDescription && (
               <span className="text-xs text-muted-foreground truncate">
-                {item.columnDescription.substring(0, 40)}
+                {/* PII 컬럼은 *로 시작하므로 제거 */}
+                {item.isPII 
+                  ? item.columnDescription.substring(1).trim().substring(0, 40)
+                  : item.columnDescription.substring(0, 40)}
               </span>
             )}
           </div>
