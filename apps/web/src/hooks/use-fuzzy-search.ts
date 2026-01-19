@@ -3,7 +3,7 @@
  * 정확한 substring 매칭 기반 클라이언트 사이드 검색
  */
 
-import { useMemo, useState, useCallback } from 'react';
+import { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import type { TableSpecification } from '@biagram/shared';
 
 // 검색 결과 아이템 타입
@@ -249,6 +249,31 @@ export function useFuzzySearch(
 ) {
   const { limit = 50 } = options;
   const [query, setQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
+  const [isTyping, setIsTyping] = useState(false);
+  const debounceRef = useRef<NodeJS.Timeout | null>(null);
+
+  // 디바운스: 타이핑 멈춘 후 150ms 대기
+  useEffect(() => {
+    // 타이핑 시작하면 즉시 isTyping = true
+    if (query !== debouncedQuery) {
+      setIsTyping(true);
+    }
+    
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
+    debounceRef.current = setTimeout(() => {
+      setDebouncedQuery(query);
+      setIsTyping(false);
+    }, 150);
+    
+    return () => {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+      }
+    };
+  }, [query, debouncedQuery]);
 
   // 검색 가능한 아이템 목록 생성
   const searchableItems = useMemo(
@@ -256,9 +281,14 @@ export function useFuzzySearch(
     [specifications]
   );
 
-  // 검색 수행
+  // 검색 수행 (타이핑 중이면 빈 결과 반환)
   const results = useMemo(() => {
-    const trimmedQuery = query.trim();
+    // 타이핑 중이면 빈 배열 (이전 결과 숨김)
+    if (isTyping) {
+      return [];
+    }
+    
+    const trimmedQuery = debouncedQuery.trim();
     if (!trimmedQuery || trimmedQuery.length < 2) {
       return [];
     }
@@ -276,7 +306,7 @@ export function useFuzzySearch(
     return matchedResults
       .sort((a, b) => a.score - b.score)
       .slice(0, limit);
-  }, [searchableItems, query, limit]);
+  }, [searchableItems, debouncedQuery, limit, isTyping]);
 
   // 타입별로 그룹핑
   const groupedResults = useMemo((): SearchResultGroup[] => {
