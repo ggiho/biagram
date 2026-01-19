@@ -174,9 +174,15 @@ function ResultItem({
 
 // 그룹 헤더 컴포넌트
 function GroupHeader({ group }: { group: SearchResultGroup }) {
+  const IconComponent = {
+    table: Table,
+    column: Columns,
+    comment: MessageSquare,
+  }[group.type];
+
   return (
     <div className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wider">
-      <span>{group.icon}</span>
+      {IconComponent && <IconComponent className="h-3.5 w-3.5" />}
       <span>{group.label}</span>
       <span className="ml-auto text-[10px] bg-muted px-1.5 py-0.5 rounded-full">
         {group.results.length}
@@ -324,26 +330,53 @@ export function SearchCommand({
 
           {/* Filter Tabs */}
           <div className="flex items-center gap-1 px-3 py-2 border-b bg-muted/30">
-            {[
-              { key: 'all' as const, label: 'All' },
-              { key: 'table' as const, label: 'Tables', icon: '📋' },
-              { key: 'column' as const, label: 'Columns', icon: '🔤' },
-              { key: 'comment' as const, label: 'Comments', icon: '💬' },
-            ].map(({ key, label, icon }) => (
-              <button
-                key={key}
-                onClick={() => setActiveFilter(key)}
-                className={cn(
-                  'px-3 py-1 rounded-md text-xs font-medium transition-colors',
-                  activeFilter === key
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                )}
-              >
-                {icon && <span className="mr-1">{icon}</span>}
-                {label}
-              </button>
-            ))}
+            <button
+              onClick={() => setActiveFilter('all')}
+              className={cn(
+                'px-3 py-1 rounded-md text-xs font-medium transition-colors',
+                activeFilter === 'all'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+              )}
+            >
+              All
+            </button>
+            <button
+              onClick={() => setActiveFilter('table')}
+              className={cn(
+                'px-3 py-1 rounded-md text-xs font-medium transition-colors flex items-center gap-1',
+                activeFilter === 'table'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+              )}
+            >
+              <Table className="h-3.5 w-3.5" />
+              Tables
+            </button>
+            <button
+              onClick={() => setActiveFilter('column')}
+              className={cn(
+                'px-3 py-1 rounded-md text-xs font-medium transition-colors flex items-center gap-1',
+                activeFilter === 'column'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+              )}
+            >
+              <Columns className="h-3.5 w-3.5" />
+              Columns
+            </button>
+            <button
+              onClick={() => setActiveFilter('comment')}
+              className={cn(
+                'px-3 py-1 rounded-md text-xs font-medium transition-colors flex items-center gap-1',
+                activeFilter === 'comment'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+              )}
+            >
+              <MessageSquare className="h-3.5 w-3.5" />
+              Comments
+            </button>
             <span className="ml-auto text-xs text-muted-foreground">
               Tab to switch
             </span>
