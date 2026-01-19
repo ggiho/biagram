@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback, KeyboardEvent } from 'react';
 import { ChevronDown, ChevronRight, Table, Link, Database } from 'lucide-react';
 import type { DatabaseSchema } from '@biagram/shared';
 import { useDiagramEngine } from '@/contexts/diagram-context';
@@ -39,6 +39,51 @@ interface DiagramSidebarProps {
   schema: DatabaseSchema | SimplifiedSchema | null;
 }
 
+/**
+ * Accessible list item component with keyboard navigation
+ */
+interface AccessibleListItemProps {
+  children: React.ReactNode;
+  isSelected?: boolean;
+  isHighlighted?: boolean;
+  onClick: () => void;
+  className?: string;
+  ariaLabel?: string;
+}
+
+function AccessibleListItem({
+  children,
+  isSelected = false,
+  isHighlighted = false,
+  onClick,
+  className = '',
+  ariaLabel,
+}: AccessibleListItemProps) {
+  const handleKeyDown = useCallback(
+    (e: KeyboardEvent<HTMLDivElement>) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        onClick();
+      }
+    },
+    [onClick]
+  );
+
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      aria-selected={isSelected}
+      aria-label={ariaLabel}
+      onClick={onClick}
+      onKeyDown={handleKeyDown}
+      className={`outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 ${className}`}
+    >
+      {children}
+    </div>
+  );
+}
+
 export function DiagramSidebar({ schema }: DiagramSidebarProps) {
   const diagramContext = useDiagramEngine();
   const { selectedEntityId, setSelectedEntityId, highlightedRelationshipId, setHighlightedRelationshipId } = diagramContext || {
@@ -60,6 +105,9 @@ export function DiagramSidebar({ schema }: DiagramSidebarProps) {
 
   // Refs for table elements to enable scrolling
   const tableRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  
+  // Focus management for keyboard navigation
+  const [focusedIndex, setFocusedIndex] = useState<number>(-1);
 
   const toggleSection = (section: keyof typeof expandedSections) => {
     setExpandedSections(prev => ({
@@ -80,6 +128,42 @@ export function DiagramSidebar({ schema }: DiagramSidebarProps) {
     }
   }, [selectedEntityId]);
 
+  // Keyboard navigation handler for list
+  const handleListKeyDown = useCallback((
+    e: KeyboardEvent<HTMLDivElement>,
+    items: string[],
+    onSelect: (item: string) => void
+  ) => {
+    if (items.length === 0) return;
+
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        setFocusedIndex(prev => (prev + 1) % items.length);
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        setFocusedIndex(prev => (prev - 1 + items.length) % items.length);
+        break;
+      case 'Home':
+        e.preventDefault();
+        setFocusedIndex(0);
+        break;
+      case 'End':
+        e.preventDefault();
+        setFocusedIndex(items.length - 1);
+        break;
+      case 'Enter':
+      case ' ':
+        e.preventDefault();
+        if (focusedIndex >= 0 && focusedIndex < items.length) {
+          const item = items[focusedIndex];
+          if (item) onSelect(item);
+        }
+        break;
+    }
+  }, [focusedIndex]);
+
   if (!schema) {
     return (
       <div className="h-full w-full border-l bg-background">
@@ -87,7 +171,7 @@ export function DiagramSidebar({ schema }: DiagramSidebarProps) {
           <h3 className="text-sm font-medium">Schema Overview</h3>
         </div>
         <div className="p-4 text-center text-muted-foreground">
-          <Database className="mx-auto h-8 w-8 mb-2" />
+          <Database className="mx-auto h-8 w-8 mb-2" aria-hidden="true" />
           <p className="text-sm">No schema loaded</p>
         </div>
       </div>
@@ -107,9 +191,6 @@ export function DiagramSidebar({ schema }: DiagramSidebarProps) {
       return renderSchemaOverview();
     }
 
-    const fromTable = schema.tables.find(t => t.name === selectedRel.fromTable);
-    const toTable = schema.tables.find(t => t.name === selectedRel.toTable);
-
     return (
       <div className="h-full w-full border-l bg-background flex flex-col">
         <div className="border-b p-4">
@@ -127,11 +208,11 @@ export function DiagramSidebar({ schema }: DiagramSidebarProps) {
           <h3 className="text-sm font-medium">Relationship Details</h3>
         </div>
 
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto" role="region" aria-label="Relationship details">
           {/* Relationship Info */}
           <div className="border-b p-4">
             <div className="flex items-center gap-2 mb-3">
-              <Link className="h-4 w-4 text-primary" />
+              <Link className="h-4 w-4 text-primary" aria-hidden="true" />
               <span className="font-semibold text-sm">
                 {selectedRel.fromTable} → {selectedRel.toTable}
               </span>
@@ -144,29 +225,31 @@ export function DiagramSidebar({ schema }: DiagramSidebarProps) {
           {/* From Table */}
           <div className="border-b p-4">
             <h5 className="text-xs font-medium uppercase text-muted-foreground mb-2">From</h5>
-            <div 
-              className="p-2 rounded bg-muted/50 cursor-pointer hover:bg-muted"
+            <AccessibleListItem
               onClick={() => setSelectedEntityId(selectedRel.fromTable)}
+              className="p-2 rounded bg-muted/50 cursor-pointer hover:bg-muted transition-colors"
+              ariaLabel={`Go to table ${selectedRel.fromTable}`}
             >
               <div className="font-medium text-sm">{selectedRel.fromTable}</div>
               <div className="text-xs text-muted-foreground">
                 Column: <span className="font-mono">{selectedRel.fromColumn}</span>
               </div>
-            </div>
+            </AccessibleListItem>
           </div>
 
           {/* To Table */}
           <div className="border-b p-4">
             <h5 className="text-xs font-medium uppercase text-muted-foreground mb-2">To</h5>
-            <div 
-              className="p-2 rounded bg-muted/50 cursor-pointer hover:bg-muted"
+            <AccessibleListItem
               onClick={() => setSelectedEntityId(selectedRel.toTable)}
+              className="p-2 rounded bg-muted/50 cursor-pointer hover:bg-muted transition-colors"
+              ariaLabel={`Go to table ${selectedRel.toTable}`}
             >
               <div className="font-medium text-sm">{selectedRel.toTable}</div>
               <div className="text-xs text-muted-foreground">
                 Column: <span className="font-mono">{selectedRel.toColumn}</span>
               </div>
-            </div>
+            </AccessibleListItem>
           </div>
         </div>
       </div>
@@ -220,11 +303,11 @@ export function DiagramSidebar({ schema }: DiagramSidebarProps) {
           <h3 className="text-sm font-medium">Table Details</h3>
         </div>
 
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto" role="region" aria-label="Table details">
           {/* Table Info */}
           <div className="border-b p-4">
             <div className="flex items-center gap-2 mb-2">
-              <Table className="h-4 w-4 text-primary" />
+              <Table className="h-4 w-4 text-primary" aria-hidden="true" />
               <h4 className="font-semibold text-sm">{selectedTable.name}</h4>
             </div>
             {(selectedTable as any).note && (
@@ -242,7 +325,7 @@ export function DiagramSidebar({ schema }: DiagramSidebarProps) {
             <div className="p-3 bg-muted/50">
               <h5 className="text-xs font-medium uppercase text-muted-foreground">Columns</h5>
             </div>
-            <div className="divide-y">
+            <div className="divide-y" role="list" aria-label="Table columns">
               {selectedTable.columns.map((column) => {
                 const typeName = typeof column.type === 'string' ? column.type : (column.type as any)?.name;
                 const isPK = (column as any).primaryKey || (column as any).isPrimaryKey || false;
@@ -252,7 +335,7 @@ export function DiagramSidebar({ schema }: DiagramSidebarProps) {
                 const columnNote = (column as any).note;
 
                 return (
-                  <div key={column.name} className="px-4 py-2">
+                  <div key={column.name} className="px-4 py-2" role="listitem">
                     <div className="flex items-baseline gap-2">
                       <span className="font-medium text-sm">{column.name}</span>
                       {columnNote && (
@@ -261,12 +344,12 @@ export function DiagramSidebar({ schema }: DiagramSidebarProps) {
                         </span>
                       )}
                     </div>
-                    <div className="flex gap-2 items-center mt-1">
+                    <div className="flex gap-2 items-center mt-1 flex-wrap">
                       <span className="text-xs text-muted-foreground">{typeName}</span>
-                      {isPK && <span className="text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded">PK</span>}
-                      {isFK && <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">FK</span>}
-                      {isNotNull && <span className="text-xs bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded">NOT NULL</span>}
-                      {isUnique && <span className="text-xs bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">UNIQUE</span>}
+                      {isPK && <span className="text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded" aria-label="Primary Key">PK</span>}
+                      {isFK && <span className="text-xs bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 px-1.5 py-0.5 rounded" aria-label="Foreign Key">FK</span>}
+                      {isNotNull && <span className="text-xs bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300 px-1.5 py-0.5 rounded">NOT NULL</span>}
+                      {isUnique && <span className="text-xs bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 px-1.5 py-0.5 rounded">UNIQUE</span>}
                     </div>
                   </div>
                 );
@@ -282,7 +365,7 @@ export function DiagramSidebar({ schema }: DiagramSidebarProps) {
               </h5>
             </div>
             {relatedRelationships.length > 0 ? (
-              <div className="divide-y">
+              <div className="divide-y" role="list" aria-label="Related relationships">
                 {relatedRelationships.map((rel, index) => {
                   const isOutgoing = rel.fromTable === selectedEntityId;
                   const otherTable = isOutgoing ? rel.toTable : rel.fromTable;
@@ -291,15 +374,17 @@ export function DiagramSidebar({ schema }: DiagramSidebarProps) {
                   const isHighlighted = highlightedRelationshipId === relationshipId;
 
                   return (
-                    <div
+                    <AccessibleListItem
                       key={index}
-                      className={`px-4 py-2 hover:bg-muted/50 cursor-pointer transition-colors ${
-                        isHighlighted ? 'bg-primary/10 border-l-2 border-l-primary' : ''
-                      }`}
+                      isHighlighted={isHighlighted}
                       onClick={() => {
                         console.log('🔗 Relationship clicked from sidebar:', relationshipId);
                         setHighlightedRelationshipId(isHighlighted ? null : relationshipId);
                       }}
+                      className={`px-4 py-2 hover:bg-muted/50 cursor-pointer transition-colors ${
+                        isHighlighted ? 'bg-primary/10 border-l-2 border-l-primary' : ''
+                      }`}
+                      ariaLabel={`${isOutgoing ? 'Outgoing' : 'Incoming'} relationship to ${otherTable}`}
                     >
                       <div className={`text-xs font-medium ${isHighlighted ? 'text-primary' : ''}`}>
                         {isOutgoing ? '→' : '←'} {otherTable}
@@ -308,7 +393,7 @@ export function DiagramSidebar({ schema }: DiagramSidebarProps) {
                         {rel.fromTable}.{rel.fromColumn} → {rel.toTable}.{rel.toColumn}
                       </div>
                       <div className="text-xs text-muted-foreground">{rel.type}</div>
-                    </div>
+                    </AccessibleListItem>
                   );
                 })}
               </div>
@@ -338,78 +423,85 @@ export function DiagramSidebar({ schema }: DiagramSidebarProps) {
           </p>
         </div>
 
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto" role="navigation" aria-label="Schema navigation">
           {/* Tables Section */}
           <div className="border-b">
           <Button
             variant="ghost"
             className="w-full justify-start p-4 h-auto"
             onClick={() => toggleSection('tables')}
+            aria-expanded={expandedSections.tables}
+            aria-controls="tables-list"
           >
             {expandedSections.tables ? (
-              <ChevronDown className="h-4 w-4 mr-2" />
+              <ChevronDown className="h-4 w-4 mr-2" aria-hidden="true" />
             ) : (
-              <ChevronRight className="h-4 w-4 mr-2" />
+              <ChevronRight className="h-4 w-4 mr-2" aria-hidden="true" />
             )}
-            <Table className="h-4 w-4 mr-2" />
+            <Table className="h-4 w-4 mr-2" aria-hidden="true" />
             <span className="text-sm font-medium">Tables ({schema.tables.length})</span>
           </Button>
 
           {expandedSections.tables && (
-            <div className="pb-2 max-h-[40vh] overflow-y-auto">
-              {schema.tables.map((table) => {
+            <div id="tables-list" className="pb-2 max-h-[40vh] overflow-y-auto" role="list" aria-label="Tables">
+              {schema.tables.map((table, index) => {
                 // 스키마.테이블 형식으로 표시
                 const tableSchema = (table as any).schema;
                 const displayName = tableSchema ? `${tableSchema}.${table.name}` : table.name;
                 const isSelected = selectedEntityId === table.name || selectedEntityId === displayName;
                 return (
-                  <div
+                  <AccessibleListItem
                     key={displayName}
-                    ref={(el) => {
-                      if (el) {
-                        tableRefs.current.set(table.name, el);
-                      } else {
-                        tableRefs.current.delete(table.name);
-                      }
-                    }}
-                    className={`px-4 py-2 border-l-2 cursor-pointer ${
-                      isSelected
-                        ? 'border-l-primary bg-primary/10'
-                        : 'border-l-transparent hover:border-l-primary hover:bg-muted/50'
-                    }`}
+                    isSelected={isSelected}
                     onClick={() => {
                       console.log('📋 Table clicked from sidebar:', table.name);
                       setSelectedEntityId(isSelected ? null : table.name);
                     }}
+                    className={`px-4 py-2 border-l-2 cursor-pointer transition-colors ${
+                      isSelected
+                        ? 'border-l-primary bg-primary/10'
+                        : 'border-l-transparent hover:border-l-primary hover:bg-muted/50'
+                    }`}
+                    ariaLabel={`Table ${displayName}, ${table.columns.length} columns`}
                   >
-                    <div className={`font-medium text-sm ${isSelected ? 'text-primary' : ''}`}>
-                      {displayName}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {table.columns.length} columns
-                    </div>
-                    <div className="mt-1">
-                      {table.columns.slice(0, 3).map((column) => {
-                        // Handle both DatabaseSchema format and SimplifiedSchema format
-                        const typeName = typeof column.type === 'string' ? column.type : column.type?.name;
-                        const isPK = (column as any).primaryKey || (column as any).isPrimaryKey || false;
-                        const isFK = (column as any).references || (column as any).isForeignKey || false;
+                    <div
+                      ref={(el) => {
+                        if (el) {
+                          tableRefs.current.set(table.name, el);
+                        } else {
+                          tableRefs.current.delete(table.name);
+                        }
+                      }}
+                    >
+                      <div className={`font-medium text-sm ${isSelected ? 'text-primary' : ''}`}>
+                        {displayName}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {table.columns.length} columns
+                      </div>
+                      <div className="mt-1">
+                        {table.columns.slice(0, 3).map((column) => {
+                          // Handle both DatabaseSchema format and SimplifiedSchema format
+                          const typeName = typeof column.type === 'string' ? column.type : column.type?.name;
+                          const isPK = (column as any).primaryKey || (column as any).isPrimaryKey || false;
+                          const isFK = (column as any).references || (column as any).isForeignKey || false;
 
-                        return (
-                          <div key={column.name} className="text-xs text-muted-foreground">
-                            • {column.name}: {typeName}
-                            {isPK && ' (PK)'}
-                            {isFK && ' (FK)'}
+                          return (
+                            <div key={column.name} className="text-xs text-muted-foreground">
+                              • {column.name}: {typeName}
+                              {isPK && ' (PK)'}
+                              {isFK && ' (FK)'}
+                            </div>
+                          );
+                        })}
+                        {table.columns.length > 3 && (
+                          <div className="text-xs text-muted-foreground">
+                            ... {table.columns.length - 3} more
                           </div>
-                        );
-                      })}
-                      {table.columns.length > 3 && (
-                        <div className="text-xs text-muted-foreground">
-                          ... {table.columns.length - 3} more
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </div>
-                  </div>
+                  </AccessibleListItem>
                 );
               })}
             </div>
@@ -422,35 +514,39 @@ export function DiagramSidebar({ schema }: DiagramSidebarProps) {
             variant="ghost"
             className="w-full justify-start p-4 h-auto"
             onClick={() => toggleSection('relationships')}
+            aria-expanded={expandedSections.relationships}
+            aria-controls="relationships-list"
           >
             {expandedSections.relationships ? (
-              <ChevronDown className="h-4 w-4 mr-2" />
+              <ChevronDown className="h-4 w-4 mr-2" aria-hidden="true" />
             ) : (
-              <ChevronRight className="h-4 w-4 mr-2" />
+              <ChevronRight className="h-4 w-4 mr-2" aria-hidden="true" />
             )}
-            <Link className="h-4 w-4 mr-2" />
+            <Link className="h-4 w-4 mr-2" aria-hidden="true" />
             <span className="text-sm font-medium">Relationships ({schema.relationships.length})</span>
           </Button>
 
           {expandedSections.relationships && (
-            <div className="pb-2 max-h-[40vh] overflow-y-auto">
+            <div id="relationships-list" className="pb-2 max-h-[40vh] overflow-y-auto" role="list" aria-label="Relationships">
               {schema.relationships.map((rel, index) => {
                 const relationshipId = rel.id || `rel-${index}`;
                 const isHighlighted = highlightedRelationshipId === relationshipId;
 
                 return (
-                  <div
+                  <AccessibleListItem
                     key={index}
-                    className={`px-4 py-2 border-l-2 cursor-pointer transition-colors ${
-                      isHighlighted
-                        ? 'bg-primary/10 border-l-primary'
-                        : 'border-l-transparent hover:border-l-primary hover:bg-muted/50'
-                    }`}
+                    isHighlighted={isHighlighted}
                     onClick={() => {
                       console.log('🔗 Relationship clicked from overview:', relationshipId);
                       setHighlightedRelationshipId(isHighlighted ? null : relationshipId);
                       setSelectedEntityId(isHighlighted ? null : `rel:${relationshipId}`);
                     }}
+                    className={`px-4 py-2 border-l-2 cursor-pointer transition-colors ${
+                      isHighlighted
+                        ? 'bg-primary/10 border-l-primary'
+                        : 'border-l-transparent hover:border-l-primary hover:bg-muted/50'
+                    }`}
+                    ariaLabel={`Relationship from ${rel.fromTable}.${rel.fromColumn} to ${rel.toTable}.${rel.toColumn}`}
                   >
                     <div className={`text-xs font-medium ${isHighlighted ? 'text-primary' : ''}`}>
                       {rel.fromTable}.{rel.fromColumn} → {rel.toTable}.{rel.toColumn}
@@ -458,7 +554,7 @@ export function DiagramSidebar({ schema }: DiagramSidebarProps) {
                     <div className="text-xs text-muted-foreground">
                       {rel.type}
                     </div>
-                  </div>
+                  </AccessibleListItem>
                 );
               })}
               {schema.relationships.length === 0 && (
@@ -477,20 +573,26 @@ export function DiagramSidebar({ schema }: DiagramSidebarProps) {
               variant="ghost"
               className="w-full justify-start p-4 h-auto"
               onClick={() => toggleSection('enums')}
+              aria-expanded={expandedSections.enums}
+              aria-controls="enums-list"
             >
               {expandedSections.enums ? (
-                <ChevronDown className="h-4 w-4 mr-2" />
+                <ChevronDown className="h-4 w-4 mr-2" aria-hidden="true" />
               ) : (
-                <ChevronRight className="h-4 w-4 mr-2" />
+                <ChevronRight className="h-4 w-4 mr-2" aria-hidden="true" />
               )}
-              <Database className="h-4 w-4 mr-2" />
+              <Database className="h-4 w-4 mr-2" aria-hidden="true" />
               <span className="text-sm font-medium">Enums ({schema.enums.length})</span>
             </Button>
 
             {expandedSections.enums && (
-              <div className="pb-2">
+              <div id="enums-list" className="pb-2" role="list" aria-label="Enums">
                 {schema.enums.map((enumDef) => (
-                  <div key={enumDef.name} className="px-4 py-2 border-l-2 border-l-transparent hover:border-l-primary hover:bg-muted/50">
+                  <div 
+                    key={enumDef.name} 
+                    className="px-4 py-2 border-l-2 border-l-transparent hover:border-l-primary hover:bg-muted/50 transition-colors"
+                    role="listitem"
+                  >
                     <div className="font-medium text-sm">{enumDef.name}</div>
                     <div className="text-xs text-muted-foreground">
                       {enumDef.values.join(', ')}

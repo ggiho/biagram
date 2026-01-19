@@ -45,11 +45,20 @@ interface InferredRelationship {
 interface DBImportDialogProps {
   onImport?: (dbml: string) => void;
   trigger?: React.ReactNode;
+  /** Controlled open state */
+  open?: boolean;
+  /** Callback when open state changes */
+  onOpenChange?: (open: boolean) => void;
 }
 
-export function DBImportDialog({ onImport, trigger }: DBImportDialogProps) {
+export function DBImportDialog({ onImport, trigger, open: controlledOpen, onOpenChange }: DBImportDialogProps) {
   const { toast } = useToast();
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  
+  // Support both controlled and uncontrolled modes
+  const isControlled = controlledOpen !== undefined;
+  const open = isControlled ? controlledOpen : internalOpen;
+  const setOpen = isControlled ? (onOpenChange ?? (() => {})) : setInternalOpen;
   const [step, setStep] = useState<'connect' | 'import' | 'infer'>('connect');
   const [connectionStatus, setConnectionStatus] = useState<'idle' | 'testing' | 'success' | 'error'>(
     'idle'

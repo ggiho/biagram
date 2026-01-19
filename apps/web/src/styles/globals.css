@@ -4,15 +4,12 @@
 
 @import './codemirror.css';
 
-@layer utilities {
-  .writing-mode-vertical-rl {
-    writing-mode: vertical-rl;
-    text-orientation: mixed;
-  }
-}
-
+/* ========================================
+   Design Tokens
+   ======================================== */
 @layer base {
   :root {
+    /* Colors */
     --background: 0 0% 100%;
     --foreground: 222.2 84% 4.9%;
     --card: 0 0% 100%;
@@ -33,6 +30,41 @@
     --input: 214.3 31.8% 91.4%;
     --ring: 221.2 83.2% 53.3%;
     --radius: 0.5rem;
+
+    /* Semantic colors */
+    --success: 142.1 76.2% 36.3%;
+    --success-foreground: 355.7 100% 97.3%;
+    --warning: 32.1 94.6% 43.7%;
+    --warning-foreground: 26 83.3% 14.1%;
+    --info: 199.4 95.5% 53.8%;
+    --info-foreground: 198.4 93.2% 95.8%;
+
+    /* Spacing scale */
+    --spacing-xs: 0.25rem;
+    --spacing-sm: 0.5rem;
+    --spacing-md: 1rem;
+    --spacing-lg: 1.5rem;
+    --spacing-xl: 2rem;
+
+    /* Animation durations */
+    --duration-fast: 100ms;
+    --duration-normal: 200ms;
+    --duration-slow: 300ms;
+    --duration-slower: 500ms;
+
+    /* Transitions */
+    --ease-default: cubic-bezier(0.4, 0, 0.2, 1);
+    --ease-in: cubic-bezier(0.4, 0, 1, 1);
+    --ease-out: cubic-bezier(0, 0, 0.2, 1);
+    --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+    --ease-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    --ease-spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+
+    /* Shadows */
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+    --shadow-glow: 0 0 20px -5px hsl(var(--primary) / 0.25);
   }
 
   .dark {
@@ -55,6 +87,17 @@
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
     --ring: 224.3 76.3% 94.1%;
+
+    /* Dark mode semantic colors */
+    --success: 142.1 70.6% 45.3%;
+    --warning: 32.1 94.6% 53.7%;
+    --info: 199.4 95.5% 63.8%;
+
+    /* Dark mode shadows */
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.25);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.3), 0 2px 4px -2px rgb(0 0 0 / 0.3);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.4), 0 4px 6px -4px rgb(0 0 0 / 0.4);
+    --shadow-glow: 0 0 20px -5px hsl(var(--primary) / 0.4);
   }
 }
 
@@ -63,9 +106,167 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
   }
 }
+
+/* ========================================
+   Utility Classes
+   ======================================== */
+@layer utilities {
+  .writing-mode-vertical-rl {
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+  }
+
+  /* Smooth transitions for interactive elements */
+  .transition-smooth {
+    transition-property: all;
+    transition-timing-function: var(--ease-default);
+    transition-duration: var(--duration-normal);
+  }
+
+  /* Button press effect */
+  .btn-press {
+    @apply transition-transform duration-100;
+  }
+  .btn-press:active {
+    @apply scale-[0.98];
+  }
+
+  /* Focus visible ring with animation */
+  .focus-ring {
+    @apply outline-none transition-shadow duration-200;
+  }
+  .focus-ring:focus-visible {
+    @apply ring-2 ring-primary ring-offset-2 ring-offset-background;
+  }
+
+  /* Hover lift effect */
+  .hover-lift {
+    @apply transition-transform duration-200;
+  }
+  .hover-lift:hover {
+    @apply -translate-y-0.5;
+  }
+
+  /* Fade in animation class */
+  .animate-fade-in {
+    animation: fadeIn var(--duration-normal) var(--ease-out);
+  }
+
+  /* Slide in animation classes */
+  .animate-slide-up {
+    animation: slideUp var(--duration-normal) var(--ease-out);
+  }
+  .animate-slide-down {
+    animation: slideDown var(--duration-normal) var(--ease-out);
+  }
+  .animate-slide-left {
+    animation: slideLeft var(--duration-normal) var(--ease-out);
+  }
+  .animate-slide-right {
+    animation: slideRight var(--duration-normal) var(--ease-out);
+  }
+
+  /* Scale animation */
+  .animate-scale-in {
+    animation: scaleIn var(--duration-fast) var(--ease-spring);
+  }
+
+  /* Pulse glow for active states */
+  .animate-glow-pulse {
+    animation: glowPulse 2s var(--ease-in-out) infinite;
+  }
+
+  /* Stagger animation delay utilities */
+  .stagger-1 { animation-delay: 50ms; }
+  .stagger-2 { animation-delay: 100ms; }
+  .stagger-3 { animation-delay: 150ms; }
+  .stagger-4 { animation-delay: 200ms; }
+  .stagger-5 { animation-delay: 250ms; }
+}
+
+/* ========================================
+   Keyframe Animations
+   ======================================== */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideLeft {
+  from {
+    opacity: 0;
+    transform: translateX(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideRight {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes glowPulse {
+  0%, 100% {
+    box-shadow: var(--shadow-glow);
+  }
+  50% {
+    box-shadow: 0 0 30px -5px hsl(var(--primary) / 0.4);
+  }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* ========================================
+   Component Styles
+   ======================================== */
 
 /* Canvas and editor specific styles */
 .diagram-canvas {
@@ -81,19 +282,105 @@
   @apply border border-border rounded-md;
 }
 
-/* Custom scrollbar */
+/* Panel resize handle animation */
+[data-panel-group-direction="horizontal"] > [data-resize-handle] {
+  @apply transition-colors duration-200;
+}
+
+[data-panel-group-direction="horizontal"] > [data-resize-handle]:hover,
+[data-panel-group-direction="horizontal"] > [data-resize-handle]:active {
+  @apply bg-primary/20;
+}
+
+/* Sidebar item animations */
+.sidebar-item {
+  @apply transition-all duration-200;
+}
+
+.sidebar-item:hover {
+  @apply bg-muted/50;
+}
+
+.sidebar-item.selected {
+  @apply bg-primary/10 border-l-primary;
+}
+
+/* Header actions fade in */
+.header-actions > * {
+  @apply animate-fade-in;
+}
+
+/* Toast animation override */
+[data-sonner-toast] {
+  @apply animate-slide-up;
+}
+
+/* Dropdown menu items */
+[role="menuitem"] {
+  @apply transition-colors duration-150;
+}
+
+/* Status indicator animations */
+.status-dot {
+  @apply relative;
+}
+
+.status-dot::after {
+  content: '';
+  @apply absolute inset-0 rounded-full animate-ping;
+  background: inherit;
+  opacity: 0.4;
+}
+
+/* Processing spinner */
+.processing-spinner {
+  animation: spin 1s linear infinite;
+}
+
+/* ========================================
+   Custom Scrollbar
+   ======================================== */
 ::-webkit-scrollbar {
   @apply w-2 h-2;
 }
 
 ::-webkit-scrollbar-track {
-  @apply bg-muted;
+  @apply bg-transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  @apply bg-border rounded-full;
+  @apply bg-border rounded-full transition-colors duration-200;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  @apply bg-muted-foreground;
+  @apply bg-muted-foreground/50;
+}
+
+/* ========================================
+   Code Editor Enhancements
+   ======================================== */
+.cm-editor {
+  @apply h-full;
+}
+
+.cm-focused {
+  @apply outline-none;
+}
+
+/* Syntax highlighting colors aligned with design tokens */
+.cm-editor .cm-content {
+  font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', Menlo, monospace;
+}
+
+/* ========================================
+   Reduced Motion Support
+   ======================================== */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

@@ -2,10 +2,41 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
-import { Save, Settings, Download, Share, Upload, FileText, ChevronLeft, ChevronRight, Database } from 'lucide-react';
+import {
+  Save,
+  Settings,
+  Share,
+  Upload,
+  FileText,
+  ChevronLeft,
+  ChevronRight,
+  Database,
+  ChevronDown,
+  FileDown,
+  FileUp,
+  Image,
+  FileCode,
+  AlertCircle,
+  CheckCircle2,
+  Loader2,
+} from 'lucide-react';
 import Link from 'next/link';
 
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { CodeMirrorEditor, type CodeMirrorEditorRef } from '@/components/codemirror-editor';
 // Keep old editor as fallback
 // import { CodeEditor, type CodeEditorRef } from '@/components/code-editor';
@@ -326,68 +357,130 @@ function DiagramEditorContent() {
   }, [code, parseDBML?.mutateAsync]); // Trigger on code changes and when tRPC becomes available
 
 
+  // DB Import state (lifted from DBImportDialog for dropdown integration)
+  const [dbImportDialogOpen, setDbImportDialogOpen] = useState(false);
+
   return (
+    <TooltipProvider delayDuration={300}>
     <div className="flex h-screen flex-col bg-background">
-        {/* Header */}
-        <div className="flex h-14 items-center justify-between border-b px-4">
-          <div className="flex items-center gap-2">
-            <h1 className="text-lg font-semibold">Biagram</h1>
+        {/* Header - Improved visual hierarchy */}
+        <header className="flex h-14 items-center justify-between border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4 shadow-sm">
+          {/* Logo & Title */}
+          <div className="flex items-center gap-3">
+            <Link href="/" className="flex items-center gap-2 transition-opacity hover:opacity-80">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold text-sm">
+                B
+              </div>
+              <h1 className="text-lg font-semibold tracking-tight">Biagram</h1>
+            </Link>
+            <div className="h-6 w-px bg-border" />
             <span className="text-sm text-muted-foreground">Untitled Diagram</span>
           </div>
 
+          {/* Actions - Grouped with dropdowns */}
           <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              asChild
-            >
-              <Link href="/table-center">
-                <FileText className="mr-2 h-4 w-4" />
-                Table Center
-              </Link>
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleSave}
-            >
-              <Save className="mr-2 h-4 w-4" />
-              Save
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setImportDialogOpen(true)}
-            >
-              <Upload className="mr-2 h-4 w-4" />
-              Import DDL
-            </Button>
-            <DBImportDialog onImport={handleDBImport} />
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleExport}
-            >
-              <Download className="mr-2 h-4 w-4" />
-              Export
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleShare}
-            >
-              <Share className="mr-2 h-4 w-4" />
-              Share
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-            >
-              <Settings className="h-4 w-4" />
-            </Button>
+            {/* Table Center Link */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="sm" asChild>
+                  <Link href="/table-center">
+                    <FileText className="h-4 w-4" />
+                    <span className="sr-only md:not-sr-only md:ml-2">Table Center</span>
+                  </Link>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Manage all tables</TooltipContent>
+            </Tooltip>
+
+            <div className="h-6 w-px bg-border" />
+
+            {/* Import Dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-1">
+                  <FileUp className="h-4 w-4" />
+                  <span className="hidden sm:inline">Import</span>
+                  <ChevronDown className="h-3 w-3 opacity-50" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuLabel>Import From</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => setImportDialogOpen(true)}>
+                  <Upload className="mr-2 h-4 w-4" />
+                  DDL File
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setDbImportDialogOpen(true)}>
+                  <Database className="mr-2 h-4 w-4" />
+                  Database Connection
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* Export Dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-1">
+                  <FileDown className="h-4 w-4" />
+                  <span className="hidden sm:inline">Export</span>
+                  <ChevronDown className="h-3 w-3 opacity-50" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuLabel>Export As</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleExport}>
+                  <FileCode className="mr-2 h-4 w-4" />
+                  DBML / DDL
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleExport}>
+                  <Image className="mr-2 h-4 w-4" />
+                  PNG / SVG Image
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <div className="h-6 w-px bg-border" />
+
+            {/* Primary Actions */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="default" size="sm" onClick={handleSave} className="gap-2">
+                  <Save className="h-4 w-4" />
+                  <span className="hidden sm:inline">Save</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Save diagram (Ctrl+S)</TooltipContent>
+            </Tooltip>
+
+            {/* Share */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="sm" onClick={handleShare}>
+                  <Share className="h-4 w-4" />
+                  <span className="sr-only">Share</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Share diagram</TooltipContent>
+            </Tooltip>
+
+            {/* Settings */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSidebarOpen(!sidebarOpen)}
+                  className={sidebarOpen ? 'bg-accent' : ''}
+                >
+                  <Settings className="h-4 w-4" />
+                  <span className="sr-only">Settings</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{sidebarOpen ? 'Hide' : 'Show'} sidebar</TooltipContent>
+            </Tooltip>
           </div>
-        </div>
+        </header>
 
         {/* Main Content */}
         <div className="flex flex-1 overflow-hidden">
@@ -419,7 +512,7 @@ function DiagramEditorContent() {
                         </Button>
                       </div>
                     </div>
-                    <div className="flex-1">
+                    <div className="flex-1 relative">
                       <CodeMirrorEditor
                         ref={codeEditorRef}
                         value={code}
@@ -428,6 +521,38 @@ function DiagramEditorContent() {
                         language="dbml"
                         vimMode={vimMode}
                       />
+                    </div>
+
+                    {/* Status bar with error/success feedback */}
+                    <div className="border-t bg-muted/30">
+                      {isLoading ? (
+                        <div className="flex items-center gap-2 px-3 py-1.5 text-xs text-muted-foreground">
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                          <span>Parsing DBML...</span>
+                        </div>
+                      ) : parseError ? (
+                        <div className="flex items-start gap-2 px-3 py-2 bg-destructive/10 border-l-2 border-destructive">
+                          <AlertCircle className="h-4 w-4 text-destructive flex-shrink-0 mt-0.5" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-medium text-destructive">Parse Error</p>
+                            <p className="text-xs text-destructive/80 truncate" title={parseError}>
+                              {parseError.split('\n')[0]}
+                            </p>
+                          </div>
+                        </div>
+                      ) : parsedSchema && parsedSchema.tables?.length > 0 ? (
+                        <div className="flex items-center gap-2 px-3 py-1.5 text-xs text-muted-foreground">
+                          <CheckCircle2 className="h-3 w-3 text-green-500" />
+                          <span>
+                            {parsedSchema.tables.length} table{parsedSchema.tables.length > 1 ? 's' : ''}, {' '}
+                            {parsedSchema.relationships?.length || 0} relationship{(parsedSchema.relationships?.length || 0) !== 1 ? 's' : ''}
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2 px-3 py-1.5 text-xs text-muted-foreground">
+                          <span>Ready to parse</span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </Panel>
@@ -508,7 +633,15 @@ function DiagramEditorContent() {
             onRename={handleTableRename}
           />
         )}
+
+        {/* DB Import Dialog (controlled from header dropdown) */}
+        <DBImportDialog
+          open={dbImportDialogOpen}
+          onOpenChange={setDbImportDialogOpen}
+          onImport={handleDBImport}
+        />
       </div>
+    </TooltipProvider>
   );
 }
 
