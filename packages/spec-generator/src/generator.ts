@@ -40,8 +40,9 @@ export function generateTableSpecification(
 ): TableSpecification {
   const opts = { ...DEFAULT_OPTIONS, ...options };
 
-  // 1. 컬럼 정보 변환
-  const columns = table.columns.map((col) => convertColumn(col, allRelationships));
+  // 1. 컬럼 정보 변환 (테이블 이름 전달하여 FK 정확히 판별)
+  const fullTableName = table.schema ? `${table.schema}.${table.name}` : table.name;
+  const columns = table.columns.map((col) => convertColumn(col, fullTableName, allRelationships));
 
   // 2. 제약 조건 추출
   const constraints = extractConstraints(table, allRelationships);
@@ -136,13 +137,14 @@ export function generateSpecificationSummary(
  */
 function convertColumn(
   column: Column,
+  tableName: string,
   allRelationships: Relationship[]
 ): ColumnSpecification {
   // 타입 정보 추출 (크기 포함)
   const typeStr = formatColumnType(column.type);
 
-  // 외래 키 정보 찾기
-  const foreignKey = findForeignKeyForColumn(column, allRelationships);
+  // 외래 키 정보 찾기 (테이블 이름도 전달하여 정확히 판별)
+  const foreignKey = findForeignKeyForColumn(column, tableName, allRelationships);
 
   return {
     name: column.name,
@@ -203,6 +205,7 @@ function formatColumnType(type: Column['type']): string {
  */
 function findForeignKeyForColumn(
   column: Column,
+  tableName: string,
   allRelationships: Relationship[]
 ): ColumnSpecification['foreignKey'] {
   // column.references가 있으면 사용
@@ -213,9 +216,9 @@ function findForeignKeyForColumn(
     };
   }
 
-  // relationships에서 찾기
+  // relationships에서 찾기 (테이블 이름과 컬럼 이름 모두 일치해야 함)
   for (const rel of allRelationships) {
-    if (rel.fromColumn === column.name) {
+    if (rel.fromTable === tableName && rel.fromColumn === column.name) {
       return {
         referencedTable: rel.toTable,
         referencedColumn: rel.toColumn,
