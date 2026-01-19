@@ -108,7 +108,10 @@ function ResultItem({
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">{item.tableName}.</span>
+            <span className="text-xs text-muted-foreground">
+              {item.schemaName && <span className="text-purple-500 dark:text-purple-400">{item.schemaName}.</span>}
+              {item.tableName}.
+            </span>
             <span className="font-medium text-sm">
               {highlightMatches(item.columnName || '', getHighlightIndices('columnName'))}
             </span>
