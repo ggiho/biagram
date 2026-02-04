@@ -1,9 +1,8 @@
-import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
 import { convertDDLtoDBMLAuto, convertDBMLtoDDL } from '@biagram/ddl-converter';
 import { DBMLParser } from '@biagram/dbml-parser';
 
-import { createTRPCRouter, publicProcedure } from '@/server/api/trpc';
+import { createTRPCRouter, publicProcedure, protectedProcedure, rateLimitedProcedure } from '@/server/api/trpc';
 
 const CreateDiagramSchema = z.object({
   name: z.string().min(1).max(100),
@@ -21,24 +20,24 @@ const UpdateDiagramSchema = z.object({
 });
 
 export const diagramRouter = createTRPCRouter({
-  // Create a new diagram
-  create: publicProcedure
+  // Create a new diagram (requires authentication)
+  create: protectedProcedure
     .input(CreateDiagramSchema)
     .mutation(async ({ input, ctx }) => {
-      // Temporary implementation
+      // TODO: Implement with database
       return {
         id: 'temp-diagram-id',
         ...input,
         createdAt: new Date(),
         updatedAt: new Date(),
-        userId: 'temp-user-id',
+        userId: ctx.user.id,
       };
     }),
 
   // Get all diagrams
   getAll: publicProcedure
     .query(async ({ ctx }) => {
-      // Temporary implementation
+      // TODO: Implement with database
       return [];
     }),
 
@@ -46,50 +45,43 @@ export const diagramRouter = createTRPCRouter({
   getById: publicProcedure
     .input(z.object({ id: z.string() }))
     .query(async ({ input, ctx }) => {
-      // Temporary implementation
+      // TODO: Implement with database
       return null;
     }),
 
-  // Update a diagram
-  update: publicProcedure
+  // Update a diagram (requires authentication)
+  update: protectedProcedure
     .input(UpdateDiagramSchema)
     .mutation(async ({ input, ctx }) => {
-      // Temporary implementation
+      // TODO: Implement with database, verify ownership
       return {
         success: true,
         message: 'Update functionality coming soon',
       };
     }),
 
-  // Delete a diagram
-  delete: publicProcedure
+  // Delete a diagram (requires authentication)
+  delete: protectedProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ input, ctx }) => {
-      // Temporary implementation
+      // TODO: Implement with database, verify ownership
       return {
         success: true,
         message: 'Delete functionality coming soon',
       };
     }),
 
-  // Convert DDL to DBML
-  convertDDL: publicProcedure
+  // Convert DDL to DBML (rate limited)
+  convertDDL: rateLimitedProcedure
     .input(z.object({
-      ddl: z.string(),
+      ddl: z.string().max(500000, 'DDL content exceeds maximum size of 500KB'),
       dialect: z.enum(['mysql', 'postgresql', 'auto']).default('auto')
     }))
     .mutation(async ({ input }) => {
       try {
-        console.log('🔄 SERVER: convertDDL called with dialect:', input.dialect);
-        console.log('📝 DDL length:', input.ddl.length);
-        console.log('📝 DDL preview:', input.ddl.substring(0, 100));
-
         const result = convertDDLtoDBMLAuto(input.ddl);
 
-        console.log('📊 Parse result:', { success: result.success, errors: result.errors, dbmlLength: result.dbml?.length || 0 });
-
         if (!result.success) {
-          console.error('❌ Parse failed:', result.errors);
           return {
             success: false,
             dbml: '',
@@ -105,7 +97,7 @@ export const diagramRouter = createTRPCRouter({
           warnings: result.warnings,
         };
       } catch (error) {
-        console.error('❌ convertDDL error:', error);
+        console.error('convertDDL error:', error);
         return {
           success: false,
           dbml: '',
@@ -115,22 +107,13 @@ export const diagramRouter = createTRPCRouter({
       }
     }),
 
-  // Parse DBML content - made more resilient
-  parseDBML: publicProcedure
-    .input(z.object({ content: z.string() }))
+  // Parse DBML content - rate limited for DoS protection
+  parseDBML: rateLimitedProcedure
+    .input(z.object({ content: z.string().max(500000, 'DBML content exceeds maximum size of 500KB') }))
     .mutation(async ({ input, ctx }) => {
       try {
-        console.log('🟢 SERVER: parseDBML function called!');
-        console.log('🟢 SERVER: Raw input object:', input);
-        console.log('🟢 SERVER: Input type:', typeof input);
-        console.log('🟢 SERVER: Input content:', input?.content);
-        console.log('🟢 SERVER: Input content type:', typeof input?.content);
-        console.log('🟢 SERVER: Input content length:', input?.content?.length);
-        console.log('parseDBML: Received input:', input);
-
         // Validate content string
         if (typeof input.content !== 'string') {
-          console.log('parseDBML: Invalid content type:', typeof input.content);
           return {
             tables: [],
             relationships: [],
@@ -141,10 +124,7 @@ export const diagramRouter = createTRPCRouter({
           };
         }
 
-        console.log('parseDBML: Received input with content length:', input.content?.length || 0);
-
         if (!input.content || !input.content.trim()) {
-          console.log('parseDBML: Empty content, returning empty schema');
           return {
             tables: [],
             relationships: [],
@@ -154,33 +134,39 @@ export const diagramRouter = createTRPCRouter({
           };
         }
 
-        console.log('parseDBML: Processing content:', input.content.substring(0, 100) + '...');
-
         // Use the actual DBML parser
-        console.log('🔧 SERVER: Starting DBMLParser.parse()...');
-        let parseResult;
-        try {
-          parseResult = DBMLParser.parse(input.content);
-          console.log('✅ SERVER: DBMLParser.parse() completed');
-        } catch (parseError) {
-          console.error('❌ SERVER: DBMLParser.parse() threw exception:', parseError);
-          console.error('❌ SERVER: Parse error type:', parseError?.constructor?.name);
-          console.error('❌ SERVER: Parse error message:', parseError instanceof Error ? parseError.message : String(parseError));
-          throw parseError;
-        }
-        
-        const tempSchema = parseResult.schema as any;
-        console.log('🔍 SERVER: Parse result:', {
-          success: parseResult.success,
-          tablesCount: tempSchema?.tables?.length || 0,
-          relationshipsCount: tempSchema?.relationships?.length || 0,
-          errors: parseResult.errors,
-        });
+        const parseResult = DBMLParser.parse(input.content);
+        const tempSchema = parseResult.schema as {
+          tables: Array<{
+            id: string;
+            name: string;
+            schema?: string;
+            columns: Array<{
+              name: string;
+              type: string | { name: string; size?: number; precision?: number; scale?: number };
+              primaryKey?: boolean;
+              nullable?: boolean;
+              unique?: boolean;
+              note?: string;
+              references?: unknown;
+              ref?: unknown;
+            }>;
+            position?: { x: number; y: number };
+            note?: string;
+          }>;
+          relationships: Array<{
+            id: string;
+            fromTable: string;
+            fromColumn: string;
+            toTable: string;
+            toColumn: string;
+            type: string;
+            name?: string;
+          }>;
+          enums?: Array<{ name: string; values: Array<{ name: string; note?: string }> }>;
+        };
 
         if (!parseResult.success || !parseResult.schema) {
-          console.error('❌ SERVER: Parse failed:', parseResult.errors);
-
-          // 🚨 위치 정보를 포함한 상세 에러 메시지 생성
           const firstError = parseResult.errors?.[0];
           const errorMessage = firstError
             ? `Line ${firstError.position?.line || '?'}, Column ${firstError.position?.column || '?'}: ${firstError.message}`
@@ -196,52 +182,34 @@ export const diagramRouter = createTRPCRouter({
           };
         }
 
-        const schema = parseResult.schema as {
-          tables: any[];
-          relationships: any[];
-          enums?: any[];
-        };
-        
         // Helper function to format column type with size/precision/scale
-        const formatColumnType = (type: any): string => {
+        const formatColumnType = (type: string | { name: string; size?: number; precision?: number; scale?: number }): string => {
           if (typeof type === 'string') {
             return type;
           }
           if (!type || !type.name) {
             return 'unknown';
           }
-          
+
           const typeName = type.name;
-          
-          // Handle precision and scale (e.g., decimal(10,2))
+
           if (type.precision !== undefined && type.scale !== undefined) {
             return `${typeName}(${type.precision},${type.scale})`;
           }
-          
-          // Handle size (e.g., varchar(255))
+
           if (type.size !== undefined) {
             return `${typeName}(${type.size})`;
           }
-          
+
           return typeName;
         };
 
         // Transform schema to the format expected by the frontend
-        const tables = schema.tables.map((table: any, index: number) => {
-          // Debug: Log table info
-          if (index === 0) {
-            console.log('🔍 DEBUG: First table raw data:', {
-              name: table.name,
-              note: table.note,
-              firstColumn: table.columns?.[0],
-            });
-          }
-          
-          const columns = table.columns.map((col: any) => ({
+        const tables = tempSchema.tables.map((table, index: number) => {
+          const columns = table.columns.map((col) => ({
             name: col.name,
             type: formatColumnType(col.type),
             isPrimaryKey: col.primaryKey || false,
-            // FK는 references가 있거나 ref 속성이 있는 경우
             isForeignKey: !!(col.references || col.ref),
             isNotNull: !col.nullable,
             isUnique: col.unique || false,
@@ -251,16 +219,15 @@ export const diagramRouter = createTRPCRouter({
           return {
             id: table.id,
             name: table.name,
-            schema: table.schema, // Include schema for schema.table notation
+            schema: table.schema,
             columns,
-            // Use deterministic positioning for SuperJSON compatibility
             x: table.position?.x ?? (50 + (index % 3) * 250),
             y: table.position?.y ?? (50 + Math.floor(index / 3) * 200),
             note: table.note,
           };
         });
 
-        const relationships = schema.relationships.map((rel: any) => ({
+        const relationships = tempSchema.relationships.map((rel) => ({
           id: rel.id,
           fromTable: rel.fromTable,
           fromColumn: rel.fromColumn,
@@ -270,20 +237,15 @@ export const diagramRouter = createTRPCRouter({
           name: rel.name,
         }));
 
-        console.log('✅ SERVER: Parsed tables:', tables.map((t: any) => t.name));
-        console.log('🔗 SERVER: Parsed relationships:', relationships);
-        console.log('🔗 SERVER: Relationships count:', relationships.length);
-
         return {
           tables,
           relationships,
-          enums: schema.enums || [],
+          enums: tempSchema.enums || [],
           success: true,
-          schema: { tables, relationships, enums: schema.enums || [] },
+          schema: { tables, relationships, enums: tempSchema.enums || [] },
         };
       } catch (error) {
         console.error('parseDBML error:', error);
-        // Return a successful response even on error to prevent client issues
         return {
           tables: [],
           relationships: [],
@@ -304,14 +266,9 @@ export const diagramRouter = createTRPCRouter({
     }))
     .mutation(async ({ input }) => {
       try {
-        console.log('🔄 SERVER: convertDBMLtoDDL called with dialect:', input.dialect);
-        console.log('📝 DBML length:', input.dbml.length);
-
-        // Parse DBML first
         const parseResult = DBMLParser.parse(input.dbml);
 
         if (!parseResult.success || !parseResult.schema) {
-          console.error('❌ DBML parse failed:', parseResult.errors);
           return {
             success: false,
             ddl: '',
@@ -319,10 +276,7 @@ export const diagramRouter = createTRPCRouter({
           };
         }
 
-        // Convert to DDL
-        const ddl = convertDBMLtoDDL(parseResult.schema as any, input.dialect, input.includeForeignKeys);
-
-        console.log('✅ DDL generated successfully, length:', ddl.length, 'includeForeignKeys:', input.includeForeignKeys);
+        const ddl = convertDBMLtoDDL(parseResult.schema as Parameters<typeof convertDBMLtoDDL>[0], input.dialect, input.includeForeignKeys);
 
         return {
           success: true,
@@ -330,7 +284,7 @@ export const diagramRouter = createTRPCRouter({
           errors: undefined,
         };
       } catch (error) {
-        console.error('❌ convertDBMLtoDDL error:', error);
+        console.error('convertDBMLtoDDL error:', error);
         return {
           success: false,
           ddl: '',

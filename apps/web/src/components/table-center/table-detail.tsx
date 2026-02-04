@@ -285,7 +285,7 @@ const CONSTRAINT_CONFIG = {
   autoIncrement: { label: 'AUTO INCREMENT', className: 'bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300' },
 } as const;
 
-function ConstraintBadge({ type, number }: { type: keyof typeof CONSTRAINT_CONFIG; number?: number }) {
+function ConstraintBadge({ type, number }: { type: keyof typeof CONSTRAINT_CONFIG; number?: number | undefined }) {
   const config = CONSTRAINT_CONFIG[type];
   // UK일 때 번호가 있으면 UK1, UK2 등으로 표시
   const label = type === 'unique' && number ? `${config.label}${number}` : config.label;

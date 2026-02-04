@@ -8,19 +8,28 @@ import { useDiagramEngine } from '@/contexts/diagram-context';
 import { Button } from '@/components/ui/button';
 
 // Simplified schema type that matches tRPC parseDBML response
+interface SimplifiedColumn {
+  name: string;
+  type: string | { name: string };
+  isPrimaryKey?: boolean;
+  primaryKey?: boolean;
+  isForeignKey?: boolean;
+  references?: unknown;
+  isNotNull?: boolean;
+  isUnique?: boolean;
+  note?: string;
+}
+
+interface SimplifiedTable {
+  id?: string;
+  name: string;
+  schema?: string;
+  note?: string;
+  columns: SimplifiedColumn[];
+}
+
 interface SimplifiedSchema {
-  tables: Array<{
-    id?: string;
-    name: string;
-    columns: Array<{
-      name: string;
-      type: string;
-      isPrimaryKey?: boolean;
-      isForeignKey?: boolean;
-      isNotNull?: boolean;
-      isUnique?: boolean;
-    }>;
-  }>;
+  tables: SimplifiedTable[];
   relationships: Array<{
     id?: string;
     fromTable: string;
@@ -124,7 +133,6 @@ export function DiagramSidebar({ schema }: DiagramSidebarProps) {
         behavior: 'smooth',
         block: 'nearest',
       });
-      console.log('📜 Sidebar: Scrolled to table', selectedEntityId);
     }
   }, [selectedEntityId]);
 
@@ -260,9 +268,9 @@ export function DiagramSidebar({ schema }: DiagramSidebarProps) {
   if (isTableSelected) {
     // 테이블 찾기 - 스키마.테이블명 또는 테이블명으로 매칭
     const selectedTable = schema.tables.find(t => {
-      const tableSchema = (t as any).schema;
-      const fullName = tableSchema ? `${tableSchema}.${t.name}` : t.name;
-      return t.name === selectedEntityId || fullName === selectedEntityId;
+      const table = t as SimplifiedTable;
+      const fullName = table.schema ? `${table.schema}.${table.name}` : table.name;
+      return table.name === selectedEntityId || fullName === selectedEntityId;
     });
     if (!selectedTable) {
       // Table not found, clear selection
@@ -310,9 +318,9 @@ export function DiagramSidebar({ schema }: DiagramSidebarProps) {
               <Table className="h-4 w-4 text-primary" aria-hidden="true" />
               <h4 className="font-semibold text-sm">{selectedTable.name}</h4>
             </div>
-            {(selectedTable as any).note && (
+            {(selectedTable as SimplifiedTable).note && (
               <p className="text-xs text-muted-foreground mb-2">
-                {(selectedTable as any).note}
+                {(selectedTable as SimplifiedTable).note}
               </p>
             )}
             <p className="text-xs text-muted-foreground">
@@ -327,12 +335,13 @@ export function DiagramSidebar({ schema }: DiagramSidebarProps) {
             </div>
             <div className="divide-y" role="list" aria-label="Table columns">
               {selectedTable.columns.map((column) => {
-                const typeName = typeof column.type === 'string' ? column.type : (column.type as any)?.name;
-                const isPK = (column as any).primaryKey || (column as any).isPrimaryKey || false;
-                const isFK = (column as any).references || (column as any).isForeignKey || false;
-                const isNotNull = (column as any).isNotNull || false;
-                const isUnique = (column as any).isUnique || false;
-                const columnNote = (column as any).note;
+                const col = column as SimplifiedColumn;
+                const typeName = typeof col.type === 'string' ? col.type : col.type?.name;
+                const isPK = col.primaryKey || col.isPrimaryKey || false;
+                const isFK = col.references || col.isForeignKey || false;
+                const isNotNull = col.isNotNull || false;
+                const isUnique = col.isUnique || false;
+                const columnNote = col.note;
 
                 return (
                   <div key={column.name} className="px-4 py-2" role="listitem">
@@ -378,7 +387,6 @@ export function DiagramSidebar({ schema }: DiagramSidebarProps) {
                       key={index}
                       isHighlighted={isHighlighted}
                       onClick={() => {
-                        console.log('🔗 Relationship clicked from sidebar:', relationshipId);
                         setHighlightedRelationshipId(isHighlighted ? null : relationshipId);
                       }}
                       className={`px-4 py-2 hover:bg-muted/50 cursor-pointer transition-colors ${
@@ -446,15 +454,14 @@ export function DiagramSidebar({ schema }: DiagramSidebarProps) {
             <div id="tables-list" className="pb-2 max-h-[40vh] overflow-y-auto" role="list" aria-label="Tables">
               {schema.tables.map((table, index) => {
                 // 스키마.테이블 형식으로 표시
-                const tableSchema = (table as any).schema;
-                const displayName = tableSchema ? `${tableSchema}.${table.name}` : table.name;
+                const t = table as SimplifiedTable;
+                const displayName = t.schema ? `${t.schema}.${t.name}` : t.name;
                 const isSelected = selectedEntityId === table.name || selectedEntityId === displayName;
                 return (
                   <AccessibleListItem
                     key={displayName}
                     isSelected={isSelected}
                     onClick={() => {
-                      console.log('📋 Table clicked from sidebar:', table.name);
                       setSelectedEntityId(isSelected ? null : table.name);
                     }}
                     className={`px-4 py-2 border-l-2 cursor-pointer transition-colors ${
@@ -482,9 +489,10 @@ export function DiagramSidebar({ schema }: DiagramSidebarProps) {
                       <div className="mt-1">
                         {table.columns.slice(0, 3).map((column) => {
                           // Handle both DatabaseSchema format and SimplifiedSchema format
-                          const typeName = typeof column.type === 'string' ? column.type : column.type?.name;
-                          const isPK = (column as any).primaryKey || (column as any).isPrimaryKey || false;
-                          const isFK = (column as any).references || (column as any).isForeignKey || false;
+                          const col = column as SimplifiedColumn;
+                          const typeName = typeof col.type === 'string' ? col.type : col.type?.name;
+                          const isPK = col.primaryKey || col.isPrimaryKey || false;
+                          const isFK = col.references || col.isForeignKey || false;
 
                           return (
                             <div key={column.name} className="text-xs text-muted-foreground">
@@ -537,7 +545,6 @@ export function DiagramSidebar({ schema }: DiagramSidebarProps) {
                     key={index}
                     isHighlighted={isHighlighted}
                     onClick={() => {
-                      console.log('🔗 Relationship clicked from overview:', relationshipId);
                       setHighlightedRelationshipId(isHighlighted ? null : relationshipId);
                       setSelectedEntityId(isHighlighted ? null : `rel:${relationshipId}`);
                     }}

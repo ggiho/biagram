@@ -123,13 +123,11 @@ function DiagramEditorContent() {
 
   // 테이블 이름 변경 핸들러
   const handleTableDoubleClick = useCallback((tableName: string) => {
-    console.log('🎯 Opening rename dialog for:', tableName);
     setTableToRename(tableName);
     setRenameDialogOpen(true);
   }, []);
 
   const handleTableRename = useCallback((newCode: string, newTableName: string) => {
-    console.log('✅ Applying renamed code');
     setCode(newCode);
     toast({
       title: '✅ Table Renamed',
@@ -138,7 +136,6 @@ function DiagramEditorContent() {
   }, [toast]);
 
   const handleCodeChange = useCallback((value: string) => {
-    console.log('Code changed, new length:', value.length);
     setCode(value);
 
     // Add to history if not from undo/redo
@@ -170,7 +167,6 @@ function DiagramEditorContent() {
       if (prevCode !== undefined) {
         setCode(prevCode);
       }
-      console.log('Undo to index:', newIndex);
     }
   }, [historyIndex, history]);
 
@@ -183,7 +179,6 @@ function DiagramEditorContent() {
       if (nextCode !== undefined) {
         setCode(nextCode);
       }
-      console.log('Redo to index:', newIndex);
     }
   }, [historyIndex, history]);
 
@@ -191,7 +186,6 @@ function DiagramEditorContent() {
   useEffect(() => {
     const draft = loadDraft();
     if (draft) {
-      console.log('📂 Restoring draft from localStorage');
       setCode(draft.code);
       setHistory(draft.history);
       setHistoryIndex(draft.historyIndex);
@@ -242,8 +236,6 @@ function DiagramEditorContent() {
   }, [toast]);
 
   const handleImportSuccess = useCallback((dbml: string, mode: 'replace' | 'append') => {
-    console.log('📥 DDL imported successfully, mode:', mode);
-
     if (mode === 'append') {
       // Append with separator
       const separator = '\n\n// ===== Imported DDL =====\n';
@@ -262,7 +254,6 @@ function DiagramEditorContent() {
   }, [code, toast]);
 
   const handleDBImport = useCallback((dbml: string) => {
-    console.log('📥 DB Import received:', dbml.length, 'characters');
     setCode(dbml);
     // 새 스키마를 가져왔으므로 테이블 위치 초기화 (새로 레이아웃 계산)
     setTablePositions({});
@@ -280,7 +271,6 @@ function DiagramEditorContent() {
   useEffect(() => {
     // Only scroll code editor if selection came from canvas (not from code cursor movement)
     if (selectedEntityId && codeEditorRef.current && !lastSelectionFromCodeRef.current) {
-      console.log('🔄 Canvas selected:', selectedEntityId, '→ scrolling code editor');
       codeEditorRef.current.scrollToTable(selectedEntityId);
     }
     // Reset flag
@@ -291,14 +281,12 @@ function DiagramEditorContent() {
   // When cursor moves in code editor, select the corresponding table in canvas
   const handleCursorPositionChange = useCallback((line: number, column: number, tableName: string | null) => {
     if (tableName && tableName !== selectedEntityId) {
-      console.log('🔄 Code cursor in table:', tableName, '→ selecting in canvas');
       lastSelectionFromCodeRef.current = true; // Mark that this selection came from code
       setSelectedEntityId(tableName);
       setHighlightedRelationshipId(null); // 관계 하이라이트 초기화
 
       // Auto-pan canvas to the selected table
       if (engine) {
-        console.log('🎯 Auto-panning canvas to table:', tableName);
         engine.panToTable(tableName, true); // true = with animation
       }
     }
@@ -306,7 +294,6 @@ function DiagramEditorContent() {
   }, [selectedEntityId, setSelectedEntityId, setHighlightedRelationshipId, engine]);
 
   // AUTO-PARSE FUNCTIONALITY
-  console.log('✅ AUTO-PARSE: Enabled with working tRPC');
 
   useEffect(() => {
     if (parseTimeoutRef.current) {
@@ -320,32 +307,18 @@ function DiagramEditorContent() {
 
         try {
           const payload = { content: code.trim() };
-          console.log('✅ AUTO-PARSE: Parsing DBML...', payload);
-          console.log('✅ AUTO-PARSE: Code length:', code.trim().length);
-          console.log('✅ AUTO-PARSE: Code preview:', code.trim().substring(0, 200));
-
           const result = await parseDBML.mutateAsync(payload);
-          console.log('✅ AUTO-PARSE: SUCCESS!', result);
-          console.log('✅ AUTO-PARSE: Result type:', typeof result);
-          console.log('✅ AUTO-PARSE: Result keys:', result ? Object.keys(result) : 'null');
 
           if (result?.success && result?.schema) {
-            console.log('✅ AUTO-PARSE: Setting schema with', result.schema.tables?.length || 0, 'tables');
-            console.log('✅ AUTO-PARSE: Tables:', result.schema.tables?.map((t: any) => t.name).join(', '));
             setParsedSchema(result.schema);
-            setParseError(null); // 성공 시 에러 초기화
+            setParseError(null);
           } else {
-            const errorMsg = (result as any)?.error || 'Failed to parse DBML';
-            console.log('✅ AUTO-PARSE: Parse failed', errorMsg);
-            console.log('✅ AUTO-PARSE: Full result:', JSON.stringify(result, null, 2));
+            const errorMsg = (result as { error?: string })?.error || 'Failed to parse DBML';
             setParsedSchema(null);
-            setParseError(errorMsg); // 에러 메시지 저장
+            setParseError(errorMsg);
           }
         } catch (error) {
-          console.error('✅ AUTO-PARSE: ERROR:', error);
-          console.error('✅ AUTO-PARSE: Error type:', error?.constructor?.name);
-          console.error('✅ AUTO-PARSE: Error message:', error instanceof Error ? error.message : String(error));
-          console.error('✅ AUTO-PARSE: Error stack:', error instanceof Error ? error.stack : 'no stack');
+          console.error('DBML parse error:', error);
           setParsedSchema(null);
           setParseError(error instanceof Error ? error.message : 'Unknown parsing error');
         } finally {
@@ -354,7 +327,7 @@ function DiagramEditorContent() {
         }
       }
     }, 500); // 500ms debounce
-  }, [code, parseDBML?.mutateAsync]); // Trigger on code changes and when tRPC becomes available
+  }, [code, parseDBML?.mutateAsync]);
 
 
   // DB Import state (lifted from DBImportDialog for dropdown integration)

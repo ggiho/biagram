@@ -2,13 +2,20 @@
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { DiagramEngine } from '@biagram/diagram-engine';
-import type { TableRenderData, RelationshipRenderData, ThemeConfig } from '@biagram/shared';
+import type { TableRenderData, RelationshipRenderData, ThemeConfig, Table, Relationship } from '@biagram/shared';
 import { useDiagramEngine } from '@/contexts/diagram-context';
 import { useTheme } from '@/contexts/theme-context';
 import { calculateOrthogonalRoute } from '@/lib/edge-routing';
 
+// Schema type that can come from parser or API
+interface ParsedSchema {
+  tables: Table[];
+  relationships: Relationship[];
+  enums?: Array<{ name: string; values: Array<{ name: string; note?: string }> }>;
+}
+
 interface DiagramCanvasProps {
-  schema: any | null;
+  schema: ParsedSchema | null;
   parseError?: string | null;
   className?: string;
   initialTablePositions?: Record<string, { x: number; y: number }>;
@@ -32,7 +39,7 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
   // 핵심: 데이터를 React가 소유
   const tablesRef = useRef<TableRenderData[]>([]);
   const relationshipsRef = useRef<RelationshipRenderData[]>([]);
-  const schemaRef = useRef<any>(null); // 원본 스키마 저장 (관계선 재계산용)
+  const schemaRef = useRef<ParsedSchema | null>(null); // 원본 스키마 저장 (관계선 재계산용)
   const hasZoomedToFitRef = useRef(false); // zoomToFit 실행 여부 추적
 
   // 🚀 성능 최적화: 텍스트 너비 측정 캐싱
@@ -135,7 +142,6 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
   // showGrid 변경 시 엔진에 반영
   useEffect(() => {
     if (engineRef.current) {
-      console.log('🔲 Updating showGrid:', showGrid);
       engineRef.current.setShowGrid(showGrid);
     }
   }, [showGrid]);
@@ -143,7 +149,6 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
   // showComments 변경 시 엔진에 반영
   useEffect(() => {
     if (engineRef.current) {
-      console.log('💬 Updating showComments:', showComments);
       engineRef.current.setShowComments(showComments);
     }
   }, [showComments]);
@@ -171,7 +176,6 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
   useEffect(() => {
     if (!canvasRef.current || !containerRef.current) return;
 
-    console.log('🎨 [NEW] DiagramCanvas 엔진 초기화');
 
     try {
       const engine = new DiagramEngine(canvasRef.current, {
@@ -270,7 +274,6 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
 
           if (worldX >= x && worldX <= x + width &&
               worldY >= y && worldY <= y + height) {
-            console.log('🎯 Found table at position:', table.name, 'id:', table.id);
             return table.id; // Use table.id (fullTableName with schema) for sidebar matching
           }
         }
@@ -288,7 +291,6 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
         // Zoom-adjusted hit width (줄인 값)
         const hitWidth = 10 / viewport.zoom;
 
-        console.log(`🔍 findRelationshipAtPosition: world=(${worldX.toFixed(1)}, ${worldY.toFixed(1)}), zoom=${viewport.zoom.toFixed(2)}, hitWidth=${hitWidth.toFixed(1)}`);
 
         // 모든 관계선에 대해 hit test
         for (const rel of relationshipsRef.current) {
@@ -313,7 +315,6 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
             const distance = distanceToSegment(worldX, worldY, p1.x, p1.y, p2.x, p2.y);
 
             if (distance <= hitWidth) {
-              console.log(`🔗 Relationship hit detected: ${relData.id}, segment ${i}, distance=${distance.toFixed(1)}`);
               return relData.id;
             }
           }
@@ -353,7 +354,6 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
         const canvasX = e.clientX - rect.left;
         const canvasY = e.clientY - rect.top;
 
-        console.log(`🔍 handleMouseDown: canvas=(${canvasX.toFixed(1)}, ${canvasY.toFixed(1)})`);
 
         // 관계선 클릭 확인 (먼저 체크)
         const relationshipId = findRelationshipAtPosition(canvasX, canvasY);
@@ -448,7 +448,7 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
               };
 
               const findSchemaTable = (targetName: string) => {
-                return (schemaRef.current.tables || []).find((t: any) => {
+                return (schemaRef.current?.tables || []).find((t: any) => {
                   const tableSchema = t.schema || (t.name.includes('.') ? t.name.split('.')[0] : undefined);
                   const tableName = t.name.includes('.') ? t.name.split('.')[1] : t.name;
                   const fullName = tableSchema ? `${tableSchema}.${tableName}` : tableName;
@@ -456,7 +456,7 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
                 });
               };
 
-              relationshipsRef.current = schemaRef.current.relationships.map((schemaRel: any, index: number) => {
+              relationshipsRef.current = (schemaRef.current?.relationships || []).map((schemaRel: any, index: number) => {
                 // 실제 렌더링된 테이블의 bounds 사용 (드래그 중 실시간 업데이트)
                 const fromTableData = findTableData(schemaRel.fromTable);
                 const toTableData = findTableData(schemaRel.toTable);
@@ -657,13 +657,11 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
       const handleMouseUp = () => {
         // 클릭인 경우 (드래그하지 않음) - 테이블 선택
         if (!hasMoved && mouseDownTableId) {
-          console.log('📌 Table clicked:', mouseDownTableId);
           setSelectedEntityId(mouseDownTableId);
           setHighlightedRelationshipId(null); // 관계 하이라이트 초기화
 
           // 🎯 저장된 테이블 위치 복원 (관계 선택 해제 시)
           if (savedTablePositionsRef.current && savedTablePositionsRef.current.size > 0) {
-            console.log('🔄 Restoring table positions (table click):', savedTablePositionsRef.current.size, 'tables');
             tablesRef.current = tablesRef.current.map(table => {
               const savedPos = savedTablePositionsRef.current!.get(table.id);
               if (savedPos) {
@@ -676,7 +674,6 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
           
           // 🎯 저장된 뷰포트가 있으면 복원 (관계 선택 해제 시)
           if (savedViewportRef.current) {
-            console.log('🔄 Restoring viewport (table click):', savedViewportRef.current);
             const viewportManager = engine.getViewportManager();
             // panTo로 위치 이동 후 zoomTo로 줌 복원
             const centerX = (viewportManager.getViewport().bounds.width / 2 - savedViewportRef.current.pan.x) / savedViewportRef.current.zoom;
@@ -694,7 +691,6 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
           safeRender();
         } else if (!hasMoved && mouseDownRelationshipId) {
           // 관계선 클릭 - 관계선 선택 (특별한 ID 형식 사용)
-          console.log('🔗 Relationship clicked:', mouseDownRelationshipId);
           setSelectedEntityId(`rel:${mouseDownRelationshipId}`);
           setHighlightedRelationshipId(mouseDownRelationshipId); // 사이드바와 동기화
 
@@ -703,7 +699,6 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
 
           // 관계와 연결된 테이블들만 하이라이트 (table.name으로 비교)
           if (selectedRel) {
-            console.log('🔗 Highlighting tables:', selectedRel.fromTable, selectedRel.toTable);
             
             // 🎯 두 테이블 찾기
             const fromTable = tablesRef.current.find(t => 
@@ -720,7 +715,6 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
               zoom: currentViewport.zoom,
               pan: { x: currentViewport.pan.x, y: currentViewport.pan.y }
             };
-            console.log('💾 Saved viewport:', savedViewportRef.current);
             
             // 🎯 두 테이블을 화면 중앙으로 물리적 이동
             if (fromTable && toTable) {
@@ -730,7 +724,6 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
                 tablesRef.current.forEach(t => {
                   savedTablePositionsRef.current!.set(t.id, { x: t.bounds.x, y: t.bounds.y });
                 });
-                console.log('💾 Saved table positions:', savedTablePositionsRef.current.size, 'tables');
               }
               
               // 캔버스 중앙 계산
@@ -794,7 +787,7 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
                 };
 
                 const findSchemaTable = (targetName: string) => {
-                  return (schemaRef.current.tables || []).find((t: any) => {
+                  return (schemaRef.current?.tables || []).find((t: any) => {
                     const tableSchema = t.schema || (t.name.includes('.') ? t.name.split('.')[0] : undefined);
                     const tableName = t.name.includes('.') ? t.name.split('.')[1] : t.name;
                     const fullName = tableSchema ? `${tableSchema}.${tableName}` : tableName;
@@ -802,7 +795,7 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
                   });
                 };
 
-                relationshipsRef.current = schemaRef.current.relationships.map((schemaRel: any, index: number) => {
+                relationshipsRef.current = (schemaRef.current?.relationships || []).map((schemaRel: any, index: number) => {
                   const fromTableData = findTableData(schemaRel.fromTable);
                   const toTableData = findTableData(schemaRel.toTable);
                   
@@ -967,13 +960,11 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
           safeRender();
         } else if (!hasMoved && !mouseDownTableId && !mouseDownRelationshipId) {
           // 배경 클릭 - 선택 해제
-          console.log('📌 Background clicked - deselect');
           setSelectedEntityId(null);
           setHighlightedRelationshipId(null); // 관계 하이라이트도 초기화
 
           // 🎯 저장된 테이블 위치 복원
           if (savedTablePositionsRef.current && savedTablePositionsRef.current.size > 0) {
-            console.log('🔄 Restoring table positions (bg click):', savedTablePositionsRef.current.size, 'tables');
             tablesRef.current = tablesRef.current.map(table => {
               const savedPos = savedTablePositionsRef.current!.get(table.id);
               if (savedPos) {
@@ -986,7 +977,6 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
           
           // 🎯 저장된 뷰포트가 있으면 복원
           if (savedViewportRef.current) {
-            console.log('🔄 Restoring viewport:', savedViewportRef.current);
             const viewportManager = engine.getViewportManager();
             // panTo로 위치 이동 후 zoomTo로 줌 복원
             const centerX = (viewportManager.getViewport().bounds.width / 2 - savedViewportRef.current.pan.x) / savedViewportRef.current.zoom;
@@ -1023,7 +1013,6 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
               positions[table.id] = { x: table.bounds.x, y: table.bounds.y };
             });
             onTablePositionsChange(positions);
-            console.log('📍 Table positions saved to localStorage');
           }
         } else if (isDraggingCanvas) {
           isDraggingCanvas = false;
@@ -1075,7 +1064,6 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
         });
 
         if (clickedTable && onTableDoubleClick) {
-          console.log('🎯 Table double-clicked:', clickedTable.name);
           onTableDoubleClick(clickedTable.name);
           e.preventDefault();
         }
@@ -1089,7 +1077,6 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
       canvas.addEventListener('dblclick', handleDoubleClick);
 
       setIsReady(true);
-      console.log('✅ [NEW] DiagramCanvas 준비 완료');
 
       return () => {
         canvas.removeEventListener('wheel', handleWheel);
@@ -1224,7 +1211,6 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
         const CHUNK_SIZE = 20; // 한 번에 20개씩 처리
         const totalChunks = Math.ceil(allTables.length / CHUNK_SIZE);
 
-        console.log(`🔄 Processing ${allTables.length} tables in ${totalChunks} chunks`);
         setIsProcessing(true);
 
         let aborted = false;
@@ -1316,13 +1302,11 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
           rowMaxHeight = Math.max(rowMaxHeight, height);
         }
 
-        console.log(`📍 Pre-computed positions for ${precomputedPositions.size} tables`);
 
         const allProcessedTables: TableRenderData[] = [];
 
         for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
           if (aborted) {
-            console.log('⚠️ Processing aborted');
             break;
           }
 
@@ -1330,7 +1314,6 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
           const end = Math.min(start + CHUNK_SIZE, allTables.length);
           const chunk = allTables.slice(start, end);
 
-          console.log(`📦 Processing chunk ${chunkIndex + 1}/${totalChunks} (${start}-${end})`);
 
           // 청크 처리를 비동기로 (브라우저에 제어권 반환)
           await new Promise(resolve => setTimeout(resolve, 0));
@@ -1346,7 +1329,6 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
         const defaultY = precomputedPosition?.y ?? (50 + Math.floor(index / 4) * 200);
 
         if (savedPosition) {
-          console.log(`📍 Restoring position for table ${table.name}:`, savedPosition);
         }
 
         // Parse schema.table notation first (needed for width calculation)
@@ -1709,7 +1691,6 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
           // 중간 렌더링 수행
           safeRender();
 
-          console.log(`✅ Chunk ${chunkIndex + 1}/${totalChunks} processed, total tables: ${allProcessedTables.length}`);
         }
 
         return allProcessedTables;
@@ -1718,12 +1699,10 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
       // 청크 기반 처리 시작
       processTablesInChunks().then(tables => {
         if (!tables || tables.length === 0) {
-          console.log('⚠️ No tables processed');
           setIsProcessing(false);
           return;
         }
 
-        console.log('✅ [OPTIMIZED] 모든 데이터 처리 완료:', tables.length, 'tables');
 
         // 최종 렌더링
         safeRender();
@@ -1742,7 +1721,6 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
 
         setIsProcessing(false);
         processingAbortRef.current = null;
-        console.log('✅ [OPTIMIZED] 모든 처리 완료 및 렌더링 성공');
       }).catch(error => {
         console.error('❌ [OPTIMIZED] 청크 처리 실패:', error);
         setIsProcessing(false);
@@ -1756,7 +1734,6 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
   // 테마 변경 시에만 스타일 업데이트 및 렌더링 (줌 상태 유지)
   useEffect(() => {
     if (isReady && engineRef.current && tablesRef.current.length > 0) {
-      console.log('🎨 Theme changed, updating table styles');
 
       // 모든 테이블의 스타일 업데이트 (schemaColor 유지)
       tablesRef.current = tablesRef.current.map(table => {
@@ -1828,7 +1805,6 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
   // showGrid 변경 시 엔진에 전달
   useEffect(() => {
     if (isReady && engineRef.current) {
-      console.log('🔲 Grid visibility changed:', showGrid);
       engineRef.current.setShowGrid(showGrid);
     }
   }, [showGrid, isReady]);
@@ -1837,7 +1813,6 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
   useEffect(() => {
     if (!isReady || !engineRef.current || tablesRef.current.length === 0) return;
 
-    console.log('📌 selectedEntityId changed:', selectedEntityId);
 
     // 관계선 선택인지 테이블 선택인지 구분
     const isRelationshipSelection = selectedEntityId?.startsWith('rel:');
@@ -1895,14 +1870,12 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
   useEffect(() => {
     if (!isReady || !engineRef.current || tablesRef.current.length === 0) return;
 
-    console.log('🔦 highlightedRelationshipId changed:', highlightedRelationshipId);
 
     if (highlightedRelationshipId) {
       // 하이라이트된 관계선 찾기
       const highlightedRel: any = relationshipsRef.current.find((r: any) => r.id === highlightedRelationshipId);
 
       if (highlightedRel) {
-        console.log('🔦 Dimming tables not connected to:', highlightedRel.fromTable, '↔', highlightedRel.toTable);
 
         // 🎯 두 테이블 찾기 (뷰포트 이동용)
         const fromTable = tablesRef.current.find(t => 
@@ -1920,7 +1893,6 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
             zoom: currentViewport.zoom,
             pan: { x: currentViewport.pan.x, y: currentViewport.pan.y }
           };
-          console.log('💾 Saved viewport from useEffect:', savedViewportRef.current);
         }
         
         // 🎯 두 테이블을 화면 중앙으로 물리적 이동
@@ -1931,7 +1903,6 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
             tablesRef.current.forEach(t => {
               savedTablePositionsRef.current!.set(t.id, { x: t.bounds.x, y: t.bounds.y });
             });
-            console.log('💾 Saved table positions:', savedTablePositionsRef.current.size, 'tables');
           }
           
           // 캔버스 중앙 계산 (canvasRef 사용)
@@ -2029,7 +2000,7 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
             };
 
             const findSchemaTable = (targetName: string) => {
-              return (schemaRef.current.tables || []).find((t: any) => {
+              return (schemaRef.current?.tables || []).find((t: any) => {
                 const tableSchema = t.schema || (t.name.includes('.') ? t.name.split('.')[0] : undefined);
                 const tableName = t.name.includes('.') ? t.name.split('.')[1] : t.name;
                 const fullName = tableSchema ? `${tableSchema}.${tableName}` : tableName;
@@ -2037,7 +2008,7 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
               });
             };
 
-            relationshipsRef.current = schemaRef.current.relationships.map((schemaRel: any, index: number) => {
+            relationshipsRef.current = (schemaRef.current?.relationships || []).map((schemaRel: any, index: number) => {
               const fromTableData = findTableData(schemaRel.fromTable);
               const toTableData = findTableData(schemaRel.toTable);
               
@@ -2195,11 +2166,9 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
       }
     } else {
       // 하이라이트 해제: 모든 테이블 opacity 복원
-      console.log('🔦 Restoring all tables to full opacity');
       
       // 🎯 저장된 테이블 위치 복원
       if (savedTablePositionsRef.current && savedTablePositionsRef.current.size > 0) {
-        console.log('🔄 Restoring table positions:', savedTablePositionsRef.current.size, 'tables');
         tablesRef.current = tablesRef.current.map(table => {
           const savedPos = savedTablePositionsRef.current!.get(table.id);
           if (savedPos) {
@@ -2212,7 +2181,6 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
       
       // 🎯 저장된 뷰포트가 있으면 복원
       if (savedViewportRef.current && engineRef.current) {
-        console.log('🔄 Restoring viewport from useEffect:', savedViewportRef.current);
         const viewportManager = engineRef.current.getViewportManager();
         const centerX = (viewportManager.getViewport().bounds.width / 2 - savedViewportRef.current.pan.x) / savedViewportRef.current.zoom;
         const centerY = (viewportManager.getViewport().bounds.height / 2 - savedViewportRef.current.pan.y) / savedViewportRef.current.zoom;
