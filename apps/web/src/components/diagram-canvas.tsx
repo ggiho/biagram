@@ -741,9 +741,9 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
               // 테이블 간격
               const gap = 100;
               
-              // 참조되는 테이블(toTable)을 왼쪽에, 참조하는 테이블(fromTable)을 오른쪽에 배치
-              const toTableNewX = canvasCenterX - toTable.bounds.width - gap / 2;
-              const fromTableNewX = canvasCenterX + gap / 2;
+              // 참조하는 테이블(fromTable)을 왼쪽에, 참조되는 테이블(toTable)을 오른쪽에 배치
+              const fromTableNewX = canvasCenterX - fromTable.bounds.width - gap / 2;
+              const toTableNewX = canvasCenterX + gap / 2;
               
               // Y 위치는 두 테이블 중 더 큰 높이를 기준으로 중앙 정렬
               const maxHeight = Math.max(fromTable.bounds.height, toTable.bounds.height);
@@ -766,6 +766,188 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
                 return t;
               });
               
+              // 🔄 관계선 재계산 (테이블 위치가 변경되었으므로)
+              if (schemaRef.current?.relationships) {
+                const tablePositions = new Map<string, any>();
+                tablesRef.current.forEach(table => {
+                  tablePositions.set(table.name, table.bounds);
+                });
+
+                const getColumnY = (table: any, columnName: string, tableBounds: any): number => {
+                  if (!table || !tableBounds) return 0;
+                  const columnIndex = table.columns?.findIndex((col: any) => col.name === columnName);
+                  if (columnIndex === -1 || columnIndex === undefined) {
+                    return tableBounds.y + tableBounds.height / 2;
+                  }
+                  const headerHeight = 32;
+                  const rowHeight = 24;
+                  return tableBounds.y + headerHeight + (columnIndex * rowHeight) + (rowHeight / 2);
+                };
+
+                const findTableData = (targetName: string) => {
+                  return tablesRef.current.find((t: any) => {
+                    const tableSchema = t.schema || (t.name.includes('.') ? t.name.split('.')[0] : undefined);
+                    const tableName = t.name.includes('.') ? t.name.split('.')[1] : t.name;
+                    const fullName = tableSchema ? `${tableSchema}.${tableName}` : tableName;
+                    return fullName === targetName || t.name === targetName || tableName === targetName || t.id === targetName;
+                  });
+                };
+
+                const findSchemaTable = (targetName: string) => {
+                  return (schemaRef.current.tables || []).find((t: any) => {
+                    const tableSchema = t.schema || (t.name.includes('.') ? t.name.split('.')[0] : undefined);
+                    const tableName = t.name.includes('.') ? t.name.split('.')[1] : t.name;
+                    const fullName = tableSchema ? `${tableSchema}.${tableName}` : tableName;
+                    return fullName === targetName || t.name === targetName || tableName === targetName;
+                  });
+                };
+
+                relationshipsRef.current = schemaRef.current.relationships.map((schemaRel: any, index: number) => {
+                  const fromTableData = findTableData(schemaRel.fromTable);
+                  const toTableData = findTableData(schemaRel.toTable);
+                  
+                  const fromTableBounds = fromTableData?.bounds;
+                  const toTableBounds = toTableData?.bounds;
+
+                  const fromTable = findSchemaTable(schemaRel.fromTable);
+                  const toTable = findSchemaTable(schemaRel.toTable);
+
+                  if (!fromTableBounds || !toTableBounds) {
+                    return {
+                      id: schemaRel.id || `rel-${index}`,
+                      type: schemaRel.type || 'one-to-many',
+                      fromTable: schemaRel.fromTable,
+                      toTable: schemaRel.toTable,
+                      fromColumn: schemaRel.fromColumn,
+                      toColumn: schemaRel.toColumn,
+                      path: {
+                        start: { x: 150, y: 100 },
+                        end: { x: 300, y: 100 },
+                        midpoint: { x: 225, y: 100 },
+                        direction: 0,
+                      },
+                      style: {
+                        color: '#6b7280',
+                        width: 2,
+                        selectedColor: '#3b82f6',
+                        hoveredColor: '#4b5563',
+                        dashed: false,
+                        arrowSize: 8,
+                        hitWidth: 30,
+                        labelFontSize: 12,
+                        labelPadding: 4,
+                        labelBackgroundColor: '#ffffff',
+                        labelTextColor: '#374151',
+                      },
+                      isSelected: schemaRel.id === mouseDownRelationshipId,
+                      isHovered: false,
+                      label: `${schemaRel.fromTable}.${schemaRel.fromColumn} → ${schemaRel.toTable}.${schemaRel.toColumn}`,
+                    };
+                  }
+
+                  const fromLeft = fromTableBounds.x;
+                  const fromRight = fromTableBounds.x + fromTableBounds.width;
+                  const fromCenterX = fromLeft + fromTableBounds.width / 2;
+                  const toLeft = toTableBounds.x;
+                  const toRight = toTableBounds.x + toTableBounds.width;
+                  const toCenterX = toLeft + toTableBounds.width / 2;
+
+                  const fromColumnY = getColumnY(fromTable, schemaRel.fromColumn, fromTableBounds);
+                  const toColumnY = getColumnY(toTable, schemaRel.toColumn, toTableBounds);
+
+                  const GAP = 25;
+                  const horizontalOverlap = !(fromRight + GAP < toLeft || toRight + GAP < fromLeft);
+                  
+                  let startX: number, startY: number, endX: number, endY: number;
+                  let fromSide: 'left' | 'right', toSide: 'left' | 'right';
+
+                  if (!horizontalOverlap) {
+                    if (fromCenterX < toCenterX) {
+                      startX = fromRight;
+                      startY = fromColumnY;
+                      endX = toLeft;
+                      endY = toColumnY;
+                      fromSide = 'right';
+                      toSide = 'left';
+                    } else {
+                      startX = fromLeft;
+                      startY = fromColumnY;
+                      endX = toRight;
+                      endY = toColumnY;
+                      fromSide = 'left';
+                      toSide = 'right';
+                    }
+                  } else {
+                    const goRight = fromCenterX < toCenterX || 
+                      (fromRight - toLeft < toRight - fromLeft);
+                    
+                    if (goRight) {
+                      startX = fromRight;
+                      startY = fromColumnY;
+                      endX = toRight;
+                      endY = toColumnY;
+                      fromSide = 'right';
+                      toSide = 'right';
+                    } else {
+                      startX = fromLeft;
+                      startY = fromColumnY;
+                      endX = toLeft;
+                      endY = toColumnY;
+                      fromSide = 'left';
+                      toSide = 'left';
+                    }
+                  }
+
+                  const obstacles = tablesRef.current.map(t => t.bounds);
+                  const controlPoints = calculateOrthogonalRoute(
+                    { x: startX, y: startY },
+                    { x: endX, y: endY },
+                    fromSide,
+                    toSide,
+                    obstacles,
+                    fromTableBounds,
+                    toTableBounds
+                  );
+
+                  const lastControlPoint = controlPoints[controlPoints.length - 1];
+                  const direction = lastControlPoint
+                    ? Math.atan2(endY - lastControlPoint.y, endX - lastControlPoint.x)
+                    : Math.atan2(endY - startY, endX - startX);
+
+                  return {
+                    id: schemaRel.id || `rel-${index}`,
+                    type: schemaRel.type || 'one-to-many',
+                    fromTable: schemaRel.fromTable,
+                    toTable: schemaRel.toTable,
+                    fromColumn: schemaRel.fromColumn,
+                    toColumn: schemaRel.toColumn,
+                    path: {
+                      start: { x: startX, y: startY },
+                      end: { x: endX, y: endY },
+                      controlPoints,
+                      midpoint: { x: (startX + endX) / 2, y: (startY + endY) / 2 },
+                      direction,
+                    },
+                    style: {
+                      color: '#6b7280',
+                      width: 2,
+                      selectedColor: '#3b82f6',
+                      hoveredColor: '#4b5563',
+                      dashed: false,
+                      arrowSize: 8,
+                      hitWidth: 30,
+                      labelFontSize: 12,
+                      labelPadding: 4,
+                      labelBackgroundColor: '#ffffff',
+                      labelTextColor: '#374151',
+                    },
+                    isSelected: schemaRel.id === mouseDownRelationshipId,
+                    isHovered: false,
+                    label: `${schemaRel.fromTable}.${schemaRel.fromColumn} → ${schemaRel.toTable}.${schemaRel.toColumn}`,
+                  };
+                });
+              }
+              
               // 뷰포트 설정: 80% 줌, 캔버스 원점으로 팬
               viewportManager.zoomTo(targetZoom, false);
               viewportManager.panTo({ x: canvasCenterX, y: canvasCenterY }, true);
@@ -782,12 +964,6 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
               isSelected: false,
             }));
           }
-
-          // 클릭된 관계선만 선택
-          relationshipsRef.current = relationshipsRef.current.map((rel: any) => ({
-            ...rel,
-            isSelected: rel.id === mouseDownRelationshipId,
-          }));
           safeRender();
         } else if (!hasMoved && !mouseDownTableId && !mouseDownRelationshipId) {
           // 배경 클릭 - 선택 해제
@@ -1070,8 +1246,8 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
         // 각 테이블의 예상 크기 계산 (실제 렌더링 크기와 일치하도록)
         const getTableDimensions = (table: any) => {
           const columnCount = table.columns?.length || 0;
-          // 실제 렌더링과 동일: Math.max(100, columnCount * 25 + 50)
-          const height = Math.max(100, columnCount * 25 + 50);
+          // 실제 렌더링: headerHeight(32) + rowHeight(24) * columnCount + padding(12)
+          const height = 32 + (columnCount * 24) + 12;
           
           // 테이블명 길이 기반 동적 너비
           const tableSchema = table.schema || (table.name.includes('.') ? table.name.split('.')[0] : undefined);
@@ -1213,8 +1389,8 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
             x: savedPosition?.x ?? defaultX,
             y: savedPosition?.y ?? defaultY,
             width: calculatedWidth,
-            // Note is now displayed in header, no extra height needed
-            height: Math.max(100, (table.columns?.length || 0) * 25 + 50),
+            // headerHeight(32) + rowHeight(24) * columnCount + bottomPadding(12)
+            height: 32 + ((table.columns?.length || 0) * 24) + 12,
           },
           columns: (table.columns || []).map((column: any) => {
             const isConnected = connectedColumns.get(table.name)?.has(column.name) || false;
@@ -1767,9 +1943,9 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
           // 테이블 간격
           const gap = 100;
           
-          // 참조되는 테이블(toTable)을 왼쪽에, 참조하는 테이블(fromTable)을 오른쪽에 배치
-          const toTableNewX = canvasCenterX - toTable.bounds.width - gap / 2;
-          const fromTableNewX = canvasCenterX + gap / 2;
+          // 참조하는 테이블(fromTable)을 왼쪽에, 참조되는 테이블(toTable)을 오른쪽에 배치
+          const fromTableNewX = canvasCenterX - fromTable.bounds.width - gap / 2;
+          const toTableNewX = canvasCenterX + gap / 2;
           
           // Y 위치는 두 테이블 중 더 큰 높이를 기준으로 중앙 정렬
           const maxHeight = Math.max(fromTable.bounds.height, toTable.bounds.height);
@@ -1816,18 +1992,206 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
           if (updatedToTable) tablesRef.current.push(updatedToTable);
           if (updatedFromTable) tablesRef.current.push(updatedFromTable);
           
+          // 🔄 관계선 재계산 (테이블 위치가 변경되었으므로)
+          if (schemaRef.current?.relationships) {
+            const tablePositions = new Map<string, any>();
+            tablesRef.current.forEach(table => {
+              tablePositions.set(table.name, table.bounds);
+              // 스키마가 있는 경우 테이블명만으로도 접근 가능하게
+              if (table.schema && table.name.includes('.')) {
+                const shortName = table.name.split('.')[1];
+                if (shortName) {
+                  tablePositions.set(shortName, table.bounds);
+                }
+              }
+            });
+
+            // 컬럼 위치 계산을 위한 헬퍼 함수
+            const getColumnY = (table: any, columnName: string, tableBounds: any): number => {
+              if (!table || !tableBounds) return 0;
+              const columnIndex = table.columns?.findIndex((col: any) => col.name === columnName);
+              if (columnIndex === -1 || columnIndex === undefined) {
+                return tableBounds.y + tableBounds.height / 2;
+              }
+              const headerHeight = 32;
+              const rowHeight = 24;
+              return tableBounds.y + headerHeight + (columnIndex * rowHeight) + (rowHeight / 2);
+            };
+
+            // 스키마.테이블 형식 매칭 헬퍼 함수
+            const findTableData = (targetName: string) => {
+              return tablesRef.current.find((t: any) => {
+                const tableSchema = t.schema || (t.name.includes('.') ? t.name.split('.')[0] : undefined);
+                const tableName = t.name.includes('.') ? t.name.split('.')[1] : t.name;
+                const fullName = tableSchema ? `${tableSchema}.${tableName}` : tableName;
+                return fullName === targetName || t.name === targetName || tableName === targetName || t.id === targetName;
+              });
+            };
+
+            const findSchemaTable = (targetName: string) => {
+              return (schemaRef.current.tables || []).find((t: any) => {
+                const tableSchema = t.schema || (t.name.includes('.') ? t.name.split('.')[0] : undefined);
+                const tableName = t.name.includes('.') ? t.name.split('.')[1] : t.name;
+                const fullName = tableSchema ? `${tableSchema}.${tableName}` : tableName;
+                return fullName === targetName || t.name === targetName || tableName === targetName;
+              });
+            };
+
+            relationshipsRef.current = schemaRef.current.relationships.map((schemaRel: any, index: number) => {
+              const fromTableData = findTableData(schemaRel.fromTable);
+              const toTableData = findTableData(schemaRel.toTable);
+              
+              const fromTableBounds = fromTableData?.bounds;
+              const toTableBounds = toTableData?.bounds;
+
+              const fromTable = findSchemaTable(schemaRel.fromTable);
+              const toTable = findSchemaTable(schemaRel.toTable);
+
+              if (!fromTableBounds || !toTableBounds) {
+                return {
+                  id: schemaRel.id || `rel-${index}`,
+                  type: schemaRel.type || 'one-to-many',
+                  fromTable: schemaRel.fromTable,
+                  toTable: schemaRel.toTable,
+                  fromColumn: schemaRel.fromColumn,
+                  toColumn: schemaRel.toColumn,
+                  path: {
+                    start: { x: 150, y: 100 },
+                    end: { x: 300, y: 100 },
+                    midpoint: { x: 225, y: 100 },
+                    direction: 0,
+                  },
+                  style: {
+                    color: '#6b7280',
+                    width: 2,
+                    selectedColor: '#3b82f6',
+                    hoveredColor: '#4b5563',
+                    dashed: false,
+                    arrowSize: 8,
+                    hitWidth: 30,
+                    labelFontSize: 12,
+                    labelPadding: 4,
+                    labelBackgroundColor: '#ffffff',
+                    labelTextColor: '#374151',
+                  },
+                  isSelected: schemaRel.id === highlightedRelationshipId,
+                  isHovered: false,
+                  label: `${schemaRel.fromTable}.${schemaRel.fromColumn} → ${schemaRel.toTable}.${schemaRel.toColumn}`,
+                  // @ts-ignore
+                  opacity: schemaRel.id === highlightedRelationshipId ? 1.0 : 0.0,
+                };
+              }
+
+              // 🔄 Smart connection point calculation
+              const fromLeft = fromTableBounds.x;
+              const fromRight = fromTableBounds.x + fromTableBounds.width;
+              const fromCenterX = fromLeft + fromTableBounds.width / 2;
+              const toLeft = toTableBounds.x;
+              const toRight = toTableBounds.x + toTableBounds.width;
+              const toCenterX = toLeft + toTableBounds.width / 2;
+
+              const fromColumnY = getColumnY(fromTable, schemaRel.fromColumn, fromTableBounds);
+              const toColumnY = getColumnY(toTable, schemaRel.toColumn, toTableBounds);
+
+              const GAP = 25;
+              const horizontalOverlap = !(fromRight + GAP < toLeft || toRight + GAP < fromLeft);
+              
+              let startX: number, startY: number, endX: number, endY: number;
+              let fromSide: 'left' | 'right', toSide: 'left' | 'right';
+
+              if (!horizontalOverlap) {
+                if (fromCenterX < toCenterX) {
+                  startX = fromRight;
+                  startY = fromColumnY;
+                  endX = toLeft;
+                  endY = toColumnY;
+                  fromSide = 'right';
+                  toSide = 'left';
+                } else {
+                  startX = fromLeft;
+                  startY = fromColumnY;
+                  endX = toRight;
+                  endY = toColumnY;
+                  fromSide = 'left';
+                  toSide = 'right';
+                }
+              } else {
+                const goRight = fromCenterX < toCenterX || 
+                  (fromRight - toLeft < toRight - fromLeft);
+                
+                if (goRight) {
+                  startX = fromRight;
+                  startY = fromColumnY;
+                  endX = toRight;
+                  endY = toColumnY;
+                  fromSide = 'right';
+                  toSide = 'right';
+                } else {
+                  startX = fromLeft;
+                  startY = fromColumnY;
+                  endX = toLeft;
+                  endY = toColumnY;
+                  fromSide = 'left';
+                  toSide = 'left';
+                }
+              }
+
+              const obstacles = tablesRef.current.map(t => t.bounds);
+              const controlPoints = calculateOrthogonalRoute(
+                { x: startX, y: startY },
+                { x: endX, y: endY },
+                fromSide,
+                toSide,
+                obstacles,
+                fromTableBounds,
+                toTableBounds
+              );
+
+              const lastControlPoint = controlPoints[controlPoints.length - 1];
+              const direction = lastControlPoint
+                ? Math.atan2(endY - lastControlPoint.y, endX - lastControlPoint.x)
+                : Math.atan2(endY - startY, endX - startX);
+
+              return {
+                id: schemaRel.id || `rel-${index}`,
+                type: schemaRel.type || 'one-to-many',
+                fromTable: schemaRel.fromTable,
+                toTable: schemaRel.toTable,
+                fromColumn: schemaRel.fromColumn,
+                toColumn: schemaRel.toColumn,
+                path: {
+                  start: { x: startX, y: startY },
+                  end: { x: endX, y: endY },
+                  controlPoints,
+                  midpoint: { x: (startX + endX) / 2, y: (startY + endY) / 2 },
+                  direction,
+                },
+                style: {
+                  color: '#6b7280',
+                  width: 2,
+                  selectedColor: '#3b82f6',
+                  hoveredColor: '#4b5563',
+                  dashed: false,
+                  arrowSize: 8,
+                  hitWidth: 30,
+                  labelFontSize: 12,
+                  labelPadding: 4,
+                  labelBackgroundColor: '#ffffff',
+                  labelTextColor: '#374151',
+                },
+                isSelected: schemaRel.id === highlightedRelationshipId,
+                isHovered: false,
+                label: `${schemaRel.fromTable}.${schemaRel.fromColumn} → ${schemaRel.toTable}.${schemaRel.toColumn}`,
+                // @ts-ignore - Adding opacity property
+                opacity: schemaRel.id === highlightedRelationshipId ? 1.0 : 0.0,
+              };
+            });
+          }
+          
           // 뷰포트 설정: 80% 줌, 캔버스 중앙으로 팬
           viewportManager.zoomTo(targetZoom, false);
           viewportManager.panTo({ x: canvasCenterX, y: canvasCenterY }, true);
         }
-
-        // 모든 관계선 숨김 (두 테이블만 중앙에 표시)
-        relationshipsRef.current = relationshipsRef.current.map((rel: any) => ({
-          ...rel,
-          isSelected: rel.id === highlightedRelationshipId,
-          // @ts-ignore - Adding opacity property
-          opacity: 0.0, // 모든 관계선 숨김
-        }));
       }
     } else {
       // 하이라이트 해제: 모든 테이블 opacity 복원
