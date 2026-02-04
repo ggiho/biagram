@@ -27,9 +27,9 @@ interface SchemaRelationship {
 
 interface SchemaTable {
   name: string;
-  schema?: string;
-  columns?: Array<{ name: string }>;
-  note?: string;
+  schema?: string | undefined;
+  columns?: Array<{ name: string }> | undefined;
+  note?: string | undefined;
 }
 
 /**
