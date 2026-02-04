@@ -2,9 +2,16 @@
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { DiagramEngine } from '@biagram/diagram-engine';
-import type { TableRenderData, RelationshipRenderData, ThemeConfig, Table, Relationship } from '@biagram/shared';
+import type { TableRenderData, ThemeConfig, Table, Relationship } from '@biagram/shared';
 import { useDiagramEngine } from '@/contexts/diagram-context';
 import { useTheme } from '@/contexts/theme-context';
+import {
+  useRelationshipRouting,
+  useTableLayout,
+  useCanvasInteraction,
+  useCanvasSelection,
+  type ExtendedRelationshipRenderData,
+} from '@/hooks';
 import { calculateOrthogonalRoute } from '@/lib/edge-routing';
 
 // Schema type that can come from parser or API
@@ -38,11 +45,17 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
 
   // 핵심: 데이터를 React가 소유
   const tablesRef = useRef<TableRenderData[]>([]);
-  const relationshipsRef = useRef<RelationshipRenderData[]>([]);
+  const relationshipsRef = useRef<any[]>([]); // ExtendedRelationshipRenderData
   const schemaRef = useRef<ParsedSchema | null>(null); // 원본 스키마 저장 (관계선 재계산용)
   const hasZoomedToFitRef = useRef(false); // zoomToFit 실행 여부 추적
 
-  // 🚀 성능 최적화: 텍스트 너비 측정 캐싱
+  // 🔄 Custom Hooks
+  const { calculateAllRelationships, findTableDataByName, findTableByName } = useRelationshipRouting();
+  const { measureTextWidth, getTableDimensions, assignSchemaColors, calculateGridPositions, collectConnectedColumns, getTableStyle } = useTableLayout();
+  const canvasInteraction = useCanvasInteraction();
+  const canvasSelection = useCanvasSelection();
+
+  // 🚀 성능 최적화: 텍스트 너비 측정 캐싱 (useTableLayout으로 대체 가능하지만 호환성 유지)
   const textWidthCacheRef = useRef<Map<string, number>>(new Map());
 
   // 🚀 성능 최적화: 청크 렌더링 상태
@@ -1514,7 +1527,7 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
             }
           });
 
-          const currentRelationships: RelationshipRenderData[] = (schema.relationships || []).map((rel: any, index: number) => {
+          const currentRelationships: ExtendedRelationshipRenderData[] = (schema.relationships || []).map((rel: any, index: number) => {
             const fromTableBounds = tablePositions.get(rel.fromTable);
             const toTableBounds = tablePositions.get(rel.toTable);
             const offsets = connectionOffsets.get(index) || { fromOffset: 0, toOffset: 0 };
