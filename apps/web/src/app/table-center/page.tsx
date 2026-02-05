@@ -46,7 +46,6 @@ export default function TableCenterPage() {
   } = useTableCenter();
 
   const [isSearchCommandOpen, setIsSearchCommandOpen] = useState(false);
-  const initialExpandDone = useRef(false);
   const isInitialUrlLoad = useRef(true);
   
   // URL과 동기화된 테이블 선택 핸들러
@@ -92,17 +91,6 @@ export default function TableCenterPage() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleOpenSearch]);
 
-  // 스키마 자동 펼침 (첫 로드 시 한 번만)
-  useEffect(() => {
-    if (!isLoading && tablesBySchema.size > 0 && !initialExpandDone.current) {
-      initialExpandDone.current = true;
-      // 첫 스키마 자동 펼침
-      const firstSchema = Array.from(tablesBySchema.keys())[0];
-      if (firstSchema) {
-        toggleSchema(firstSchema);
-      }
-    }
-  }, [isLoading, tablesBySchema, toggleSchema]);
 
   return (
     <div className="flex h-screen flex-col bg-background">
