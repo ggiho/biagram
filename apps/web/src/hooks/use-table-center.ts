@@ -319,7 +319,13 @@ export function useTableCenter() {
         case 'Enter':
           e.preventDefault();
           const selected = allResults[selectedResultIndex];
-          if (selected) handleSelectTable(selected.tableName);
+          if (selected) {
+            // schemaName.tableName 형식으로 전달 (동일 테이블명 구분)
+            const fullTableName = selected.schemaName
+              ? `${selected.schemaName}.${selected.tableName}`
+              : selected.tableName;
+            handleSelectTable(fullTableName);
+          }
           break;
         case 'Escape':
           e.preventDefault();

@@ -421,7 +421,11 @@ export function SearchCommand({
   // 아이템 선택 핸들러
   const handleSelect = useCallback(
     (item: SearchableItem) => {
-      onSelectTable(item.tableName);
+      // schemaName.tableName 형식으로 전달 (동일 테이블명 구분)
+      const fullTableName = item.schemaName
+        ? `${item.schemaName}.${item.tableName}`
+        : item.tableName;
+      onSelectTable(fullTableName);
       onOpenChange(false);
       clear();
     },

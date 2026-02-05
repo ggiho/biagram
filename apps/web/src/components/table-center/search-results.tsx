@@ -83,12 +83,16 @@ export function SearchResults({
                 {results.map((result) => {
                   const currentIndex = globalIndex++;
                   const isKeyboardSelected = currentIndex === selectedResultIndex;
-                  const isSelected = selectedTable === result.tableName;
+                  // schemaName.tableName 형식으로 비교 (동일 테이블명 구분)
+                  const fullTableName = result.schemaName
+                    ? `${result.schemaName}.${result.tableName}`
+                    : result.tableName;
+                  const isSelected = selectedTable === fullTableName;
 
                   return (
                     <button
                       key={result.id}
-                      onClick={() => onSelectTable(result.tableName)}
+                      onClick={() => onSelectTable(fullTableName)}
                       className={cn(
                         'w-full text-left px-4 py-3 mx-2 rounded-lg transition-all',
                         'hover:bg-muted/50',
