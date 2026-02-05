@@ -266,12 +266,21 @@ export function DiagramSidebar({ schema }: DiagramSidebarProps) {
 
   // Render detailed table view
   if (isTableSelected) {
-    // 테이블 찾기 - 스키마.테이블명 또는 테이블명으로 매칭
+    // 테이블 찾기 - 스키마.테이블명 정확히 매칭
     const selectedTable = schema.tables.find(t => {
-      const table = t as SimplifiedTable;
-      const fullName = table.schema ? `${table.schema}.${table.name}` : table.name;
-      return table.name === selectedEntityId || fullName === selectedEntityId;
+      const tableSchema = (t as any).schema;
+      const tableName = t.name;
+      
+      // 1. selectedEntityId가 스키마.테이블 형식인 경우
+      if (selectedEntityId!.includes('.')) {
+        const fullName = tableSchema ? `${tableSchema}.${tableName}` : tableName;
+        return fullName === selectedEntityId;
+      }
+      
+      // 2. selectedEntityId가 테이블명만인 경우 - 스키마가 없는 테이블만 매칭
+      return !tableSchema && tableName === selectedEntityId;
     });
+    
     if (!selectedTable) {
       // Table not found, clear selection
       return renderSchemaOverview();
@@ -462,7 +471,7 @@ export function DiagramSidebar({ schema }: DiagramSidebarProps) {
                     key={displayName}
                     isSelected={isSelected}
                     onClick={() => {
-                      setSelectedEntityId(isSelected ? null : table.name);
+                      setSelectedEntityId(isSelected ? null : displayName);
                     }}
                     className={`px-4 py-2 border-l-2 cursor-pointer transition-colors ${
                       isSelected
@@ -474,9 +483,9 @@ export function DiagramSidebar({ schema }: DiagramSidebarProps) {
                     <div
                       ref={(el) => {
                         if (el) {
-                          tableRefs.current.set(table.name, el);
+                          tableRefs.current.set(displayName, el);
                         } else {
-                          tableRefs.current.delete(table.name);
+                          tableRefs.current.delete(displayName);
                         }
                       }}
                     >

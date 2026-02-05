@@ -86,12 +86,16 @@ export function TableList({
                   const pureTableName = summary.tableName.includes('.')
                     ? summary.tableName.split('.').slice(1).join('.')
                     : summary.tableName;
-                  const isSelected = selectedTable === summary.tableName;
+                  // 스키마.테이블명 형식의 전체 이름 생성 (동일 테이블명 구분을 위해)
+                  const fullTableName = summary.schemaName
+                    ? `${summary.schemaName}.${summary.tableName}`
+                    : summary.tableName;
+                  const isSelected = selectedTable === fullTableName;
 
                   return (
                     <button
                       key={summary.id}
-                      onClick={() => onSelectTable(summary.tableName)}
+                      onClick={() => onSelectTable(fullTableName)}
                       className={cn(
                         'w-full text-left px-4 py-3 mx-2 rounded-lg transition-all',
                         'hover:bg-muted/50',

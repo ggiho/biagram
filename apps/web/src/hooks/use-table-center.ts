@@ -151,7 +151,13 @@ export function useTableCenter() {
     if (searchDebounced.trim() && searchResults.length > 0) {
       return searchResults
         .map((result) => {
-          const summary = summaries.find((s) => s.tableName === result.tableName);
+          // 스키마를 고려한 정확한 매칭
+          const summary = summaries.find((s) => {
+            const fullName = s.schemaName ? `${s.schemaName}.${s.tableName}` : s.tableName;
+            const resultFullName = result.schemaName ? `${result.schemaName}.${result.tableName}` : result.tableName;
+            return fullName === resultFullName;
+          });
+          
           if (!summary) return null;
           if (filterFK && !summary.hasForeignKeys) return null;
           if (filterRelations && summary.relationshipCount === 0) return null;
@@ -213,16 +219,13 @@ export function useTableCenter() {
   // 선택된 테이블 스펙
   const selectedSpec = useMemo(() => {
     if (!selectedTable || sortedSpecifications.length === 0) return null;
-    
-    // 테이블 찾기 (tableName 또는 schema.tableName 형식 모두 지원)
+
+    // 테이블 찾기 - 스키마.테이블명으로 정확히 매칭
     const spec = sortedSpecifications.find((s) => {
-      // 직접 매칭
-      if (s.tableName === selectedTable) return true;
-      // schema.table 형식으로 매칭
       const fullName = s.schemaName ? `${s.schemaName}.${s.tableName}` : s.tableName;
       return fullName === selectedTable;
     });
-    
+
     if (!spec) return null;
 
     // 스키마 추출

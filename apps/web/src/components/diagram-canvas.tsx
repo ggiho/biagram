@@ -30,6 +30,35 @@ interface DiagramCanvasProps {
   onTableDoubleClick?: (tableName: string) => void;
 }
 
+/**
+ * 스키마.테이블 형식을 정확히 매칭하는 헬퍼 함수
+ * 같은 이름의 테이블이 여러 스키마에 있을 때 정확히 구분
+ */
+function matchesTableName(table: TableRenderData, targetName: string): boolean {
+  // 1. id로 정확히 매칭
+  if (table.id === targetName) return true;
+
+  // 2. name으로 정확히 매칭
+  if (table.name === targetName) return true;
+
+  // 3. 스키마 분리해서 매칭
+  const targetParts = targetName.includes('.') ? targetName.split('.') : [undefined, targetName];
+  const targetSchema = targetParts.length > 1 ? targetParts[0] : undefined;
+  const targetTable = targetParts.length > 1 ? targetParts[1] : targetParts[0];
+
+  const tableParts = table.name.includes('.') ? table.name.split('.') : [undefined, table.name];
+  const tableSchema = table.schema || (tableParts.length > 1 ? tableParts[0] : undefined);
+  const tableName = tableParts.length > 1 ? tableParts[1] : tableParts[0];
+
+  // 스키마와 테이블명 모두 일치해야 함
+  if (targetSchema && tableSchema) {
+    return tableSchema === targetSchema && tableName === targetTable;
+  }
+
+  // 스키마가 없으면 테이블명만 비교
+  return tableName === targetTable;
+}
+
 
 /**
  * 새로운 아키텍처:
@@ -524,17 +553,12 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
           // 선택된 관계선 찾기
           const selectedRel: any = relationshipsRef.current.find((rel: any) => rel.id === mouseDownRelationshipId);
 
-          // 관계와 연결된 테이블들만 하이라이트 (table.name으로 비교)
+          // 관계와 연결된 테이블들만 하이라이트
           if (selectedRel) {
-            
             // 🎯 두 테이블 찾기
-            const fromTable = tablesRef.current.find(t => 
-              t.name === selectedRel.fromTable || t.id === selectedRel.fromTable
-            );
-            const toTable = tablesRef.current.find(t => 
-              t.name === selectedRel.toTable || t.id === selectedRel.toTable
-            );
-            
+            const fromTable = tablesRef.current.find(t => matchesTableName(t, selectedRel.fromTable));
+            const toTable = tablesRef.current.find(t => matchesTableName(t, selectedRel.toTable));
+
             // 🎯 현재 뷰포트 저장 (복원용)
             const viewportManager = engine.getViewportManager();
             const currentViewport = viewportManager.getViewport();
@@ -1249,13 +1273,10 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
       const selectedRel = relationshipsRef.current.find((r: any) => r.id === relationshipId) as any;
 
       if (selectedRel && selectedRel.fromTable && selectedRel.toTable) {
-        console.log('🔗 Relationship selected, highlighting tables:',
-          selectedRel.fromTable, '←→', selectedRel.toTable);
-
         // 연결된 테이블들 하이라이트
         tablesRef.current = tablesRef.current.map(table => ({
           ...table,
-          isSelected: table.name === selectedRel.fromTable || table.name === selectedRel.toTable,
+          isSelected: matchesTableName(table, selectedRel.fromTable) || matchesTableName(table, selectedRel.toTable),
         }));
 
         // 선택된 관계선만 하이라이트
@@ -1279,9 +1300,6 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
           false,
       }));
 
-      console.log('🔗 Highlighted relationships:',
-        relationshipsRef.current.filter((r: any) => r.isSelected).length);
-
       // 🎯 선택된 테이블로 화면 이동 (pan to table)
       if (selectedEntityId && engineRef.current) {
         // DiagramEngine의 panToTable 메서드 사용
@@ -1302,15 +1320,10 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
       const highlightedRel: any = relationshipsRef.current.find((r: any) => r.id === highlightedRelationshipId);
 
       if (highlightedRel) {
-
         // 🎯 두 테이블 찾기 (뷰포트 이동용)
-        const fromTable = tablesRef.current.find(t => 
-          t.name === highlightedRel.fromTable || t.id === highlightedRel.fromTable
-        );
-        const toTable = tablesRef.current.find(t => 
-          t.name === highlightedRel.toTable || t.id === highlightedRel.toTable
-        );
-        
+        const fromTable = tablesRef.current.find(t => matchesTableName(t, highlightedRel.fromTable));
+        const toTable = tablesRef.current.find(t => matchesTableName(t, highlightedRel.toTable));
+
         // 🎯 현재 뷰포트 저장 (복원용) - 아직 저장되지 않은 경우만
         const viewportManager = engineRef.current.getViewportManager();
         if (!savedViewportRef.current) {
