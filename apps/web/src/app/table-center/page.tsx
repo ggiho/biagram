@@ -12,6 +12,7 @@ import {
   PIIReport,
   EmptyState,
   TableListSkeleton,
+  SchemaOverview,
 } from '@/components/table-center';
 import { SearchCommand } from '@/components/table-center/search-command';
 
@@ -47,7 +48,8 @@ export default function TableCenterPage() {
 
   const [isSearchCommandOpen, setIsSearchCommandOpen] = useState(false);
   const isInitialUrlLoad = useRef(true);
-  
+  const mainRef = useRef<HTMLElement>(null);
+
   // URL과 동기화된 테이블 선택 핸들러
   const handleSelectTable = useCallback((tableName: string) => {
     _handleSelectTable(tableName);
@@ -55,6 +57,8 @@ export default function TableCenterPage() {
     const params = new URLSearchParams(searchParams.toString());
     params.set('table', tableName);
     router.push(`/table-center?${params.toString()}`);
+    // 스크롤 맨 위로
+    mainRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
   }, [_handleSelectTable, router, searchParams]);
   
   // URL에서 테이블 파라미터 읽어서 선택 (초기 로드 & 뒤로가기/앞으로가기)
@@ -142,9 +146,13 @@ export default function TableCenterPage() {
           </div>
         </aside>
 
-        {/* Right Panel - Table Detail or PII Report */}
-        <main className="flex-1 overflow-y-auto">
-          {showPIIReport ? (
+        {/* Right Panel - Table Detail, PII Report, or Schema Overview */}
+        <main ref={mainRef} className="flex-1 overflow-y-auto">
+          {isLoading ? (
+            <EmptyState type="loading" />
+          ) : summaries.length === 0 ? (
+            <EmptyState type="no-data" />
+          ) : showPIIReport ? (
             <PIIReport
               specifications={sortedSpecifications}
               onSelectTable={handleSelectTable}
@@ -152,7 +160,13 @@ export default function TableCenterPage() {
           ) : selectedSpec ? (
             <TableDetail spec={selectedSpec} onSelectTable={handleSelectTable} />
           ) : (
-            <EmptyState type={isLoading ? 'loading' : summaries.length === 0 ? 'no-data' : 'no-selection'} />
+            <SchemaOverview
+              specifications={sortedSpecifications}
+              summaries={summaries}
+              tablesBySchema={tablesBySchema}
+              onSelectTable={handleSelectTable}
+              onToggleSchema={toggleSchema}
+            />
           )}
         </main>
       </div>

@@ -224,6 +224,7 @@ export function TableDetail({ spec, onSelectTable }: TableDetailProps) {
                       to={spec.tableName}
                       column={rel.fromColumn}
                       type="incoming"
+                      onSelectTable={onSelectTable}
                     />
                   )
                 )}
@@ -245,6 +246,7 @@ export function TableDetail({ spec, onSelectTable }: TableDetailProps) {
                       to={rel.toTable}
                       column={rel.toColumn}
                       type="outgoing"
+                      onSelectTable={onSelectTable}
                     />
                   )
                 )}
@@ -301,15 +303,39 @@ interface RelationshipCardProps {
   to: string;
   column: string;
   type: 'incoming' | 'outgoing';
+  onSelectTable?: ((tableName: string) => void) | undefined;
 }
 
-function RelationshipCard({ from, to, column, type }: RelationshipCardProps) {
+function RelationshipCard({ from, to, column, type, onSelectTable }: RelationshipCardProps) {
+  // incoming: from 테이블로 이동, outgoing: to 테이블로 이동
+  const targetTable = type === 'incoming' ? from : to;
+  const canNavigate = !!onSelectTable;
+
   return (
-    <div className="p-3 border rounded-lg text-sm flex items-center gap-2 bg-card hover:bg-muted/30 transition-colors">
-      <span className="font-mono text-xs bg-muted px-2 py-0.5 rounded">{from}</span>
-      <span className={cn('text-muted-foreground', type === 'incoming' ? 'rotate-180' : '')}>→</span>
-      <span className="font-mono text-xs bg-muted px-2 py-0.5 rounded">{to}</span>
+    <button
+      onClick={() => onSelectTable?.(targetTable)}
+      disabled={!canNavigate}
+      className={cn(
+        'w-full p-3 border rounded-lg text-sm flex items-center gap-2 bg-card transition-colors text-left',
+        canNavigate && 'hover:bg-muted/50 hover:border-primary/30 cursor-pointer',
+        !canNavigate && 'cursor-default'
+      )}
+      title={canNavigate ? `→ ${targetTable} 로 이동` : undefined}
+    >
+      <span className={cn(
+        'font-mono text-xs px-2 py-0.5 rounded',
+        type === 'incoming' ? 'bg-primary/10 text-primary' : 'bg-muted'
+      )}>
+        {from}
+      </span>
+      <span className="text-muted-foreground">→</span>
+      <span className={cn(
+        'font-mono text-xs px-2 py-0.5 rounded',
+        type === 'outgoing' ? 'bg-primary/10 text-primary' : 'bg-muted'
+      )}>
+        {to}
+      </span>
       <span className="text-muted-foreground text-xs ml-auto">({column})</span>
-    </div>
+    </button>
   );
 }

@@ -11,3 +11,4 @@ export { SearchResults } from './search-results';
 export { TableDetail } from './table-detail';
 export { PIIReport } from './pii-report';
 export { EmptyState, TableListSkeleton } from './empty-state';
+export { SchemaOverview } from './schema-overview';
