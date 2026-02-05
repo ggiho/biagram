@@ -96,8 +96,8 @@ export function useRelationshipRouting() {
 
     const headerHeight = 32;
     const rowHeight = 24;
-    const noteHeight = table.note ? 20 : 0;
-    return tableBounds.y + headerHeight + noteHeight + (columnIndex * rowHeight) + (rowHeight / 2) + yOffset;
+    // Note는 이제 헤더 안에 표시되므로 추가 높이 불필요
+    return tableBounds.y + headerHeight + (columnIndex * rowHeight) + (rowHeight / 2) + yOffset;
   }, []);
 
   /**
