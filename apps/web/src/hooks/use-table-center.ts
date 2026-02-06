@@ -261,6 +261,25 @@ export function useTableCenter() {
     });
   }, []);
 
+  // 모든 스키마 펼치기/접기
+  const allSchemaNames = useMemo(() => {
+    return Array.from(tablesBySchema.keys());
+  }, [tablesBySchema]);
+
+  const allSchemasExpanded = useMemo(() => {
+    return allSchemaNames.length > 0 && allSchemaNames.every((s) => expandedSchemas.has(s));
+  }, [allSchemaNames, expandedSchemas]);
+
+  const toggleAllSchemas = useCallback(() => {
+    if (allSchemasExpanded) {
+      // 모두 접기
+      setExpandedSchemas(new Set());
+    } else {
+      // 모두 펼치기
+      setExpandedSchemas(new Set(allSchemaNames));
+    }
+  }, [allSchemasExpanded, allSchemaNames]);
+
   // DB 임포트 핸들러
   const handleDBImport = useCallback(
     (dbml: string) => {
@@ -382,5 +401,7 @@ export function useTableCenter() {
     toggleSchema,
     toggleCategory,
     togglePIIReport,
+    toggleAllSchemas,
+    allSchemasExpanded,
   };
 }

@@ -44,6 +44,8 @@ export default function TableCenterPage() {
     handleSelectTable: _handleSelectTable,
     toggleSchema,
     togglePIIReport,
+    toggleAllSchemas,
+    allSchemasExpanded,
   } = useTableCenter();
 
   const [isSearchCommandOpen, setIsSearchCommandOpen] = useState(false);
@@ -141,6 +143,8 @@ export default function TableCenterPage() {
                 selectedTable={selectedTable}
                 onToggleSchema={toggleSchema}
                 onSelectTable={handleSelectTable}
+                onToggleAllSchemas={toggleAllSchemas}
+                allSchemasExpanded={allSchemasExpanded}
               />
             )}
           </div>

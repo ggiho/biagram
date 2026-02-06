@@ -65,8 +65,16 @@ function determineSearchCategory(
     return SearchCategory.DESCRIPTION;
   }
 
-  // 기본값은 관련 테이블
-  return SearchCategory.RELATED_TABLE;
+  // 관계 테이블 매칭
+  const hasRelationshipMatch = matchedFields.some(field =>
+    field.startsWith('relatedTo:') || field.startsWith('relatedFrom:')
+  );
+  if (hasRelationshipMatch) {
+    return SearchCategory.RELATED_TABLE;
+  }
+
+  // 기본값
+  return SearchCategory.TABLE_PARTIAL;
 }
 
 /**
@@ -448,7 +456,35 @@ export const specificationRouter = createTRPCRouter({
             }
           }
 
-          // 6. 토큰 매칭 (보너스 점수)
+          // 6. 관계 테이블 매칭 (검색어가 참조하는/참조되는 테이블명과 일치)
+          // Outgoing: 이 테이블이 참조하는 테이블
+          for (const rel of spec.relationships.outgoing) {
+            const normalizedRelTable = normalizeText(rel.toTable);
+            if (normalizedRelTable.includes(normalizedQuery)) {
+              matchScore += 25;
+              matchedFields.push(`relatedTo:${rel.toTable}`);
+              highlights.push({
+                field: 'relationship',
+                text: `→ ${rel.toTable}`,
+              });
+              break; // 하나만 추가
+            }
+          }
+          // Incoming: 이 테이블을 참조하는 테이블
+          for (const rel of spec.relationships.incoming) {
+            const normalizedRelTable = normalizeText(rel.fromTable);
+            if (normalizedRelTable.includes(normalizedQuery)) {
+              matchScore += 25;
+              matchedFields.push(`relatedFrom:${rel.fromTable}`);
+              highlights.push({
+                field: 'relationship',
+                text: `← ${rel.fromTable}`,
+              });
+              break; // 하나만 추가
+            }
+          }
+
+          // 7. 토큰 매칭 (보너스 점수)
           for (const token of queryTokens) {
             if (normalizedText.includes(token) && !matchedFields.includes('tableName')) {
               matchScore += 5;

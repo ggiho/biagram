@@ -157,7 +157,7 @@ export function useRelationshipRouting() {
     const offsets = new Map<number, { fromOffset: number; toOffset: number }>();
     connectionGroups.forEach((group, key) => {
       if (group.length > 1) {
-        const offsetStep = 8;
+        const offsetStep = 4; // 8px → 4px로 줄여서 겹침 방지하면서 위치 오차 최소화
         const totalOffset = (group.length - 1) * offsetStep;
         group.forEach((item, i) => {
           const offset = -totalOffset / 2 + i * offsetStep;

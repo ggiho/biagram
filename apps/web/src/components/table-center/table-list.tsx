@@ -1,6 +1,6 @@
 'use client';
 
-import { ChevronDown, ChevronRight, Table, Columns, Link2, Lock, ListTree } from 'lucide-react';
+import { ChevronDown, ChevronRight, Table, Columns, Link2, Lock, ListTree, ChevronsUpDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ExtendedSummary } from '@/types/table-center';
 
@@ -10,6 +10,8 @@ interface TableListProps {
   selectedTable: string | null;
   onToggleSchema: (schema: string) => void;
   onSelectTable: (tableName: string) => void;
+  onToggleAllSchemas?: () => void;
+  allSchemasExpanded?: boolean;
 }
 
 export function TableList({
@@ -18,6 +20,8 @@ export function TableList({
   selectedTable,
   onToggleSchema,
   onSelectTable,
+  onToggleAllSchemas,
+  allSchemasExpanded,
 }: TableListProps) {
   const sortedSchemas = Array.from(tablesBySchema.entries()).sort(([a], [b]) => {
     if (a === 'No Schema') return 1;
@@ -44,11 +48,20 @@ export function TableList({
 
   return (
     <div className="flex flex-col">
-      {/* 전체 테이블 수 */}
-      <div className="px-3 py-2 border-b bg-muted/30">
+      {/* 전체 테이블 수 및 전체 펼치기/접기 */}
+      <div className="px-3 py-2 border-b bg-muted/30 flex items-center justify-between">
         <span className="text-xs text-muted-foreground">
           {totalTableCount} {totalTableCount === 1 ? 'table' : 'tables'}
         </span>
+        {onToggleAllSchemas && (
+          <button
+            onClick={onToggleAllSchemas}
+            className="p-1 rounded hover:bg-muted transition-colors"
+            title={allSchemasExpanded ? '모두 접기' : '모두 펼치기'}
+          >
+            <ChevronsUpDown className="h-3.5 w-3.5 text-muted-foreground" />
+          </button>
+        )}
       </div>
       {sortedSchemas.map(([schema, tables]) => {
         if (tables.length === 0) return null;
