@@ -1,21 +1,25 @@
 'use client';
 
-import { Lock, FileWarning } from 'lucide-react';
+import { Lock, FileWarning, LayoutGrid } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 interface FilterTabsProps {
   filterPII: boolean;
+  filterPartition: boolean;
   showPIIReport: boolean;
   onFilterPIIChange: (value: boolean) => void;
+  onFilterPartitionChange: (value: boolean) => void;
   onTogglePIIReport: () => void;
 }
 
 export function FilterTabs({
   filterPII,
+  filterPartition,
   showPIIReport,
   onFilterPIIChange,
+  onFilterPartitionChange,
   onTogglePIIReport,
 }: FilterTabsProps) {
   return (
@@ -34,6 +38,21 @@ export function FilterTabs({
         >
           <Lock className="h-3 w-3" />
           PII Only
+        </button>
+
+        {/* Partition Filter Toggle */}
+        <button
+          onClick={() => onFilterPartitionChange(!filterPartition)}
+          className={cn(
+            'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all',
+            'border',
+            filterPartition
+              ? 'bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 border-violet-300 dark:border-violet-700'
+              : 'bg-muted/50 text-muted-foreground border-transparent hover:bg-muted hover:border-border'
+          )}
+        >
+          <LayoutGrid className="h-3 w-3" />
+          Partitioned
         </button>
 
         {/* PII Report Button */}

@@ -9,9 +9,10 @@ import { SearchCategory, type TableSpecification, type SpecificationSummary, typ
 export type SortBy = 'name' | 'columnCount' | 'relationshipCount';
 export type SortOrder = 'asc' | 'desc';
 
-// 확장된 Summary (PII 정보 포함)
+// 확장된 Summary (PII, 파티션 정보 포함)
 export interface ExtendedSummary extends SpecificationSummary {
   piiCount?: number;
+  partitionCount?: number;
   highlights?: Array<{ field: string; text: string }>;
 }
 

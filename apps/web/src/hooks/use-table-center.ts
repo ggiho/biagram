@@ -52,6 +52,7 @@ export function useTableCenter() {
   const [filterFK, setFilterFK] = useState(false);
   const [filterRelations, setFilterRelations] = useState(false);
   const [filterPII, setFilterPII] = useState(false);
+  const [filterPartition, setFilterPartition] = useState(false);
 
   // 뷰 상태
   const [showPIIReport, setShowPIIReport] = useState(false);
@@ -142,10 +143,11 @@ export function useTableCenter() {
     });
   }, [fullSpecifications, sortBy, sortOrder]);
 
-  // Summary 생성 (PII 카운트 포함)
+  // Summary 생성 (PII 카운트, 파티션 카운트 포함)
   const summaries = useMemo((): ExtendedSummary[] => {
     return sortedSpecifications.map((spec) => {
       const piiCount = spec.columns.filter((col: any) => col.description?.startsWith('*')).length;
+      const partitionCount = spec.partitions?.length ?? 0;
       return {
         id: spec.id,
         tableName: spec.tableName,
@@ -160,6 +162,7 @@ export function useTableCenter() {
         category: spec.category,
         updatedAt: spec.updatedAt,
         piiCount,
+        partitionCount,
       };
     });
   }, [sortedSpecifications]);
@@ -176,11 +179,12 @@ export function useTableCenter() {
             const resultFullName = result.schemaName ? `${result.schemaName}.${result.tableName}` : result.tableName;
             return fullName === resultFullName;
           });
-          
+
           if (!summary) return null;
           if (filterFK && !summary.hasForeignKeys) return null;
           if (filterRelations && summary.relationshipCount === 0) return null;
           if (filterPII && (!summary.piiCount || summary.piiCount === 0)) return null;
+          if (filterPartition && (!summary.partitionCount || summary.partitionCount === 0)) return null;
           return { ...summary, highlights: result.highlights };
         })
         .filter((s): s is NonNullable<typeof s> => s !== null);
@@ -191,9 +195,10 @@ export function useTableCenter() {
       if (filterFK && !summary.hasForeignKeys) return false;
       if (filterRelations && summary.relationshipCount === 0) return false;
       if (filterPII && (!summary.piiCount || summary.piiCount === 0)) return false;
+      if (filterPartition && (!summary.partitionCount || summary.partitionCount === 0)) return false;
       return true;
     });
-  }, [summaries, searchDebounced, searchResults, filterFK, filterRelations, filterPII]);
+  }, [summaries, searchDebounced, searchResults, filterFK, filterRelations, filterPII, filterPartition]);
 
   // 스키마별 그룹핑
   const tablesBySchema = useMemo(() => {
@@ -406,6 +411,7 @@ export function useTableCenter() {
     filterFK,
     filterRelations,
     filterPII,
+    filterPartition,
     showPIIReport,
     expandedSchemas,
     expandedCategories,
@@ -417,6 +423,7 @@ export function useTableCenter() {
     setFilterFK,
     setFilterRelations,
     setFilterPII,
+    setFilterPartition,
     setSelectedResultIndex,
     handleDBImport,
     handleSelectTable,

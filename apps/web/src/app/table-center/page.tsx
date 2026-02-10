@@ -40,6 +40,8 @@ export default function TableCenterPage() {
     setSortBy,
     setSortOrder,
     setFilterPII,
+    filterPartition,
+    setFilterPartition,
     handleDBImport,
     handleSelectTable: _handleSelectTable,
     toggleSchema,
@@ -127,8 +129,10 @@ export default function TableCenterPage() {
           {/* Filter Tabs */}
           <FilterTabs
             filterPII={filterPII}
+            filterPartition={filterPartition}
             showPIIReport={showPIIReport}
             onFilterPIIChange={setFilterPII}
+            onFilterPartitionChange={setFilterPartition}
             onTogglePIIReport={togglePIIReport}
           />
 
