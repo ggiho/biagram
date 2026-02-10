@@ -160,17 +160,31 @@ function PartitionedTables({
     };
   }, [specifications]);
 
-  if (partitionData.tableCount === 0) return null;
-
   const displayTables = isExpanded ? partitionData.tables : partitionData.tables.slice(0, 5);
   const hasMore = partitionData.tableCount > 5;
 
   return (
-    <div className="p-4 rounded-xl border bg-card border-violet-200 dark:border-violet-900/50">
-      <h3 className="text-sm font-medium mb-4 flex items-center gap-2 text-violet-600 dark:text-violet-400">
+    <div className={cn(
+      "p-4 rounded-xl border bg-card",
+      partitionData.tableCount > 0
+        ? "border-violet-200 dark:border-violet-900/50"
+        : "border-muted"
+    )}>
+      <h3 className={cn(
+        "text-sm font-medium mb-4 flex items-center gap-2",
+        partitionData.tableCount > 0
+          ? "text-violet-600 dark:text-violet-400"
+          : "text-muted-foreground"
+      )}>
         <LayoutGrid className="h-4 w-4" />
         Partitioned Tables
       </h3>
+      {partitionData.tableCount === 0 ? (
+        <div className="text-sm text-muted-foreground">
+          No partitioned tables found
+        </div>
+      ) : (
+        <>
       <div className="flex gap-6 mb-4">
         <div>
           <div className="text-2xl font-bold text-violet-600 dark:text-violet-400">
@@ -239,6 +253,8 @@ function PartitionedTables({
           </button>
         )}
       </div>
+        </>
+      )}
     </div>
   );
 }
@@ -677,12 +693,6 @@ export function SchemaOverview({
           onSelectTable={onSelectTable}
         />
 
-        {/* 파티션 테이블 */}
-        <PartitionedTables
-          specifications={specifications}
-          onSelectTable={onSelectTable}
-        />
-
         {/* 인덱스 없는 테이블 */}
         <TablesWithoutIndex
           specifications={specifications}
@@ -691,6 +701,12 @@ export function SchemaOverview({
 
         {/* 중복 인덱스 */}
         <RedundantIndexes
+          specifications={specifications}
+          onSelectTable={onSelectTable}
+        />
+
+        {/* 파티션 테이블 */}
+        <PartitionedTables
           specifications={specifications}
           onSelectTable={onSelectTable}
         />
