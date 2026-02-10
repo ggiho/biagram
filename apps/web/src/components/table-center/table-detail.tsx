@@ -168,7 +168,13 @@ export function TableDetail({ spec, onSelectTable }: TableDetailProps) {
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {spec.indexes.map((idx, i) => (
+                {[...spec.indexes]
+                  .sort((a, b) => {
+                    // 유니크 먼저, 그 다음 이름순
+                    if (a.unique !== b.unique) return a.unique ? -1 : 1;
+                    return a.name.localeCompare(b.name);
+                  })
+                  .map((idx, i) => (
                   <tr key={i} className="hover:bg-muted/30 transition-colors">
                     <td className="p-3 font-mono text-xs">{idx.name}</td>
                     <td className="p-3">

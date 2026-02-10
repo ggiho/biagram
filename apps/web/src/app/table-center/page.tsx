@@ -25,6 +25,7 @@ export default function TableCenterPage() {
     summaries,
     tablesBySchema,
     sortedSpecifications,
+    filteredSpecifications,
     selectedSpec,
 
     // 상태
@@ -180,7 +181,7 @@ export default function TableCenterPage() {
             <TableDetail spec={selectedSpec} onSelectTable={handleSelectTable} />
           ) : (
             <SchemaOverview
-              specifications={sortedSpecifications}
+              specifications={filteredSpecifications}
               summaries={summaries}
               tablesBySchema={tablesBySchema}
               onSelectTable={handleSelectTable}

@@ -200,6 +200,19 @@ export function useTableCenter() {
     });
   }, [summaries, searchDebounced, searchResults, filterFK, filterRelations, filterPII, filterPartition]);
 
+  // 필터링된 Specifications (SchemaOverview용)
+  const filteredSpecifications = useMemo(() => {
+    // filteredSummaries의 테이블 이름 목록
+    const filteredTableNames = new Set(
+      filteredSummaries.map((s) => (s.schemaName ? `${s.schemaName}.${s.tableName}` : s.tableName))
+    );
+
+    return sortedSpecifications.filter((spec) => {
+      const fullName = spec.schemaName ? `${spec.schemaName}.${spec.tableName}` : spec.tableName;
+      return filteredTableNames.has(fullName);
+    });
+  }, [sortedSpecifications, filteredSummaries]);
+
   // 스키마별 그룹핑
   const tablesBySchema = useMemo(() => {
     const grouped = new Map<string, ExtendedSummary[]>();
@@ -395,6 +408,7 @@ export function useTableCenter() {
     summaries,
     filteredSummaries,
     sortedSpecifications,
+    filteredSpecifications,
     tablesBySchema,
     groupedResults,
     searchResults,
