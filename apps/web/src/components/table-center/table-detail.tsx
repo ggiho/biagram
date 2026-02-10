@@ -1,6 +1,6 @@
 'use client';
 
-import { Columns, Link2, Key, Fingerprint, ArrowRightLeft, Lock, ListTree } from 'lucide-react';
+import { Columns, Link2, Key, Fingerprint, ArrowRightLeft, Lock, ListTree, LayoutGrid } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { TableSpecification } from '@/types/table-center';
 import type { ColumnSpecification } from '@biagram/shared';
@@ -202,6 +202,46 @@ export function TableDetail({ spec, onSelectTable }: TableDetailProps) {
         </div>
       )}
 
+      {/* Partitions */}
+      {spec.partitions && spec.partitions.length > 0 && (
+        <div className="mb-8">
+          <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+            <LayoutGrid className="h-4 w-4 text-muted-foreground" />
+            Partitions
+          </h3>
+          <div className="border rounded-lg overflow-hidden">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/50">
+                <tr>
+                  <th className="text-left p-3 font-medium text-muted-foreground">NAME</th>
+                  <th className="text-left p-3 font-medium text-muted-foreground">METHOD</th>
+                  <th className="text-left p-3 font-medium text-muted-foreground">EXPRESSION</th>
+                  <th className="text-left p-3 font-medium text-muted-foreground">BOUNDARY</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {spec.partitions.map((partition, i) => (
+                  <tr key={i} className="hover:bg-muted/30 transition-colors">
+                    <td className="p-3 font-mono text-xs">{partition.name}</td>
+                    <td className="p-3">
+                      <span className="inline-block px-1.5 py-0.5 text-[10px] font-medium rounded bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300">
+                        {partition.method}
+                      </span>
+                    </td>
+                    <td className="p-3 font-mono text-xs text-muted-foreground">
+                      {partition.expression || '-'}
+                    </td>
+                    <td className="p-3 text-xs text-muted-foreground">
+                      <PartitionBoundary value={partition.description} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       {/* Relationships */}
       {(spec.relationships.incoming.length > 0 || spec.relationships.outgoing.length > 0) && (
         <div>
@@ -296,6 +336,51 @@ function ConstraintBadge({ type, number }: { type: keyof typeof CONSTRAINT_CONFI
       {label}
     </span>
   );
+}
+
+/**
+ * MySQL to_days() 값을 YYYY-MM-DD 형식으로 변환
+ * to_days()는 연도 0부터의 일수를 반환
+ * 참고: to_days('1970-01-01') = 719528
+ */
+function toDaysToDate(toDays: number): string {
+  // MySQL to_days('1970-01-01') = 719528
+  const daysSince1970 = toDays - 719528;
+  const date = new Date(daysSince1970 * 86400000); // 86400000 = ms per day
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(date.getUTCDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+/**
+ * 파티션 경계값을 보기 좋게 표시
+ * to_days() 숫자 값이면 날짜로 변환해서 함께 표시
+ */
+function PartitionBoundary({ value }: { value: string | undefined }) {
+  if (!value) return <>-</>;
+
+  // MAXVALUE 같은 특수값
+  if (value === 'MAXVALUE') {
+    return <span className="font-medium text-orange-600 dark:text-orange-400">{value}</span>;
+  }
+
+  // 숫자인지 확인 (to_days 값인 경우)
+  const numValue = parseInt(value, 10);
+  if (!isNaN(numValue) && numValue > 700000 && numValue < 800000) {
+    // to_days 범위 (대략 1917년 ~ 2191년)
+    const dateStr = toDaysToDate(numValue);
+    return (
+      <span className="flex items-center gap-2">
+        <span className="text-muted-foreground">{value}</span>
+        <span className="text-xs px-1.5 py-0.5 bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 rounded">
+          {dateStr}
+        </span>
+      </span>
+    );
+  }
+
+  return <>{value}</>;
 }
 
 interface RelationshipCardProps {

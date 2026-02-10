@@ -14,6 +14,7 @@ export {
   sortSpecifications,
   filterSpecifications,
   type GeneratorOptions,
+  type TablePartitionData,
 } from './generator.js';
 
 // Relationship analyzer

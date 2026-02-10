@@ -17,9 +17,25 @@ import {
   CATEGORY_ORDER,
 } from '@/types/table-center';
 
+/** DB에서 가져온 파티션 데이터 */
+interface PartitionData {
+  schemaName: string;
+  tableName: string;
+  partitions: Array<{
+    name: string;
+    method: 'RANGE' | 'LIST' | 'HASH' | 'KEY' | 'LINEAR HASH' | 'LINEAR KEY';
+    expression?: string;
+    description?: string;
+    ordinalPosition?: number;
+    subpartitionMethod?: string;
+    subpartitionExpression?: string;
+  }>;
+}
+
 export function useTableCenter() {
   // 기본 상태
   const [dbmlContent, setDbmlContent] = useState('');
+  const [partitionData, setPartitionData] = useState<PartitionData[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [fullSpecifications, setFullSpecifications] = useState<TableSpecification[]>([]);
 
@@ -89,10 +105,13 @@ export function useTableCenter() {
   useEffect(() => {
     if (dbmlContent) {
       setIsLoading(true);
-      generateSpecifications.mutate({ content: dbmlContent });
+      generateSpecifications.mutate({
+        content: dbmlContent,
+        partitionData: partitionData.length > 0 ? partitionData : undefined,
+      });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dbmlContent]);
+  }, [dbmlContent, partitionData]);
 
   // 검색 쿼리
   const { data: searchData, isLoading: isSearching } = trpc.specifications.search.useQuery(
@@ -282,11 +301,14 @@ export function useTableCenter() {
 
   // DB 임포트 핸들러
   const handleDBImport = useCallback(
-    (dbml: string) => {
+    (dbml: string, partitions?: PartitionData[]) => {
       setDbmlContent(dbml);
+      setPartitionData(partitions || []);
       toast({
         title: 'Database Imported',
-        description: 'Schema successfully imported from database',
+        description: partitions?.length
+          ? `Schema successfully imported from database (${partitions.length} tables with partitions)`
+          : 'Schema successfully imported from database',
       });
     },
     [toast]

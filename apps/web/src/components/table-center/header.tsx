@@ -5,8 +5,23 @@ import { FileText } from 'lucide-react';
 
 import { DBImportDialog } from '@/components/db-import-dialog';
 
+/** DB에서 가져온 파티션 데이터 */
+interface PartitionData {
+  schemaName: string;
+  tableName: string;
+  partitions: Array<{
+    name: string;
+    method: 'RANGE' | 'LIST' | 'HASH' | 'KEY' | 'LINEAR HASH' | 'LINEAR KEY';
+    expression?: string;
+    description?: string;
+    ordinalPosition?: number;
+    subpartitionMethod?: string;
+    subpartitionExpression?: string;
+  }>;
+}
+
 interface TableCenterHeaderProps {
-  onDBImport: (dbml: string) => void;
+  onDBImport: (dbml: string, partitionData?: PartitionData[]) => void;
 }
 
 export function TableCenterHeader({ onDBImport }: TableCenterHeaderProps) {

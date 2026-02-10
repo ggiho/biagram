@@ -10,6 +10,7 @@ import {
   normalizeText,
   tokenize,
   findMatchPositions,
+  type TablePartitionData,
 } from '@biagram/spec-generator';
 import {
   SearchQuerySchema,
@@ -170,11 +171,28 @@ export const specificationRouter = createTRPCRouter({
     .input(
       z.object({
         content: z.string(), // DBML content
+        /** DB에서 가져온 파티션 데이터 (선택적) */
+        partitionData: z.array(z.object({
+          schemaName: z.string(),
+          tableName: z.string(),
+          partitions: z.array(z.object({
+            name: z.string(),
+            method: z.enum(['RANGE', 'LIST', 'HASH', 'KEY', 'LINEAR HASH', 'LINEAR KEY']),
+            expression: z.string().optional(),
+            description: z.string().optional(),
+            ordinalPosition: z.number().optional(),
+            subpartitionMethod: z.string().optional(),
+            subpartitionExpression: z.string().optional(),
+          })),
+        })).optional(),
       })
     )
     .mutation(async ({ input }) => {
       try {
         console.log('🔧 Generating specifications from DBML...');
+        if (input.partitionData?.length) {
+          console.log(`📦 Partition data provided for ${input.partitionData.length} table(s)`);
+        }
 
         // 1. Parse DBML
         const parseResult = DBMLParser.parse(input.content);
@@ -193,10 +211,11 @@ export const specificationRouter = createTRPCRouter({
           enums?: any[];
         };
 
-        // 2. Generate specifications
+        // 2. Generate specifications (with partition data if provided)
         const specifications = generateSpecifications(
           schema.tables,
-          schema.relationships
+          schema.relationships,
+          input.partitionData ? { partitionData: input.partitionData as TablePartitionData[] } : {}
         );
 
         console.log(

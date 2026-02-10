@@ -14,6 +14,7 @@ import type {
   IntrospectedColumn,
   IntrospectedForeignKey,
   IntrospectedIndex,
+  IntrospectedPartition,
 } from './types';
 
 /**
@@ -152,6 +153,9 @@ async function introspectTable(
   // Get unique constraints
   const uniqueConstraints = await getUniqueConstraints(connection, schemaName, tableName);
 
+  // Get partitions
+  const partitions = await getPartitions(connection, schemaName, tableName);
+
   return {
     schema: schemaName,
     name: tableName,
@@ -161,6 +165,7 @@ async function introspectTable(
     foreignKeys,
     indexes,
     uniqueConstraints,
+    partitions: partitions.length > 0 ? partitions : undefined,
   };
 }
 
@@ -352,4 +357,42 @@ async function getUniqueConstraints(
   }
 
   return Array.from(constraintMap.values());
+}
+
+/**
+ * Get partitions for a table
+ */
+async function getPartitions(
+  connection: mysql.Connection,
+  schemaName: string,
+  tableName: string
+): Promise<IntrospectedPartition[]> {
+  const [rows] = await connection.execute(
+    `
+    SELECT
+      PARTITION_NAME,
+      PARTITION_METHOD,
+      PARTITION_EXPRESSION,
+      PARTITION_DESCRIPTION,
+      PARTITION_ORDINAL_POSITION,
+      SUBPARTITION_METHOD,
+      SUBPARTITION_EXPRESSION
+    FROM information_schema.PARTITIONS
+    WHERE TABLE_SCHEMA = ?
+      AND TABLE_NAME = ?
+      AND PARTITION_NAME IS NOT NULL
+    ORDER BY PARTITION_ORDINAL_POSITION
+    `,
+    [schemaName, tableName]
+  );
+
+  return (rows as any[]).map(row => ({
+    name: row.PARTITION_NAME,
+    method: row.PARTITION_METHOD as IntrospectedPartition['method'],
+    expression: row.PARTITION_EXPRESSION || undefined,
+    description: row.PARTITION_DESCRIPTION || undefined,
+    ordinalPosition: row.PARTITION_ORDINAL_POSITION,
+    subpartitionMethod: row.SUBPARTITION_METHOD || undefined,
+    subpartitionExpression: row.SUBPARTITION_EXPRESSION || undefined,
+  }));
 }

@@ -42,8 +42,24 @@ interface InferredRelationship {
   reason: string;
 }
 
+/** DB에서 가져온 파티션 데이터 */
+interface PartitionData {
+  schemaName: string;
+  tableName: string;
+  partitions: Array<{
+    name: string;
+    method: 'RANGE' | 'LIST' | 'HASH' | 'KEY' | 'LINEAR HASH' | 'LINEAR KEY';
+    expression?: string;
+    description?: string;
+    ordinalPosition?: number;
+    subpartitionMethod?: string;
+    subpartitionExpression?: string;
+  }>;
+}
+
 interface DBImportDialogProps {
-  onImport?: (dbml: string) => void;
+  /** DBML과 파티션 데이터를 함께 전달 */
+  onImport?: (dbml: string, partitionData?: PartitionData[]) => void;
   trigger?: React.ReactNode;
   /** Controlled open state */
   open?: boolean;
@@ -77,6 +93,7 @@ export function DBImportDialog({ onImport, trigger, open: controlledOpen, onOpen
     password: '',
     ssl: false,
   });
+  const [partitionData, setPartitionData] = useState<PartitionData[]>([]);
 
   // Mutations
   const testConnectionMutation = trpc.database.testConnection.useMutation({
@@ -117,6 +134,32 @@ export function DBImportDialog({ onImport, trigger, open: controlledOpen, onOpen
         const relationshipCount = data.stats?.relationshipCount || 0;
         setImportedDbml(data.dbml);
 
+        // 파티션 데이터 추출
+        const extractedPartitions: PartitionData[] = [];
+        if (data.database?.schemas) {
+          for (const schema of data.database.schemas) {
+            for (const table of schema.tables) {
+              if (table.partitions && table.partitions.length > 0) {
+                extractedPartitions.push({
+                  schemaName: schema.name,
+                  tableName: table.name,
+                  partitions: table.partitions.map((p: any) => ({
+                    name: p.name,
+                    method: p.method,
+                    expression: p.expression,
+                    description: p.description,
+                    ordinalPosition: p.ordinalPosition,
+                    subpartitionMethod: p.subpartitionMethod,
+                    subpartitionExpression: p.subpartitionExpression,
+                  })),
+                });
+              }
+            }
+          }
+        }
+        setPartitionData(extractedPartitions);
+        console.log(`📦 Extracted partition data for ${extractedPartitions.length} table(s)`);
+
         // FK가 없으면 관계 추론 단계로, 있으면 바로 완료
         if (relationshipCount === 0) {
           toast({
@@ -130,9 +173,9 @@ export function DBImportDialog({ onImport, trigger, open: controlledOpen, onOpen
             description: `Imported ${data.stats?.tableCount || 0} tables, ${relationshipCount} relationships`,
           });
 
-          // Call parent callback with DBML
+          // Call parent callback with DBML and partition data
           if (onImport) {
-            onImport(data.dbml);
+            onImport(data.dbml, extractedPartitions.length > 0 ? extractedPartitions : undefined);
           }
 
           // Close dialog
@@ -264,7 +307,7 @@ export function DBImportDialog({ onImport, trigger, open: controlledOpen, onOpen
       : importedDbml;
 
     if (onImport) {
-      onImport(finalDbml);
+      onImport(finalDbml, partitionData.length > 0 ? partitionData : undefined);
     }
 
     toast({
@@ -278,7 +321,7 @@ export function DBImportDialog({ onImport, trigger, open: controlledOpen, onOpen
 
   const handleSkipInference = () => {
     if (onImport) {
-      onImport(importedDbml);
+      onImport(importedDbml, partitionData.length > 0 ? partitionData : undefined);
     }
     setOpen(false);
     resetForm();
@@ -300,6 +343,7 @@ export function DBImportDialog({ onImport, trigger, open: controlledOpen, onOpen
     setImportedDbml('');
     setInferredRelationships([]);
     setSelectedRelationships(new Set());
+    setPartitionData([]);
   };
 
   const handleTypeChange = (type: DatabaseType) => {

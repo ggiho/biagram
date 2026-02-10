@@ -38,6 +38,17 @@ export interface IntrospectedTable {
   foreignKeys: IntrospectedForeignKey[];
   indexes: IntrospectedIndex[];
   uniqueConstraints: string[][];
+  partitions?: IntrospectedPartition[];
+}
+
+export interface IntrospectedPartition {
+  name: string;
+  method: 'RANGE' | 'LIST' | 'HASH' | 'KEY' | 'LINEAR HASH' | 'LINEAR KEY';
+  expression?: string;       // 파티션 기준 컬럼 또는 표현식
+  description?: string;      // VALUES LESS THAN 또는 VALUES IN
+  ordinalPosition?: number;
+  subpartitionMethod?: string;
+  subpartitionExpression?: string;
 }
 
 export interface IntrospectedColumn {

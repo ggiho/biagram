@@ -58,6 +58,22 @@ export const IndexSpecificationSchema = z.object({
 export type IndexSpecification = z.infer<typeof IndexSpecificationSchema>;
 
 // ============================================================================
+// Partition Specification
+// ============================================================================
+
+export const PartitionSpecificationSchema = z.object({
+  name: z.string(),
+  method: z.enum(['RANGE', 'LIST', 'HASH', 'KEY', 'LINEAR HASH', 'LINEAR KEY']),
+  expression: z.string().optional(),       // 파티션 기준 컬럼 또는 표현식
+  description: z.string().optional(),      // VALUES LESS THAN 또는 VALUES IN
+  ordinalPosition: z.number().optional(),
+  subpartitionMethod: z.string().optional(),
+  subpartitionExpression: z.string().optional(),
+});
+
+export type PartitionSpecification = z.infer<typeof PartitionSpecificationSchema>;
+
+// ============================================================================
 // Constraint Specification
 // ============================================================================
 
@@ -137,6 +153,9 @@ export const TableSpecificationSchema = z.object({
 
   // 인덱스
   indexes: z.array(IndexSpecificationSchema),
+
+  // 파티션
+  partitions: z.array(PartitionSpecificationSchema).optional(),
 
   // 관계 정보
   relationships: RelationshipInfoSchema,
