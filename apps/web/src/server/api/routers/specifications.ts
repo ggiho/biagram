@@ -445,6 +445,16 @@ export const specificationRouter = createTRPCRouter({
             });
           }
 
+          // 4-1. 테이블 노트 매칭
+          if (spec.note && normalizeText(spec.note).includes(normalizedQuery)) {
+            matchScore += 25;
+            matchedFields.push('note');
+            highlights.push({
+              field: 'note',
+              text: spec.note,
+            });
+          }
+
           // 5. 컬럼명 매칭
           for (const column of spec.columns) {
             const normalizedColumnName = normalizeText(column.name);
@@ -472,6 +482,10 @@ export const specificationRouter = createTRPCRouter({
             if (column.description && normalizeText(column.description).includes(normalizedQuery)) {
               matchScore += 15;
               matchedFields.push(`columnDesc:${column.name}`);
+              highlights.push({
+                field: 'columnDescription',
+                text: `${column.name}: ${column.description}`,
+              });
             }
           }
 
