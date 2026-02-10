@@ -23,7 +23,8 @@ export function FilterTabs({
   onTogglePIIReport,
 }: FilterTabsProps) {
   return (
-    <div className="px-4 py-3 border-b">
+    <div className="px-4 py-3 border-b space-y-2">
+      {/* PII Row */}
       <div className="flex items-center gap-2">
         {/* PII Filter Toggle */}
         <button
@@ -37,9 +38,23 @@ export function FilterTabs({
           )}
         >
           <Lock className="h-3 w-3" />
-          PII Only
+          PII
         </button>
 
+        {/* PII Report Button */}
+        <Button
+          variant={showPIIReport ? 'default' : 'ghost'}
+          size="sm"
+          className="h-7 text-xs"
+          onClick={onTogglePIIReport}
+        >
+          <FileWarning className="h-3.5 w-3.5 mr-1.5" />
+          PII Report
+        </Button>
+      </div>
+
+      {/* Partition Row */}
+      <div className="flex items-center gap-2">
         {/* Partition Filter Toggle */}
         <button
           onClick={() => onFilterPartitionChange(!filterPartition)}
@@ -54,17 +69,6 @@ export function FilterTabs({
           <LayoutGrid className="h-3 w-3" />
           Partitioned
         </button>
-
-        {/* PII Report Button */}
-        <Button
-          variant={showPIIReport ? 'default' : 'ghost'}
-          size="sm"
-          className="h-7 text-xs"
-          onClick={onTogglePIIReport}
-        >
-          <FileWarning className="h-3.5 w-3.5 mr-1.5" />
-          PII Report
-        </Button>
       </div>
     </div>
   );

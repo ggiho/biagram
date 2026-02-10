@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Table,
   Columns,
@@ -8,7 +8,11 @@ import {
   ListTree,
   Lock,
   Database,
-  ArrowRight,
+  LayoutGrid,
+  AlertTriangle,
+  Copy,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { TableSpecification } from '@biagram/shared';
@@ -120,67 +124,210 @@ function SchemaDistribution({
   );
 }
 
-// 허브 테이블 (가장 많이 연결된 테이블)
-function HubTables({
+// 파티션 테이블 요약
+function PartitionedTables({
   specifications,
   onSelectTable,
 }: {
   specifications: TableSpecification[];
   onSelectTable: (tableName: string) => void;
 }) {
-  const hubTables = useMemo(() => {
-    return specifications
-      .filter(spec => spec.stats.relationshipCount > 0)
-      .sort((a, b) => b.stats.relationshipCount - a.stats.relationshipCount)
-      .slice(0, 5);
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  const partitionData = useMemo(() => {
+    const tablesWithPartitions = specifications.filter(spec =>
+      spec.partitions && spec.partitions.length > 0
+    );
+
+    const totalPartitions = tablesWithPartitions.reduce((acc, spec) =>
+      acc + (spec.partitions?.length || 0), 0
+    );
+
+    // 파티션 메소드별 분류
+    const methodCounts: Record<string, number> = {};
+    tablesWithPartitions.forEach(spec => {
+      spec.partitions?.forEach(p => {
+        methodCounts[p.method] = (methodCounts[p.method] || 0) + 1;
+      });
+    });
+
+    return {
+      tableCount: tablesWithPartitions.length,
+      totalPartitions,
+      methodCounts,
+      tables: tablesWithPartitions
+        .sort((a, b) => (b.partitions?.length || 0) - (a.partitions?.length || 0)),
+    };
   }, [specifications]);
 
-  if (hubTables.length === 0) return null;
+  if (partitionData.tableCount === 0) return null;
+
+  const displayTables = isExpanded ? partitionData.tables : partitionData.tables.slice(0, 5);
+  const hasMore = partitionData.tableCount > 5;
 
   return (
-    <div className="p-4 rounded-xl border bg-card">
-      <h3 className="text-sm font-medium mb-4 flex items-center gap-2">
-        <Link2 className="h-4 w-4" />
-        Most Connected Tables
+    <div className="p-4 rounded-xl border bg-card border-violet-200 dark:border-violet-900/50">
+      <h3 className="text-sm font-medium mb-4 flex items-center gap-2 text-violet-600 dark:text-violet-400">
+        <LayoutGrid className="h-4 w-4" />
+        Partitioned Tables
       </h3>
-      <div className="space-y-2">
-        {hubTables.map((spec, idx) => {
+      <div className="flex gap-6 mb-4">
+        <div>
+          <div className="text-2xl font-bold text-violet-600 dark:text-violet-400">
+            {partitionData.tableCount}
+          </div>
+          <div className="text-xs text-muted-foreground">Tables</div>
+        </div>
+        <div>
+          <div className="text-2xl font-bold text-violet-600 dark:text-violet-400">
+            {partitionData.totalPartitions}
+          </div>
+          <div className="text-xs text-muted-foreground">Total Partitions</div>
+        </div>
+      </div>
+      {/* 메소드별 분포 */}
+      <div className="flex flex-wrap gap-1.5 mb-3">
+        {Object.entries(partitionData.methodCounts).map(([method, count]) => (
+          <span
+            key={method}
+            className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300"
+          >
+            {method} <span className="font-medium">{count}</span>
+          </span>
+        ))}
+      </div>
+      <div className="space-y-1">
+        {displayTables.map(spec => {
           const fullName = spec.schemaName
             ? `${spec.schemaName}.${spec.tableName}`
             : spec.tableName;
-          const maxRelCount = hubTables[0]?.stats.relationshipCount || 1;
-          const barWidth = (spec.stats.relationshipCount / maxRelCount) * 100;
-
           return (
             <button
               key={spec.id}
               onClick={() => onSelectTable(fullName)}
-              className="w-full group"
+              className="w-full flex items-center justify-between p-2 rounded-lg hover:bg-violet-50 dark:hover:bg-violet-900/20 transition-colors text-left"
             >
-              <div className="flex items-center justify-between mb-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-muted-foreground w-4">{idx + 1}</span>
-                  <span className="text-sm font-medium group-hover:text-primary transition-colors truncate">
-                    {spec.schemaName && (
-                      <span className="text-muted-foreground font-normal">{spec.schemaName}.</span>
-                    )}
-                    {spec.tableName}
-                  </span>
-                </div>
-                <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <Link2 className="h-3 w-3" />
-                  {spec.stats.relationshipCount}
-                </div>
-              </div>
-              <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-primary/60 rounded-full transition-all group-hover:bg-primary"
-                  style={{ width: `${barWidth}%` }}
-                />
-              </div>
+              <span className="text-sm truncate">
+                {spec.schemaName && (
+                  <span className="text-muted-foreground">{spec.schemaName}.</span>
+                )}
+                {spec.tableName}
+              </span>
+              <span className="text-xs text-violet-600 dark:text-violet-400 flex items-center gap-1">
+                <LayoutGrid className="h-3 w-3" />
+                {spec.partitions?.length}
+              </span>
             </button>
           );
         })}
+        {hasMore && (
+          <button
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="w-full text-xs text-violet-600 dark:text-violet-400 hover:text-violet-700 dark:hover:text-violet-300 text-center pt-2 flex items-center justify-center gap-1"
+          >
+            {isExpanded ? (
+              <>
+                <ChevronUp className="h-3 w-3" />
+                Show less
+              </>
+            ) : (
+              <>
+                <ChevronDown className="h-3 w-3" />
+                +{partitionData.tableCount - 5} more tables
+              </>
+            )}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// 인덱스 없는 테이블 경고
+function TablesWithoutIndex({
+  specifications,
+  onSelectTable,
+}: {
+  specifications: TableSpecification[];
+  onSelectTable: (tableName: string) => void;
+}) {
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  const tablesWithoutIndex = useMemo(() => {
+    return specifications.filter(spec => spec.stats.indexCount === 0);
+  }, [specifications]);
+
+  const percentage = specifications.length > 0
+    ? Math.round((tablesWithoutIndex.length / specifications.length) * 100)
+    : 0;
+
+  // 인덱스 없는 테이블이 5% 미만이면 표시 안함
+  if (tablesWithoutIndex.length === 0 || percentage < 5) return null;
+
+  const displayTables = isExpanded ? tablesWithoutIndex : tablesWithoutIndex.slice(0, 8);
+  const hasMore = tablesWithoutIndex.length > 8;
+
+  return (
+    <div className="p-4 rounded-xl border bg-card border-orange-200 dark:border-orange-900/50">
+      <h3 className="text-sm font-medium mb-4 flex items-center gap-2 text-orange-600 dark:text-orange-400">
+        <AlertTriangle className="h-4 w-4" />
+        Tables Without Indexes
+      </h3>
+      <div className="flex gap-6 mb-4">
+        <div>
+          <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
+            {tablesWithoutIndex.length}
+          </div>
+          <div className="text-xs text-muted-foreground">Tables</div>
+        </div>
+        <div>
+          <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
+            {percentage}%
+          </div>
+          <div className="text-xs text-muted-foreground">of total</div>
+        </div>
+      </div>
+      <div className="space-y-1 max-h-[300px] overflow-y-auto">
+        {displayTables.map(spec => {
+          const fullName = spec.schemaName
+            ? `${spec.schemaName}.${spec.tableName}`
+            : spec.tableName;
+          return (
+            <button
+              key={spec.id}
+              onClick={() => onSelectTable(fullName)}
+              className="w-full flex items-center justify-between p-2 rounded-lg hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-colors text-left"
+            >
+              <span className="text-sm truncate">
+                {spec.schemaName && (
+                  <span className="text-muted-foreground">{spec.schemaName}.</span>
+                )}
+                {spec.tableName}
+              </span>
+              <span className="text-xs text-muted-foreground">
+                {spec.stats.columnCount} columns
+              </span>
+            </button>
+          );
+        })}
+        {hasMore && (
+          <button
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="w-full text-xs text-orange-600 dark:text-orange-400 hover:text-orange-700 dark:hover:text-orange-300 text-center pt-2 flex items-center justify-center gap-1"
+          >
+            {isExpanded ? (
+              <>
+                <ChevronUp className="h-3 w-3" />
+                Show less
+              </>
+            ) : (
+              <>
+                <ChevronDown className="h-3 w-3" />
+                +{tablesWithoutIndex.length - 8} more tables
+              </>
+            )}
+          </button>
+        )}
       </div>
     </div>
   );
@@ -194,6 +341,8 @@ function PIISummary({
   specifications: TableSpecification[];
   onSelectTable: (tableName: string) => void;
 }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+
   const piiData = useMemo(() => {
     const tablesWithPII = specifications.filter(spec =>
       spec.columns.some(col => col.description?.startsWith('*'))
@@ -206,14 +355,17 @@ function PIISummary({
     return {
       tableCount: tablesWithPII.length,
       columnCount: totalPIIColumns,
-      tables: tablesWithPII.slice(0, 5).map(spec => ({
+      tables: tablesWithPII.map(spec => ({
         ...spec,
         piiCount: spec.columns.filter(col => col.description?.startsWith('*')).length,
-      })),
+      })).sort((a, b) => b.piiCount - a.piiCount),
     };
   }, [specifications]);
 
   if (piiData.tableCount === 0) return null;
+
+  const displayTables = isExpanded ? piiData.tables : piiData.tables.slice(0, 5);
+  const hasMore = piiData.tableCount > 5;
 
   return (
     <div className="p-4 rounded-xl border bg-card border-red-200 dark:border-red-900/50">
@@ -231,8 +383,8 @@ function PIISummary({
           <div className="text-xs text-muted-foreground">PII Columns</div>
         </div>
       </div>
-      <div className="space-y-1">
-        {piiData.tables.map(spec => {
+      <div className="space-y-1 max-h-[300px] overflow-y-auto">
+        {displayTables.map(spec => {
           const fullName = spec.schemaName
             ? `${spec.schemaName}.${spec.tableName}`
             : spec.tableName;
@@ -255,74 +407,181 @@ function PIISummary({
             </button>
           );
         })}
-        {piiData.tableCount > 5 && (
-          <div className="text-xs text-muted-foreground text-center pt-2">
-            +{piiData.tableCount - 5} more tables
-          </div>
+        {hasMore && (
+          <button
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="w-full text-xs text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 text-center pt-2 flex items-center justify-center gap-1"
+          >
+            {isExpanded ? (
+              <>
+                <ChevronUp className="h-3 w-3" />
+                Show less
+              </>
+            ) : (
+              <>
+                <ChevronDown className="h-3 w-3" />
+                +{piiData.tableCount - 5} more tables
+              </>
+            )}
+          </button>
         )}
       </div>
     </div>
   );
 }
 
-// 최근/큰 테이블
-function LargestTables({
+// 중복/중첩 인덱스 탐지
+function RedundantIndexes({
   specifications,
   onSelectTable,
 }: {
   specifications: TableSpecification[];
   onSelectTable: (tableName: string) => void;
 }) {
-  const largestTables = useMemo(() => {
-    return [...specifications]
-      .sort((a, b) => b.stats.columnCount - a.stats.columnCount)
-      .slice(0, 5);
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  const redundantData = useMemo(() => {
+    const issues: Array<{
+      tableName: string;
+      schemaName: string | undefined;
+      index1: string;
+      index2: string;
+      columns1: string[];
+      columns2: string[];
+      type: 'duplicate' | 'prefix';
+    }> = [];
+
+    specifications.forEach(spec => {
+      const indexes = spec.indexes || [];
+
+      for (let i = 0; i < indexes.length; i++) {
+        for (let j = i + 1; j < indexes.length; j++) {
+          const idx1 = indexes[i];
+          const idx2 = indexes[j];
+          if (!idx1 || !idx2) continue;
+
+          const cols1 = idx1.columns;
+          const cols2 = idx2.columns;
+
+          // 완전 동일 (중복)
+          if (cols1.length === cols2.length && cols1.every((c, k) => c === cols2[k])) {
+            issues.push({
+              tableName: spec.tableName,
+              schemaName: spec.schemaName,
+              index1: idx1.name,
+              index2: idx2.name,
+              columns1: cols1,
+              columns2: cols2,
+              type: 'duplicate',
+            });
+          }
+          // 접두어 중첩 (하나가 다른 하나의 prefix)
+          else if (cols1.length < cols2.length && cols1.every((c, k) => c === cols2[k])) {
+            issues.push({
+              tableName: spec.tableName,
+              schemaName: spec.schemaName,
+              index1: idx1.name,
+              index2: idx2.name,
+              columns1: cols1,
+              columns2: cols2,
+              type: 'prefix',
+            });
+          } else if (cols2.length < cols1.length && cols2.every((c, k) => c === cols1[k])) {
+            issues.push({
+              tableName: spec.tableName,
+              schemaName: spec.schemaName,
+              index1: idx2.name,
+              index2: idx1.name,
+              columns1: cols2,
+              columns2: cols1,
+              type: 'prefix',
+            });
+          }
+        }
+      }
+    });
+
+    return issues;
   }, [specifications]);
 
-  return (
-    <div className="p-4 rounded-xl border bg-card">
-      <h3 className="text-sm font-medium mb-4 flex items-center gap-2">
-        <Columns className="h-4 w-4" />
-        Largest Tables
-      </h3>
-      <div className="space-y-2">
-        {largestTables.map((spec, idx) => {
-          const fullName = spec.schemaName
-            ? `${spec.schemaName}.${spec.tableName}`
-            : spec.tableName;
-          const maxColCount = largestTables[0]?.stats.columnCount || 1;
-          const barWidth = (spec.stats.columnCount / maxColCount) * 100;
+  if (redundantData.length === 0) return null;
 
+  const displayItems = isExpanded ? redundantData : redundantData.slice(0, 5);
+  const hasMore = redundantData.length > 5;
+
+  return (
+    <div className="p-4 rounded-xl border bg-card border-amber-200 dark:border-amber-900/50">
+      <h3 className="text-sm font-medium mb-4 flex items-center gap-2 text-amber-600 dark:text-amber-400">
+        <Copy className="h-4 w-4" />
+        Redundant Indexes
+      </h3>
+      <div className="flex gap-6 mb-4">
+        <div>
+          <div className="text-2xl font-bold text-amber-600 dark:text-amber-400">
+            {redundantData.length}
+          </div>
+          <div className="text-xs text-muted-foreground">Issues found</div>
+        </div>
+        <div>
+          <div className="text-sm text-amber-600 dark:text-amber-400 mt-1">
+            {redundantData.filter(r => r.type === 'duplicate').length} duplicate,{' '}
+            {redundantData.filter(r => r.type === 'prefix').length} prefix overlap
+          </div>
+        </div>
+      </div>
+      <div className="space-y-2 max-h-[300px] overflow-y-auto">
+        {displayItems.map((item, idx) => {
+          const fullName = item.schemaName
+            ? `${item.schemaName}.${item.tableName}`
+            : item.tableName;
           return (
             <button
-              key={spec.id}
+              key={`${fullName}-${item.index1}-${item.index2}-${idx}`}
               onClick={() => onSelectTable(fullName)}
-              className="w-full group"
+              className="w-full p-2 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors text-left"
             >
-              <div className="flex items-center justify-between mb-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-muted-foreground w-4">{idx + 1}</span>
-                  <span className="text-sm font-medium group-hover:text-primary transition-colors truncate">
-                    {spec.schemaName && (
-                      <span className="text-muted-foreground font-normal">{spec.schemaName}.</span>
-                    )}
-                    {spec.tableName}
-                  </span>
-                </div>
-                <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <Columns className="h-3 w-3" />
-                  {spec.stats.columnCount}
-                </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium truncate">
+                  {item.schemaName && (
+                    <span className="text-muted-foreground">{item.schemaName}.</span>
+                  )}
+                  {item.tableName}
+                </span>
+                <span className={cn(
+                  "text-xs px-1.5 py-0.5 rounded",
+                  item.type === 'duplicate'
+                    ? "bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400"
+                    : "bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400"
+                )}>
+                  {item.type === 'duplicate' ? 'Duplicate' : 'Prefix'}
+                </span>
               </div>
-              <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-violet-500/60 rounded-full transition-all group-hover:bg-violet-500"
-                  style={{ width: `${barWidth}%` }}
-                />
+              <div className="text-xs text-muted-foreground mt-1">
+                <span className="font-mono">{item.index1}</span>
+                <span className="mx-1">→</span>
+                <span className="font-mono">{item.index2}</span>
               </div>
             </button>
           );
         })}
+        {hasMore && (
+          <button
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="w-full text-xs text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 text-center pt-2 flex items-center justify-center gap-1"
+          >
+            {isExpanded ? (
+              <>
+                <ChevronUp className="h-3 w-3" />
+                Show less
+              </>
+            ) : (
+              <>
+                <ChevronDown className="h-3 w-3" />
+                +{redundantData.length - 5} more issues
+              </>
+            )}
+          </button>
+        )}
       </div>
     </div>
   );
@@ -344,6 +603,10 @@ export function SchemaOverview({
     const totalPII = specifications.reduce((acc, spec) =>
       acc + spec.columns.filter(col => col.description?.startsWith('*')).length, 0
     );
+    const totalPartitions = specifications.reduce((acc, spec) =>
+      acc + (spec.partitions?.length || 0), 0
+    );
+    const partitionedTables = specifications.filter(spec => spec.partitions && spec.partitions.length > 0).length;
     const avgColumnsPerTable = totalTables > 0 ? Math.round(totalColumns / totalTables) : 0;
 
     return {
@@ -352,6 +615,8 @@ export function SchemaOverview({
       totalRelationships,
       totalIndexes,
       totalPII,
+      totalPartitions,
+      partitionedTables,
       avgColumnsPerTable,
       schemaCount: tablesBySchema.size,
     };
@@ -412,14 +677,20 @@ export function SchemaOverview({
           onSelectTable={onSelectTable}
         />
 
-        {/* 허브 테이블 */}
-        <HubTables
+        {/* 파티션 테이블 */}
+        <PartitionedTables
           specifications={specifications}
           onSelectTable={onSelectTable}
         />
 
-        {/* 가장 큰 테이블 */}
-        <LargestTables
+        {/* 인덱스 없는 테이블 */}
+        <TablesWithoutIndex
+          specifications={specifications}
+          onSelectTable={onSelectTable}
+        />
+
+        {/* 중복 인덱스 */}
+        <RedundantIndexes
           specifications={specifications}
           onSelectTable={onSelectTable}
         />
