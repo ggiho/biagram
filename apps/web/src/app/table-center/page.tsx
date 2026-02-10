@@ -64,6 +64,17 @@ export default function TableCenterPage() {
     // 스크롤 맨 위로
     mainRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
   }, [_handleSelectTable, router, searchParams]);
+
+  // PII Report 토글 (URL 파라미터도 정리)
+  const handleTogglePIIReport = useCallback(() => {
+    togglePIIReport();
+    // PII Report를 열 때 URL에서 table 파라미터 제거
+    if (!showPIIReport) {
+      const params = new URLSearchParams(searchParams.toString());
+      params.delete('table');
+      router.push(`/table-center${params.toString() ? `?${params.toString()}` : ''}`);
+    }
+  }, [togglePIIReport, showPIIReport, router, searchParams]);
   
   // URL에서 테이블 파라미터 읽어서 선택 (초기 로드 & 뒤로가기/앞으로가기)
   useEffect(() => {
@@ -133,7 +144,7 @@ export default function TableCenterPage() {
             showPIIReport={showPIIReport}
             onFilterPIIChange={setFilterPII}
             onFilterPartitionChange={setFilterPartition}
-            onTogglePIIReport={togglePIIReport}
+            onTogglePIIReport={handleTogglePIIReport}
           />
 
           {/* Table List */}
