@@ -202,8 +202,8 @@ export function formatDBMLType(
     return `${dbmlType}(${precision})`;
   }
 
-  // For string types, extract length from original type
-  if (dbmlType === 'varchar' || dbmlType === 'char') {
+  // For string/binary types, extract length from original type
+  if (dbmlType === 'varchar' || dbmlType === 'char' || dbmlType === 'binary' || dbmlType === 'varbinary') {
     const match = originalType.match(/\((\d+)\)/);
     if (match) {
       return `${dbmlType}(${match[1]})`;
