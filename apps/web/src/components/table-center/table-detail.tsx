@@ -263,16 +263,19 @@ export function TableDetail({ spec, onSelectTable }: TableDetailProps) {
               </h4>
               <div className="space-y-2">
                 {spec.relationships.incoming.map(
-                  (rel: { fromTable: string; fromColumn: string; type: string }, idx: number) => (
-                    <RelationshipCard
-                      key={idx}
-                      from={rel.fromTable}
-                      to={spec.tableName}
-                      column={rel.fromColumn}
-                      type="incoming"
-                      onSelectTable={onSelectTable}
-                    />
-                  )
+                  (rel: { fromTable: string; fromColumn: string; type: string }, idx: number) => {
+                    const currentFullName = spec.schemaName ? `${spec.schemaName}.${spec.tableName}` : spec.tableName;
+                    return (
+                      <RelationshipCard
+                        key={idx}
+                        from={rel.fromTable}
+                        to={currentFullName}
+                        column={rel.fromColumn}
+                        type="incoming"
+                        onSelectTable={onSelectTable}
+                      />
+                    );
+                  }
                 )}
               </div>
             </div>
@@ -285,16 +288,19 @@ export function TableDetail({ spec, onSelectTable }: TableDetailProps) {
               </h4>
               <div className="space-y-2">
                 {spec.relationships.outgoing.map(
-                  (rel: { toTable: string; toColumn: string; type: string }, idx: number) => (
-                    <RelationshipCard
-                      key={idx}
-                      from={spec.tableName}
-                      to={rel.toTable}
-                      column={rel.toColumn}
-                      type="outgoing"
-                      onSelectTable={onSelectTable}
-                    />
-                  )
+                  (rel: { toTable: string; toColumn: string; type: string }, idx: number) => {
+                    const currentFullName = spec.schemaName ? `${spec.schemaName}.${spec.tableName}` : spec.tableName;
+                    return (
+                      <RelationshipCard
+                        key={idx}
+                        from={currentFullName}
+                        to={rel.toTable}
+                        column={rel.toColumn}
+                        type="outgoing"
+                        onSelectTable={onSelectTable}
+                      />
+                    );
+                  }
                 )}
               </div>
             </div>
@@ -415,14 +421,14 @@ function RelationshipCard({ from, to, column, type, onSelectTable }: Relationshi
     >
       <span className={cn(
         'font-mono text-xs px-2 py-0.5 rounded',
-        type === 'incoming' ? 'bg-primary/10 text-primary' : 'bg-muted'
+        type === 'incoming' ? 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300' : 'bg-muted'
       )}>
         {from}
       </span>
       <span className="text-muted-foreground">→</span>
       <span className={cn(
         'font-mono text-xs px-2 py-0.5 rounded',
-        type === 'outgoing' ? 'bg-primary/10 text-primary' : 'bg-muted'
+        type === 'outgoing' ? 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300' : 'bg-muted'
       )}>
         {to}
       </span>
