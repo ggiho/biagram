@@ -123,7 +123,11 @@ export default function TableCenterPage() {
       />
 
       {/* Header */}
-      <TableCenterHeader onDBImport={handleDBImport} />
+      <TableCenterHeader
+        onDBImport={handleDBImport}
+        specifications={sortedSpecifications}
+        tablesBySchema={tablesBySchema}
+      />
 
       {/* Main Content */}
       <div className="flex flex-1 overflow-hidden">

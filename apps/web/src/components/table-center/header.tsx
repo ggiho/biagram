@@ -4,6 +4,9 @@ import Link from 'next/link';
 import { FileText } from 'lucide-react';
 
 import { DBImportDialog } from '@/components/db-import-dialog';
+import { ExportDialog } from './export-dialog';
+import type { TableSpecification } from '@biagram/shared';
+import type { ExtendedSummary } from '@/types/table-center';
 
 /** DB에서 가져온 파티션 데이터 */
 interface PartitionData {
@@ -22,9 +25,11 @@ interface PartitionData {
 
 interface TableCenterHeaderProps {
   onDBImport: (dbml: string, partitionData?: PartitionData[]) => void;
+  specifications: TableSpecification[];
+  tablesBySchema: Map<string, ExtendedSummary[]>;
 }
 
-export function TableCenterHeader({ onDBImport }: TableCenterHeaderProps) {
+export function TableCenterHeader({ onDBImport, specifications, tablesBySchema }: TableCenterHeaderProps) {
   return (
     <header className="flex h-14 items-center justify-between border-b px-4 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="flex items-center gap-4">
@@ -50,6 +55,7 @@ export function TableCenterHeader({ onDBImport }: TableCenterHeaderProps) {
       </div>
 
       <div className="flex items-center gap-2">
+        <ExportDialog specifications={specifications} tablesBySchema={tablesBySchema} />
         <DBImportDialog onImport={onDBImport} />
       </div>
     </header>
