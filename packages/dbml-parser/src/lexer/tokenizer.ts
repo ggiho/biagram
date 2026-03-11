@@ -20,6 +20,8 @@ export class DBMLTokenizer {
   private tokens: Token[] = [];
   private errors: ParseError[] = [];
 
+  private tokenStart: SourcePosition = { line: 1, column: 0, offset: 0 };
+
   // Character code constants for fast comparison
   private static readonly CHAR_CODES = {
     SPACE: 32,           // ' '
@@ -118,6 +120,7 @@ export class DBMLTokenizer {
 
   private scanToken(): void {
     const start = this.position;
+    this.tokenStart = this.getTokenStartPosition();
     const char = this.advance();
     const charCode = char.charCodeAt(0);
 
@@ -129,7 +132,7 @@ export class DBMLTokenizer {
 
     // Handle newlines
     if (charCode === DBMLTokenizer.CHAR_CODES.NEWLINE) {
-      this.addToken('newline', char);
+      this.addToken('newline', char, this.tokenStart);
       this.line++;
       this.column = 1;
       return;
@@ -139,7 +142,7 @@ export class DBMLTokenizer {
       if (this.peek() === '\n') {
         this.advance(); // consume \n
       }
-      this.addToken('newline', '\r\n');
+      this.addToken('newline', '\r\n', this.tokenStart);
       this.line++;
       this.column = 1;
       return;
@@ -181,54 +184,54 @@ export class DBMLTokenizer {
     if (charCode === DBMLTokenizer.CHAR_CODES.LESS_THAN) {
       if (this.peekChar() === DBMLTokenizer.CHAR_CODES.GREATER_THAN) {
         this.advance();
-        this.addToken('many_to_many', '<>');
+        this.addToken('many_to_many', '<>', this.tokenStart);
         return;
       }
-      this.addToken('many_to_one', '<');
+      this.addToken('many_to_one', '<', this.tokenStart);
       return;
     }
 
     if (charCode === DBMLTokenizer.CHAR_CODES.GREATER_THAN) {
-      this.addToken('one_to_many', '>');
+      this.addToken('one_to_many', '>', this.tokenStart);
       return;
     }
 
     if (charCode === DBMLTokenizer.CHAR_CODES.MINUS) {
-      this.addToken('one_to_one', '-');
+      this.addToken('one_to_one', '-', this.tokenStart);
       return;
     }
 
     // Handle single-character tokens
     switch (charCode) {
       case DBMLTokenizer.CHAR_CODES.LEFT_BRACE:
-        this.addToken('left_brace', char);
+        this.addToken('left_brace', char, this.tokenStart);
         break;
       case DBMLTokenizer.CHAR_CODES.RIGHT_BRACE:
-        this.addToken('right_brace', char);
+        this.addToken('right_brace', char, this.tokenStart);
         break;
       case DBMLTokenizer.CHAR_CODES.LEFT_BRACKET:
-        this.addToken('left_bracket', char);
+        this.addToken('left_bracket', char, this.tokenStart);
         break;
       case DBMLTokenizer.CHAR_CODES.RIGHT_BRACKET:
-        this.addToken('right_bracket', char);
+        this.addToken('right_bracket', char, this.tokenStart);
         break;
       case DBMLTokenizer.CHAR_CODES.LEFT_PAREN:
-        this.addToken('left_paren', char);
+        this.addToken('left_paren', char, this.tokenStart);
         break;
       case DBMLTokenizer.CHAR_CODES.RIGHT_PAREN:
-        this.addToken('right_paren', char);
+        this.addToken('right_paren', char, this.tokenStart);
         break;
       case DBMLTokenizer.CHAR_CODES.COLON:
-        this.addToken('colon', char);
+        this.addToken('colon', char, this.tokenStart);
         break;
       case DBMLTokenizer.CHAR_CODES.SEMICOLON:
-        this.addToken('semicolon', char);
+        this.addToken('semicolon', char, this.tokenStart);
         break;
       case DBMLTokenizer.CHAR_CODES.COMMA:
-        this.addToken('comma', char);
+        this.addToken('comma', char, this.tokenStart);
         break;
       case DBMLTokenizer.CHAR_CODES.DOT:
-        this.addToken('dot', char);
+        this.addToken('dot', char, this.tokenStart);
         break;
       default:
         this.addError(
@@ -245,6 +248,7 @@ export class DBMLTokenizer {
     this.advance(); // consume second '/'
 
     const start = this.position - 2;
+    const tokenStart = this.tokenStart;
 
     // Scan until end of line
     while (this.position < this.length &&
@@ -253,13 +257,14 @@ export class DBMLTokenizer {
     }
 
     const value = this.source.substring(start, this.position);
-    this.addToken('comment', value);
+    this.addToken('comment', value, tokenStart);
   }
 
   private scanBlockComment(): void {
     this.advance(); // consume '*'
 
     const start = this.position - 2;
+    const tokenStart = this.tokenStart;
     let depth = 1; // Support nested comments
 
     while (this.position < this.length && depth > 0) {
@@ -290,11 +295,12 @@ export class DBMLTokenizer {
     }
 
     const value = this.source.substring(start, this.position);
-    this.addToken('multiline_comment', value);
+    this.addToken('multiline_comment', value, tokenStart);
   }
 
   private scanString(quote: string): void {
     const start = this.position - 1;
+    const tokenStart = this.tokenStart;
     let value = '';
 
     while (this.position < this.length) {
@@ -314,12 +320,12 @@ export class DBMLTokenizer {
           
           if (isIdentifier) {
             // Treat as quoted identifier
-            this.addToken('identifier', innerValue);
+            this.addToken('identifier', innerValue, tokenStart);
             return;
           }
         }
         
-        this.addToken('string', fullValue);
+        this.addToken('string', fullValue, tokenStart);
         return;
       }
 
@@ -358,11 +364,12 @@ export class DBMLTokenizer {
       this.getCurrentPosition()
     );
 
-    this.addToken('string', this.source.substring(start, this.position));
+    this.addToken('string', this.source.substring(start, this.position), tokenStart);
   }
 
   private scanNumber(): void {
     const start = this.position - 1;
+    const tokenStart = this.tokenStart;
 
     // Scan integer part
     while (this.position < this.length && this.isDigit(this.source.charCodeAt(this.position))) {
@@ -384,11 +391,12 @@ export class DBMLTokenizer {
     }
 
     const value = this.source.substring(start, this.position);
-    this.addToken('number', value);
+    this.addToken('number', value, tokenStart);
   }
 
   private scanIdentifier(): void {
     const start = this.position - 1;
+    const tokenStart = this.tokenStart;
 
     // Scan while alphanumeric or underscore
     while (this.position < this.length) {
@@ -402,7 +410,7 @@ export class DBMLTokenizer {
     const value = this.source.substring(start, this.position);
     const tokenType = DBMLTokenizer.KEYWORDS.get(value.toLowerCase()) || 'identifier';
 
-    this.addToken(tokenType, value);
+    this.addToken(tokenType, value, tokenStart);
   }
 
   private skipWhitespace(): void {
@@ -461,11 +469,11 @@ export class DBMLTokenizer {
     return this.isAlpha(charCode) || this.isDigit(charCode);
   }
 
-  private addToken(type: TokenType, value: string): void {
+  private addToken(type: TokenType, value: string, position: SourcePosition = this.getCurrentPosition()): void {
     const token: Token = {
       type,
       value,
-      position: this.getCurrentPosition(),
+      position,
       raw: value,
     };
 
@@ -494,6 +502,14 @@ export class DBMLTokenizer {
       line: this.line,
       column: this.column - 1, // Adjust for 0-based column indexing
       offset: this.position - 1,
+    };
+  }
+
+  private getTokenStartPosition(): SourcePosition {
+    return {
+      line: this.line,
+      column: this.column - 1,
+      offset: this.position,
     };
   }
 }

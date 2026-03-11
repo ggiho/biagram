@@ -79,6 +79,7 @@ export function DBImportDialog({ onImport, trigger, open: controlledOpen, onOpen
   const [connectionStatus, setConnectionStatus] = useState<'idle' | 'testing' | 'success' | 'error'>(
     'idle'
   );
+  const [connectionMessage, setConnectionMessage] = useState<string>('');
   const [sessionId, setSessionId] = useState<string | undefined>(undefined);
   const [importedDbml, setImportedDbml] = useState<string>('');
   const [inferredRelationships, setInferredRelationships] = useState<InferredRelationship[]>([]);
@@ -100,6 +101,7 @@ export function DBImportDialog({ onImport, trigger, open: controlledOpen, onOpen
     onSuccess: (data) => {
       if (data.success) {
         setConnectionStatus('success');
+        setConnectionMessage(`Found ${data.stats?.schemaCount || 0} schema(s), ${data.stats?.tableCount || 0} table(s)`);
         setStep('import');
         // Store sessionId for later use
         if (data.sessionId) {
@@ -111,6 +113,7 @@ export function DBImportDialog({ onImport, trigger, open: controlledOpen, onOpen
         });
       } else {
         setConnectionStatus('error');
+        setConnectionMessage(data.error || 'Unknown error occurred');
         toast({
           title: 'Connection failed',
           description: data.error || 'Unknown error occurred',
@@ -120,6 +123,7 @@ export function DBImportDialog({ onImport, trigger, open: controlledOpen, onOpen
     },
     onError: (error) => {
       setConnectionStatus('error');
+      setConnectionMessage(error.message);
       toast({
         title: 'Connection failed',
         description: error.message,
@@ -236,6 +240,7 @@ export function DBImportDialog({ onImport, trigger, open: controlledOpen, onOpen
 
   const handleTestConnection = () => {
     setConnectionStatus('testing');
+    setConnectionMessage('Checking credentials, schema access, and connectivity…');
     testConnectionMutation.mutate(form);
   };
 
@@ -339,6 +344,7 @@ export function DBImportDialog({ onImport, trigger, open: controlledOpen, onOpen
     });
     setStep('connect');
     setConnectionStatus('idle');
+    setConnectionMessage('');
     setSessionId(undefined);
     setImportedDbml('');
     setInferredRelationships([]);
@@ -475,7 +481,16 @@ export function DBImportDialog({ onImport, trigger, open: controlledOpen, onOpen
 
             {/* Connection Status */}
             {connectionStatus !== 'idle' && (
-              <div className="flex items-center space-x-2 text-sm">
+              <div
+                className={`rounded-lg border px-3 py-2 text-sm ${
+                  connectionStatus === 'success'
+                    ? 'border-green-200 bg-green-50/80 dark:border-green-900/50 dark:bg-green-950/30'
+                    : connectionStatus === 'error'
+                      ? 'border-red-200 bg-red-50/80 dark:border-red-900/50 dark:bg-red-950/30'
+                      : 'border-blue-200 bg-blue-50/80 dark:border-blue-900/50 dark:bg-blue-950/30'
+                }`}
+              >
+                <div className="flex items-center space-x-2">
                 {connectionStatus === 'testing' && (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -493,6 +508,12 @@ export function DBImportDialog({ onImport, trigger, open: controlledOpen, onOpen
                     <XCircle className="h-4 w-4 text-red-600" />
                     <span className="text-red-600">Connection failed</span>
                   </>
+                )}
+                </div>
+                {connectionMessage && (
+                  <p className="mt-2 break-words text-xs leading-5 text-muted-foreground">
+                    {connectionMessage}
+                  </p>
                 )}
               </div>
             )}
@@ -583,6 +604,15 @@ export function DBImportDialog({ onImport, trigger, open: controlledOpen, onOpen
                             isSelected ? 'bg-primary/5 border-primary/30' : 'hover:bg-muted/50'
                           }`}
                           onClick={() => handleToggleRelationship(key)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              handleToggleRelationship(key);
+                            }
+                          }}
+                          role="button"
+                          tabIndex={0}
+                          aria-pressed={isSelected}
                         >
                           <Checkbox
                             checked={isSelected}

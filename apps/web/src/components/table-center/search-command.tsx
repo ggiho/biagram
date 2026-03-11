@@ -5,6 +5,13 @@ import { Search, X, Table, Columns, MessageSquare, Key, Link2, ArrowRight, Comma
 import { cn } from '@/lib/utils';
 import { useFuzzySearch, type SearchResultGroup, type SearchableItem, type SearchResult } from '@/hooks/use-fuzzy-search';
 import type { TableSpecification } from '@biagram/shared';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 interface SearchCommandProps {
   open: boolean;
@@ -63,12 +70,12 @@ function ResultItem({
       <button
         onClick={onClick}
         className={cn(
-          'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-colors',
-          'hover:bg-muted/80',
-          isSelected && 'bg-primary/10 ring-1 ring-primary/30'
+          'group w-full flex items-center gap-3 rounded-xl border border-transparent px-3 py-2.5 text-left transition-all duration-200',
+          'hover:border-border/70 hover:bg-muted/70 hover:shadow-sm',
+          isSelected && 'border-primary/30 bg-primary/10 shadow-[0_0_0_1px_hsl(var(--primary)/0.12)]'
         )}
       >
-        <div className="flex h-8 w-8 items-center justify-center rounded-md bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400">
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-100/90 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300">
           <Table className="h-4 w-4" />
         </div>
         <div className="flex-1 min-w-0">
@@ -88,7 +95,7 @@ function ResultItem({
             </div>
           )}
         </div>
-        <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100" />
+        <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
       </button>
     );
   }
@@ -98,12 +105,12 @@ function ResultItem({
       <button
         onClick={onClick}
         className={cn(
-          'w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors',
-          'hover:bg-muted/80',
-          isSelected && 'bg-primary/10 ring-1 ring-primary/30'
+          'group w-full flex items-center gap-3 rounded-xl border border-transparent px-3 py-2 text-left transition-all duration-200',
+          'hover:border-border/70 hover:bg-muted/70 hover:shadow-sm',
+          isSelected && 'border-primary/30 bg-primary/10 shadow-[0_0_0_1px_hsl(var(--primary)/0.12)]'
         )}
       >
-        <div className="flex h-7 w-7 items-center justify-center rounded-md bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400">
+        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-purple-100/90 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300">
           <Columns className="h-3.5 w-3.5" />
         </div>
         <div className="flex-1 min-w-0">
@@ -163,17 +170,17 @@ function ResultItem({
     <button
       onClick={onClick}
       className={cn(
-        'w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors',
-        'hover:bg-muted/80',
-        isSelected && 'bg-primary/10 ring-1 ring-primary/30'
+        'group w-full flex items-center gap-3 rounded-xl border border-transparent px-3 py-2 text-left transition-all duration-200',
+        'hover:border-border/70 hover:bg-muted/70 hover:shadow-sm',
+        isSelected && 'border-primary/30 bg-primary/10 shadow-[0_0_0_1px_hsl(var(--primary)/0.12)]'
       )}
     >
       {isColumnComment ? (
-        <div className="flex h-7 w-7 items-center justify-center rounded-md bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400">
+        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-purple-100/90 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300">
           <Columns className="h-3.5 w-3.5" />
         </div>
       ) : (
-        <div className="flex h-7 w-7 items-center justify-center rounded-md bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400">
+        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-100/90 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300">
           <Table className="h-3.5 w-3.5" />
         </div>
       )}
@@ -237,26 +244,30 @@ export function SearchCommand({
   const defaultResults: SearchResult[] = useMemo(() => {
     if (activeFilter === 'table' || activeFilter === 'all') {
       // 테이블 목록
-      const tables = specifications.slice(0, activeFilter === 'all' ? 5 : 10).map((spec) => ({
-        item: {
-          id: `table:${spec.tableName}`,
-          type: 'table' as const,
-          tableName: spec.tableName,
-          schemaName: spec.schemaName,
-          tableDescription: spec.description,
-          columnName: undefined,
-          columnType: undefined,
-          columnDescription: undefined,
-          isPrimaryKey: undefined,
-          isForeignKey: undefined,
-          foreignKeyRef: undefined,
-          isPII: undefined,
-          searchText: spec.tableName,
-          spec,
-        },
-        score: 0,
-        matches: [],
-      }));
+      const tables = specifications.slice(0, activeFilter === 'all' ? 5 : 10).map((spec) => {
+        const tableKey = spec.schemaName ? `${spec.schemaName}.${spec.tableName}` : spec.tableName;
+
+        return {
+          item: {
+            id: `table:${tableKey}`,
+            type: 'table' as const,
+            tableName: spec.tableName,
+            schemaName: spec.schemaName,
+            tableDescription: spec.description,
+            columnName: undefined,
+            columnType: undefined,
+            columnDescription: undefined,
+            isPrimaryKey: undefined,
+            isForeignKey: undefined,
+            foreignKeyRef: undefined,
+            isPII: undefined,
+            searchText: spec.tableName,
+            spec,
+          },
+          score: 0,
+          matches: [],
+        };
+      });
       
       if (activeFilter === 'table') return tables;
       
@@ -268,7 +279,7 @@ export function SearchCommand({
           if (columns.length >= 5) break;
           columns.push({
             item: {
-              id: `column:${spec.tableName}.${col.name}`,
+              id: `column:${spec.schemaName ? `${spec.schemaName}.${spec.tableName}` : spec.tableName}.${col.name}`,
               type: 'column' as const,
               tableName: spec.tableName,
               schemaName: spec.schemaName,
@@ -301,7 +312,7 @@ export function SearchCommand({
           if (columns.length >= 15) break;
           columns.push({
             item: {
-              id: `column:${spec.tableName}.${col.name}`,
+              id: `column:${spec.schemaName ? `${spec.schemaName}.${spec.tableName}` : spec.tableName}.${col.name}`,
               type: 'column' as const,
               tableName: spec.tableName,
               schemaName: spec.schemaName,
@@ -392,6 +403,8 @@ export function SearchCommand({
       ? groupedResults
       : groupedResults.filter((g) => g.type === activeFilter);
 
+  const isBelowMinimumQueryLength = query.trim().length > 0 && query.trim().length < 2;
+
   // 전체 결과 배열 (선택용) - 검색어 없으면 기본 결과 사용
   const allResults = query.trim() ? filteredGroups.flatMap((g) => g.results) : defaultResults;
 
@@ -468,27 +481,28 @@ export function SearchCommand({
     [allResults, selectedIndex, handleSelect, onOpenChange, clear, activeFilter]
   );
 
-  if (!open) return null;
-
   return (
-    <div className="fixed inset-0 z-50">
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200"
-        onClick={() => {
-          onOpenChange(false);
-          clear();
-        }}
-      />
-
-      {/* Dialog */}
-      <div className="absolute left-1/2 top-[15%] -translate-x-1/2 w-full max-w-2xl px-4">
-        <div
-          className="bg-background border rounded-xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-4 duration-200"
-          onKeyDown={handleKeyDown}
-        >
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        onOpenChange(nextOpen);
+        if (!nextOpen) clear();
+      }}
+    >
+      <DialogContent
+        className="top-[14%] w-[min(92vw,52rem)] translate-y-0 gap-0 overflow-hidden border-slate-200/80 bg-background/96 p-0 shadow-[0_30px_80px_-24px_rgba(15,23,42,0.55)] backdrop-blur-xl dark:border-slate-800/80 dark:bg-slate-950/96"
+        onKeyDown={handleKeyDown}
+      >
+        <DialogHeader className="sr-only">
+          <DialogTitle>Search tables, columns, and notes</DialogTitle>
+          <DialogDescription>
+            Search across imported schema objects and jump directly to a matching table.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="relative">
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-primary/[0.08] via-primary/[0.03] to-transparent" />
           {/* Search Input */}
-          <div className="flex items-center gap-3 px-4 py-3 border-b">
+          <div className="relative flex items-center gap-3 border-b border-border/70 px-4 py-3">
             <Search className="h-5 w-5 text-muted-foreground" />
             <input
               ref={inputRef}
@@ -496,12 +510,14 @@ export function SearchCommand({
               value={query}
               onChange={(e) => search(e.target.value)}
               placeholder="Search tables, columns, comments..."
-              className="flex-1 bg-transparent outline-none text-base placeholder:text-muted-foreground"
+              aria-label="Search schema objects"
+              className="flex-1 bg-transparent text-base outline-none placeholder:text-muted-foreground"
             />
             {query && (
               <button
                 onClick={clear}
-                className="p-1 hover:bg-muted rounded-md transition-colors"
+                aria-label="Clear search"
+                className="rounded-md p-1 transition-colors hover:bg-muted"
               >
                 <X className="h-4 w-4 text-muted-foreground" />
               </button>
@@ -512,13 +528,13 @@ export function SearchCommand({
           </div>
 
           {/* Filter Tabs */}
-          <div className="flex items-center gap-1 px-3 py-2 border-b bg-muted/30">
+          <div className="flex items-center gap-1 border-b border-border/70 bg-muted/30 px-3 py-2">
             <button
               onClick={() => setActiveFilter('all')}
               className={cn(
-                'px-3 py-1 rounded-md text-xs font-medium transition-colors',
+                'rounded-full px-3 py-1 text-xs font-medium transition-all',
                 activeFilter === 'all'
-                  ? 'bg-primary text-primary-foreground'
+                  ? 'bg-foreground text-background shadow-sm dark:bg-white dark:text-slate-950'
                   : 'text-muted-foreground hover:bg-muted hover:text-foreground'
               )}
             >
@@ -527,9 +543,9 @@ export function SearchCommand({
             <button
               onClick={() => setActiveFilter('table')}
               className={cn(
-                'px-3 py-1 rounded-md text-xs font-medium transition-colors flex items-center gap-1',
+                'flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium transition-all',
                 activeFilter === 'table'
-                  ? 'bg-primary text-primary-foreground'
+                  ? 'bg-foreground text-background shadow-sm dark:bg-white dark:text-slate-950'
                   : 'text-muted-foreground hover:bg-muted hover:text-foreground'
               )}
             >
@@ -539,9 +555,9 @@ export function SearchCommand({
             <button
               onClick={() => setActiveFilter('column')}
               className={cn(
-                'px-3 py-1 rounded-md text-xs font-medium transition-colors flex items-center gap-1',
+                'flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium transition-all',
                 activeFilter === 'column'
-                  ? 'bg-primary text-primary-foreground'
+                  ? 'bg-foreground text-background shadow-sm dark:bg-white dark:text-slate-950'
                   : 'text-muted-foreground hover:bg-muted hover:text-foreground'
               )}
             >
@@ -568,10 +584,7 @@ export function SearchCommand({
           </div>
 
           {/* Results */}
-          <div
-            ref={listRef}
-            className="max-h-[400px] overflow-y-auto p-2"
-          >
+          <div ref={listRef} className="max-h-[400px] overflow-y-auto p-2">
             {!query.trim() ? (
               <div className="space-y-2">
                 {activeFilter === 'all' ? (
@@ -661,10 +674,19 @@ export function SearchCommand({
                   Type to search all items
                 </p>
               </div>
+            ) : isBelowMinimumQueryLength ? (
+              <div className="py-12 text-center">
+                <p className="text-sm font-medium text-foreground">
+                  Keep typing to narrow the schema
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Search activates after 2 characters so results stay precise.
+                </p>
+              </div>
             ) : isEmpty ? (
               <div className="py-12 text-center">
                 <p className="text-sm text-muted-foreground">
-                  No results found for "{query}"
+                  No results found for &quot;{query}&quot;
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
                   Try a different search term
@@ -706,7 +728,7 @@ export function SearchCommand({
           </div>
 
           {/* Footer */}
-          <div className="flex items-center justify-between px-4 py-2 border-t bg-muted/30 text-xs text-muted-foreground">
+          <div className="flex items-center justify-between border-t border-border/70 bg-muted/30 px-4 py-2 text-xs text-muted-foreground">
             <div className="flex items-center gap-4">
               <span className="flex items-center gap-1">
                 <kbd className="px-1.5 py-0.5 bg-muted rounded">↑↓</kbd>
@@ -724,7 +746,7 @@ export function SearchCommand({
             {totalCount > 0 && <span>{totalCount} results</span>}
           </div>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

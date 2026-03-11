@@ -486,6 +486,9 @@ export class DBMLParser {
 
       case 'ref':
         this.consume('colon', 'Expected ":" after ref');
+        if (this.check('one_to_many') || this.check('many_to_one') || this.check('one_to_one') || this.check('many_to_many')) {
+          this.advance();
+        }
         const ref = this.parseReference();
         return { type: 'reference', reference: ref };
 
@@ -521,7 +524,7 @@ export class DBMLParser {
 
       let note: string | undefined;
       if (this.match('left_bracket')) {
-        if (this.match('identifier') && this.previous().value.toLowerCase() === 'note') {
+        if ((this.match('identifier') || this.match('note')) && this.previous().value.toLowerCase() === 'note') {
           this.consume('colon', 'Expected ":" after note');
           note = this.consume('string', 'Expected note text').value;
         }
@@ -578,9 +581,9 @@ export class DBMLParser {
     if (this.match('one_to_one')) {
       relationshipType = 'one-to-one';
     } else if (this.match('one_to_many')) {
-      relationshipType = 'one-to-many';
-    } else if (this.match('many_to_one')) {
       relationshipType = 'many-to-one';
+    } else if (this.match('many_to_one')) {
+      relationshipType = 'one-to-many';
     } else if (this.match('many_to_many')) {
       relationshipType = 'many-to-many';
     }
@@ -650,7 +653,7 @@ export class DBMLParser {
     return { table: '', column: first };
   }
 
-  private parseTableGroupDeclaration(): TableGroup {
+  private parseTableGroupDeclaration(): any {
     const name = this.consume('identifier', 'Expected table group name').value;
 
     this.consume('left_brace', 'Expected "{" after table group name');
@@ -665,6 +668,7 @@ export class DBMLParser {
     this.consume('right_brace', 'Expected "}" after table group body');
 
     return {
+      type: 'tablegroup',
       id: this.generateId(),
       name,
       color: undefined,
@@ -844,7 +848,12 @@ export class DBMLParser {
   }
 
   private parseProjectProperty(): { key: string; value: any } | null {
-    const key = this.consume('identifier', 'Expected property name').value;
+    let key: string;
+    if (this.check('identifier') || this.check('note')) {
+      key = this.advance().value;
+    } else {
+      key = this.consume('identifier', 'Expected property name').value;
+    }
     this.consume('colon', 'Expected ":" after property name');
 
     let value: any;
@@ -999,6 +1008,15 @@ export class DBMLParser {
   }
 
   private addToSchema(schema: DatabaseSchema, declaration: any): void {
+    if (declaration.type === 'relationship' || declaration.relationshipType) {
+      const { relationshipType, type, ...relationship } = declaration;
+      schema.relationships.push({
+        ...relationship,
+        type: relationshipType ?? (type === 'relationship' ? 'one-to-many' : type),
+      });
+      return;
+    }
+
     switch (declaration.type) {
       case 'project':
         schema.name = declaration.name;
@@ -1009,9 +1027,6 @@ export class DBMLParser {
         break;
       case 'enum':
         schema.enums.push(declaration);
-        break;
-      case 'relationship':
-        schema.relationships.push(declaration);
         break;
       case 'tablegroup':
         schema.tableGroups.push(declaration);

@@ -54,7 +54,7 @@ export function generateTableSpecification(
   const opts = { ...DEFAULT_OPTIONS, ...options };
 
   // 1. 컬럼 정보 변환 (테이블 이름 전달하여 FK 정확히 판별)
-  const fullTableName = table.schema ? `${table.schema}.${table.name}` : table.name;
+  const fullTableName = buildTableKey(table.name, table.schema);
   
   // Unique 인덱스에 포함된 컬럼 목록 추출 (컬럼 순서 기준으로 번호 부여)
   // 1단계: 각 컬럼이 어떤 인덱스에 속하는지 매핑 (인덱스 ID 사용)
@@ -94,7 +94,7 @@ export function generateTableSpecification(
   const columns = table.columns.map((col) => convertColumn(col, fullTableName, allRelationships, uniqueIndexColumns, totalUniqueIndexCount));
 
   // 2. 제약 조건 추출
-  const constraints = extractConstraints(table, allRelationships);
+  const constraints = extractConstraints(table, fullTableName, allRelationships);
 
   // 3. 인덱스 정보
   const indexes: IndexSpecification[] = (table.indexes || []).map((idx) => ({
@@ -310,6 +310,7 @@ function findForeignKeyForColumn(
  */
 function extractConstraints(
   table: Table,
+  fullTableName: string,
   allRelationships: Relationship[]
 ): ConstraintSpecification[] {
   const constraints: ConstraintSpecification[] = [];
@@ -339,7 +340,7 @@ function extractConstraints(
 
   // 3. Foreign Keys
   for (const rel of allRelationships) {
-    if (rel.fromTable === table.name) {
+    if (matchesTableReference(rel.fromTable, table.name, table.schema, fullTableName)) {
       constraints.push({
         type: 'foreign_key',
         name: `fk_${rel.fromTable}_${rel.fromColumn}`,
@@ -374,8 +375,26 @@ export function findSpecification(
   return specs.find(
     (spec) =>
       spec.tableName === tableName ||
+      buildTableKey(spec.tableName, spec.schemaName) === tableName ||
       spec.alias === tableName
   );
+}
+
+function buildTableKey(name: string, schema?: string): string {
+  return schema ? `${schema}.${name}` : name;
+}
+
+function matchesTableReference(
+  reference: string,
+  tableName: string,
+  schema?: string,
+  fullTableName = buildTableKey(tableName, schema)
+): boolean {
+  if (reference === fullTableName) {
+    return true;
+  }
+
+  return schema === undefined && reference === tableName;
 }
 
 /**

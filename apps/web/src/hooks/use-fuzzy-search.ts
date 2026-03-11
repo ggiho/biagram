@@ -59,9 +59,11 @@ function buildSearchableItems(specifications: TableSpecification[]): SearchableI
   const items: SearchableItem[] = [];
 
   for (const spec of specifications) {
+    const tableKey = spec.schemaName ? `${spec.schemaName}.${spec.tableName}` : spec.tableName;
+
     // 1. 테이블 자체
     items.push({
-      id: `table:${spec.tableName}`,
+      id: `table:${tableKey}`,
       type: 'table',
       tableName: spec.tableName,
       schemaName: spec.schemaName,
@@ -84,7 +86,7 @@ function buildSearchableItems(specifications: TableSpecification[]): SearchableI
       const isPII = column.description?.startsWith('*') ?? false;
 
       items.push({
-        id: `column:${spec.tableName}.${column.name}`,
+        id: `column:${tableKey}.${column.name}`,
         type: 'column',
         tableName: spec.tableName,
         schemaName: spec.schemaName,
@@ -103,7 +105,7 @@ function buildSearchableItems(specifications: TableSpecification[]): SearchableI
       // 3. 컬럼에 설명이 있으면 comment로도 추가
       if (column.description && column.description.length > 5) {
         items.push({
-          id: `comment:${spec.tableName}.${column.name}`,
+          id: `comment:${tableKey}.${column.name}`,
           type: 'comment',
           tableName: spec.tableName,
           schemaName: spec.schemaName,
@@ -124,7 +126,7 @@ function buildSearchableItems(specifications: TableSpecification[]): SearchableI
     // 4. 테이블 설명도 comment로 추가
     if (spec.description && spec.description.length > 5) {
       items.push({
-        id: `comment:${spec.tableName}:table`,
+        id: `comment:${tableKey}:table`,
         type: 'comment',
         tableName: spec.tableName,
         schemaName: spec.schemaName,

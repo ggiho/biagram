@@ -6,7 +6,7 @@
  */
 
 import { z } from 'zod';
-import { createTRPCRouter, publicProcedure } from '../trpc';
+import { createTRPCRouter, rateLimitedProcedure } from '../trpc';
 import { introspectDatabase, inferRelationships, convertToDBMLRefs } from '@biagram/db-introspector';
 import type { DatabaseConnection, IntrospectedDatabase, InferredRelationship } from '@biagram/db-introspector';
 import { randomUUID } from 'crypto';
@@ -131,7 +131,7 @@ export const databaseRouter = createTRPCRouter({
   /**
    * Test database connection
    */
-  testConnection: publicProcedure
+  testConnection: rateLimitedProcedure
     .input(TestConnectionInputSchema)
     .mutation(async ({ input, ctx }) => {
       console.log('🔌 DATABASE: testConnection called', { host: input.host, database: input.database, user: input.username });
@@ -186,7 +186,7 @@ export const databaseRouter = createTRPCRouter({
   /**
    * Introspect database and return DBML
    */
-  introspect: publicProcedure
+  introspect: rateLimitedProcedure
     .input(IntrospectInputSchema)
     .mutation(async ({ input, ctx }) => {
       try {
@@ -266,11 +266,12 @@ export const databaseRouter = createTRPCRouter({
   /**
    * Clear stored connection
    */
-  clearConnection: publicProcedure
+  clearConnection: rateLimitedProcedure
     .input(z.object({ sessionId: z.string().optional() }))
     .mutation(async ({ input, ctx }) => {
       const sessionId = input.sessionId || getSessionId(ctx);
       poolManager.removeConnection(sessionId);
+      introspectionCache.delete(sessionId);
 
       return {
         success: true,
@@ -281,7 +282,7 @@ export const databaseRouter = createTRPCRouter({
   /**
    * Check if connection is stored
    */
-  hasStoredConnection: publicProcedure
+  hasStoredConnection: rateLimitedProcedure
     .input(z.object({ sessionId: z.string().optional() }))
     .query(async ({ input, ctx }) => {
       const sessionId = input.sessionId || getSessionId(ctx);
@@ -305,7 +306,7 @@ export const databaseRouter = createTRPCRouter({
    * Infer relationships from column name patterns
    * 물리적 FK가 없는 경우 컬럼명/타입 매칭으로 논리적 관계 추론
    */
-  inferRelationships: publicProcedure
+  inferRelationships: rateLimitedProcedure
     .input(
       z.object({
         sessionId: z.string().optional(),

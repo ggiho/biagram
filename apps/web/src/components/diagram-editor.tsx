@@ -504,8 +504,11 @@ function DiagramEditorContent() {
                           <AlertCircle className="h-4 w-4 text-destructive flex-shrink-0 mt-0.5" />
                           <div className="flex-1 min-w-0">
                             <p className="text-xs font-medium text-destructive">Parse Error</p>
-                            <p className="text-xs text-destructive/80 truncate" title={parseError}>
-                              {parseError.split('\n')[0]}
+                            <p
+                              className="mt-0.5 whitespace-pre-wrap break-words font-mono text-[11px] leading-4 text-destructive/80"
+                              title={parseError}
+                            >
+                              {parseError}
                             </p>
                           </div>
                         </div>

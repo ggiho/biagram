@@ -59,6 +59,44 @@ function matchesTableName(table: TableRenderData, targetName: string): boolean {
   return tableName === targetTable;
 }
 
+function matchesRelationshipTableName(
+  relationshipTableName: string,
+  targetName: string
+): boolean {
+  if (relationshipTableName === targetName) return true;
+
+  const relationshipParts = relationshipTableName.includes('.') ? relationshipTableName.split('.') : [undefined, relationshipTableName];
+  const relationshipSchema = relationshipParts.length > 1 ? relationshipParts[0] : undefined;
+  const relationshipTable = relationshipParts.length > 1 ? relationshipParts[1] : relationshipParts[0];
+
+  const targetParts = targetName.includes('.') ? targetName.split('.') : [undefined, targetName];
+  const targetSchema = targetParts.length > 1 ? targetParts[0] : undefined;
+  const targetTable = targetParts.length > 1 ? targetParts[1] : targetParts[0];
+
+  if (relationshipSchema && targetSchema) {
+    return relationshipSchema === targetSchema && relationshipTable === targetTable;
+  }
+
+  return relationshipTable === targetTable;
+}
+
+function getCombinedTableBounds(
+  firstTable: TableRenderData,
+  secondTable: TableRenderData
+): { x: number; y: number; width: number; height: number } {
+  const minX = Math.min(firstTable.bounds.x, secondTable.bounds.x);
+  const minY = Math.min(firstTable.bounds.y, secondTable.bounds.y);
+  const maxX = Math.max(firstTable.bounds.x + firstTable.bounds.width, secondTable.bounds.x + secondTable.bounds.width);
+  const maxY = Math.max(firstTable.bounds.y + firstTable.bounds.height, secondTable.bounds.y + secondTable.bounds.height);
+
+  return {
+    x: minX,
+    y: minY,
+    width: maxX - minX,
+    height: maxY - minY,
+  };
+}
+
 
 /**
  * 새로운 아키텍처:
@@ -107,14 +145,21 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
   
   // 관계 선택 시 뷰포트 저장 (복원용)
   const savedViewportRef = useRef<{ zoom: number; pan: { x: number; y: number } } | null>(null);
-  
-  // 관계 선택 시 테이블 원래 위치 저장 (복원용)
-  const savedTablePositionsRef = useRef<Map<string, { x: number; y: number }> | null>(null);
+  const selectedEntityIdRef = useRef<string | null>(selectedEntityId);
+  const highlightedRelationshipIdRef = useRef<string | null>(highlightedRelationshipId);
 
   // 테마 ref 항상 최신 상태 유지
   useEffect(() => {
     themeRef.current = theme;
   }, [theme]);
+
+  useEffect(() => {
+    selectedEntityIdRef.current = selectedEntityId;
+  }, [selectedEntityId]);
+
+  useEffect(() => {
+    highlightedRelationshipIdRef.current = highlightedRelationshipId;
+  }, [highlightedRelationshipId]);
 
   // 안전한 렌더링 함수 - 항상 최신 데이터 사용
   const safeRender = useCallback(() => {
@@ -188,11 +233,25 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
   }) => {
     if (!schemaRef.current?.relationships) return;
 
+    const selectedRelationshipId =
+      options?.selectedId !== undefined
+        ? options.selectedId
+        : (selectedEntityIdRef.current?.startsWith('rel:')
+            ? selectedEntityIdRef.current.replace('rel:', '')
+            : null);
+    const highlightedId =
+      options?.highlightedId !== undefined
+        ? options.highlightedId
+        : highlightedRelationshipIdRef.current;
+
     relationshipsRef.current = calculateAllRelationships(
       schemaRef.current.relationships,
       tablesRef.current,
       schemaRef.current.tables || [],
-      options
+      {
+        selectedId: selectedRelationshipId,
+        highlightedId,
+      }
     );
   }, [calculateAllRelationships]);
 
@@ -515,18 +574,6 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
         if (!hasMoved && mouseDownTableId) {
           setSelectedEntityId(mouseDownTableId);
           setHighlightedRelationshipId(null); // 관계 하이라이트 초기화
-
-          // 🎯 저장된 테이블 위치 복원 (관계 선택 해제 시)
-          if (savedTablePositionsRef.current && savedTablePositionsRef.current.size > 0) {
-            tablesRef.current = tablesRef.current.map(table => {
-              const savedPos = savedTablePositionsRef.current!.get(table.id);
-              if (savedPos) {
-                return { ...table, bounds: { ...table.bounds, x: savedPos.x, y: savedPos.y } };
-              }
-              return table;
-            });
-            savedTablePositionsRef.current = null;
-          }
           
           // 🎯 저장된 뷰포트가 있으면 복원 (관계 선택 해제 시)
           if (savedViewportRef.current) {
@@ -555,73 +602,29 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
 
           // 관계와 연결된 테이블들만 하이라이트
           if (selectedRel) {
-            // 🎯 두 테이블 찾기
-            const fromTable = tablesRef.current.find(t => matchesTableName(t, selectedRel.fromTable));
-            const toTable = tablesRef.current.find(t => matchesTableName(t, selectedRel.toTable));
-
             // 🎯 현재 뷰포트 저장 (복원용)
             const viewportManager = engine.getViewportManager();
             const currentViewport = viewportManager.getViewport();
-            savedViewportRef.current = {
-              zoom: currentViewport.zoom,
-              pan: { x: currentViewport.pan.x, y: currentViewport.pan.y }
-            };
-            
-            // 🎯 두 테이블을 화면 중앙으로 물리적 이동
-            if (fromTable && toTable) {
-              // 원래 위치 저장 (복원용)
-              if (!savedTablePositionsRef.current) {
-                savedTablePositionsRef.current = new Map();
-                tablesRef.current.forEach(t => {
-                  savedTablePositionsRef.current!.set(t.id, { x: t.bounds.x, y: t.bounds.y });
-                });
-              }
-              
-              // 캔버스 중앙 계산
-              const targetZoom = 0.85;
-              const canvasCenterX = canvas.width / 2 / targetZoom;
-              const canvasCenterY = canvas.height / 2 / targetZoom;
-              
-              // 테이블 간격
-              const gap = 100;
-              
-              // 참조하는 테이블(fromTable)을 왼쪽에, 참조되는 테이블(toTable)을 오른쪽에 배치
-              const fromTableNewX = canvasCenterX - fromTable.bounds.width - gap / 2;
-              const toTableNewX = canvasCenterX + gap / 2;
-              
-              // Y 위치는 두 테이블 중 더 큰 높이를 기준으로 중앙 정렬
-              const maxHeight = Math.max(fromTable.bounds.height, toTable.bounds.height);
-              const toTableNewY = canvasCenterY - maxHeight / 2;
-              const fromTableNewY = canvasCenterY - maxHeight / 2;
-              
-              console.log('🎯 Moving tables physically:', {
-                toTable: { name: toTable.name, newPos: { x: toTableNewX, y: toTableNewY } },
-                fromTable: { name: fromTable.name, newPos: { x: fromTableNewX, y: fromTableNewY } }
-              });
-              
-              // 테이블 위치 업데이트
-              tablesRef.current = tablesRef.current.map(t => {
-                if (t.id === toTable.id || t.name === selectedRel.toTable) {
-                  return { ...t, bounds: { ...t.bounds, x: toTableNewX, y: toTableNewY } };
-                }
-                if (t.id === fromTable.id || t.name === selectedRel.fromTable) {
-                  return { ...t, bounds: { ...t.bounds, x: fromTableNewX, y: fromTableNewY } };
-                }
-                return t;
-              });
-              
-              // 🔄 관계선 재계산 (Hook 사용)
-              recalculateRelationships({ selectedId: mouseDownRelationshipId });
-              
-              // 뷰포트 설정: 80% 줌, 캔버스 원점으로 팬
-              viewportManager.zoomTo(targetZoom, false);
-              viewportManager.panTo({ x: canvasCenterX, y: canvasCenterY }, true);
+            if (!savedViewportRef.current) {
+              savedViewportRef.current = {
+                zoom: currentViewport.zoom,
+                pan: { x: currentViewport.pan.x, y: currentViewport.pan.y }
+              };
             }
+
+            const fromTable = tablesRef.current.find(t => matchesTableName(t, selectedRel.fromTable));
+            const toTable = tablesRef.current.find(t => matchesTableName(t, selectedRel.toTable));
             
             tablesRef.current = tablesRef.current.map(table => ({
               ...table,
-              isSelected: table.name === selectedRel.fromTable || table.name === selectedRel.toTable,
+              isSelected: matchesTableName(table, selectedRel.fromTable) || matchesTableName(table, selectedRel.toTable),
             }));
+
+            recalculateRelationships({ selectedId: mouseDownRelationshipId, highlightedId: mouseDownRelationshipId });
+
+            if (fromTable && toTable) {
+              viewportManager.fitToRect(getCombinedTableBounds(fromTable, toTable), 120, true);
+            }
           } else {
             // 관계를 찾지 못한 경우 모든 테이블 선택 해제
             tablesRef.current = tablesRef.current.map(table => ({
@@ -634,18 +637,6 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
           // 배경 클릭 - 선택 해제
           setSelectedEntityId(null);
           setHighlightedRelationshipId(null); // 관계 하이라이트도 초기화
-
-          // 🎯 저장된 테이블 위치 복원
-          if (savedTablePositionsRef.current && savedTablePositionsRef.current.size > 0) {
-            tablesRef.current = tablesRef.current.map(table => {
-              const savedPos = savedTablePositionsRef.current!.get(table.id);
-              if (savedPos) {
-                return { ...table, bounds: { ...table.bounds, x: savedPos.x, y: savedPos.y } };
-              }
-              return table;
-            });
-            savedTablePositionsRef.current = null;
-          }
           
           // 🎯 저장된 뷰포트가 있으면 복원
           if (savedViewportRef.current) {
@@ -1273,6 +1264,9 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
       const selectedRel = relationshipsRef.current.find((r: any) => r.id === relationshipId) as any;
 
       if (selectedRel && selectedRel.fromTable && selectedRel.toTable) {
+        const fromTable = tablesRef.current.find((table) => matchesTableName(table, selectedRel.fromTable));
+        const toTable = tablesRef.current.find((table) => matchesTableName(table, selectedRel.toTable));
+
         // 연결된 테이블들 하이라이트
         tablesRef.current = tablesRef.current.map(table => ({
           ...table,
@@ -1284,19 +1278,34 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
           ...rel,
           isSelected: rel.id === relationshipId,
         }));
+
+        if (fromTable && toTable && engineRef.current) {
+          const viewportManager = engineRef.current.getViewportManager();
+          if (!savedViewportRef.current) {
+            const currentViewport = viewportManager.getViewport();
+            savedViewportRef.current = {
+              zoom: currentViewport.zoom,
+              pan: { x: currentViewport.pan.x, y: currentViewport.pan.y },
+            };
+          }
+          viewportManager.fitToRect(getCombinedTableBounds(fromTable, toTable), 120, true);
+        }
       }
     } else {
       // 테이블 선택: 기존 로직
       tablesRef.current = tablesRef.current.map(table => ({
         ...table,
-        isSelected: table.name === selectedEntityId,
+        isSelected: selectedEntityId ? matchesTableName(table, selectedEntityId) : false,
       }));
 
       // 선택된 테이블과 연결된 관계선 하이라이트
       relationshipsRef.current = relationshipsRef.current.map((rel: any) => ({
         ...rel,
         isSelected: selectedEntityId ?
-          (rel.fromTable === selectedEntityId || rel.toTable === selectedEntityId) :
+          (
+            matchesRelationshipTableName(rel.fromTable, selectedEntityId) ||
+            matchesRelationshipTableName(rel.toTable, selectedEntityId)
+          ) :
           false,
       }));
 
@@ -1320,120 +1329,44 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
       const highlightedRel: any = relationshipsRef.current.find((r: any) => r.id === highlightedRelationshipId);
 
       if (highlightedRel) {
-        // 🎯 두 테이블 찾기 (뷰포트 이동용)
         const fromTable = tablesRef.current.find(t => matchesTableName(t, highlightedRel.fromTable));
         const toTable = tablesRef.current.find(t => matchesTableName(t, highlightedRel.toTable));
 
-        // 🎯 현재 뷰포트 저장 (복원용) - 아직 저장되지 않은 경우만
         const viewportManager = engineRef.current.getViewportManager();
-        if (!savedViewportRef.current) {
+        if (!savedViewportRef.current && !selectedEntityId?.startsWith('rel:')) {
           const currentViewport = viewportManager.getViewport();
           savedViewportRef.current = {
             zoom: currentViewport.zoom,
             pan: { x: currentViewport.pan.x, y: currentViewport.pan.y }
           };
         }
-        
-        // 🎯 두 테이블을 화면 중앙으로 물리적 이동
-        if (fromTable && toTable && canvasRef.current) {
-          // 원래 위치 저장 (복원용)
-          if (!savedTablePositionsRef.current) {
-            savedTablePositionsRef.current = new Map();
-            tablesRef.current.forEach(t => {
-              savedTablePositionsRef.current!.set(t.id, { x: t.bounds.x, y: t.bounds.y });
-            });
-          }
-          
-          // 캔버스 중앙 계산 (canvasRef 사용)
-          const canvasRect = canvasRef.current.getBoundingClientRect();
-          const targetZoom = 0.85;
-          const canvasCenterX = canvasRect.width / 2 / targetZoom;
-          const canvasCenterY = canvasRect.height / 2 / targetZoom;
-          
-          // 테이블 간격
-          const gap = 100;
-          
-          // 참조하는 테이블(fromTable)을 왼쪽에, 참조되는 테이블(toTable)을 오른쪽에 배치
-          const fromTableNewX = canvasCenterX - fromTable.bounds.width - gap / 2;
-          const toTableNewX = canvasCenterX + gap / 2;
-          
-          // Y 위치는 두 테이블 중 더 큰 높이를 기준으로 중앙 정렬
-          const maxHeight = Math.max(fromTable.bounds.height, toTable.bounds.height);
-          const toTableNewY = canvasCenterY - maxHeight / 2;
-          const fromTableNewY = canvasCenterY - maxHeight / 2;
-          
-          console.log('🎯 Moving tables physically (useEffect):', {
-            toTable: { name: toTable.name, newPos: { x: toTableNewX, y: toTableNewY } },
-            fromTable: { name: fromTable.name, newPos: { x: fromTableNewX, y: fromTableNewY } }
-          });
-          
-          // 테이블 위치 업데이트 + 선택된 테이블을 맨 뒤로 (렌더링 시 가장 위에 표시됨)
-          // 다른 테이블들은 dim 처리 (opacity 0.3)
-          const dimmedTables: typeof tablesRef.current = [];
-          let updatedFromTable: typeof tablesRef.current[0] | null = null;
-          let updatedToTable: typeof tablesRef.current[0] | null = null;
-          
-          tablesRef.current.forEach(t => {
-            if (t.id === toTable.id || t.name === highlightedRel.toTable) {
-              updatedToTable = { 
-                ...t, 
-                bounds: { ...t.bounds, x: toTableNewX, y: toTableNewY },
-                // @ts-ignore - Adding opacity property
-                opacity: 1.0,
-              };
-            } else if (t.id === fromTable.id || t.name === highlightedRel.fromTable) {
-              updatedFromTable = { 
-                ...t, 
-                bounds: { ...t.bounds, x: fromTableNewX, y: fromTableNewY },
-                // @ts-ignore - Adding opacity property
-                opacity: 1.0,
-              };
-            } else {
-              dimmedTables.push({
-                ...t,
-                // @ts-ignore - Adding opacity property
-                opacity: 0.3, // dim 처리
-              });
-            }
-          });
-          
-          // 선택된 테이블을 배열 맨 뒤에 추가 (렌더링 순서상 가장 위에 표시)
-          tablesRef.current = [...dimmedTables];
-          if (updatedToTable) tablesRef.current.push(updatedToTable);
-          if (updatedFromTable) tablesRef.current.push(updatedFromTable);
-          
-          // 🔄 관계선 재계산 (Hook 사용)
-          recalculateRelationships({ highlightedId: highlightedRelationshipId });
+        // 다른 테이블들은 dim 처리 (geometry는 유지)
+        tablesRef.current = tablesRef.current.map(table => ({
+          ...table,
+          // @ts-ignore - opacity used by renderer
+          opacity:
+            matchesTableName(table, highlightedRel.fromTable) || matchesTableName(table, highlightedRel.toTable)
+              ? 1.0
+              : 0.3,
+        }));
 
-          // 하이라이트된 관계선만 opacity 1.0, 나머지는 0.0 (dim 처리)
-          relationshipsRef.current = relationshipsRef.current.map((rel: any) => ({
-            ...rel,
-            // @ts-ignore - Adding opacity property
-            opacity: rel.id === highlightedRelationshipId ? 1.0 : 0.0,
-          }));
-          
-          // 뷰포트 설정: 80% 줌, 캔버스 중앙으로 팬
-          viewportManager.zoomTo(targetZoom, false);
-          viewportManager.panTo({ x: canvasCenterX, y: canvasCenterY }, true);
+        recalculateRelationships({ highlightedId: highlightedRelationshipId });
+
+        relationshipsRef.current = relationshipsRef.current.map((rel: any) => ({
+          ...rel,
+          // @ts-ignore - opacity used by renderer
+          opacity: rel.id === highlightedRelationshipId ? 1.0 : 0.15,
+        }));
+
+        if (fromTable && toTable) {
+          viewportManager.fitToRect(getCombinedTableBounds(fromTable, toTable), 120, true);
         }
       }
     } else {
       // 하이라이트 해제: 모든 테이블 opacity 복원
-      
-      // 🎯 저장된 테이블 위치 복원
-      if (savedTablePositionsRef.current && savedTablePositionsRef.current.size > 0) {
-        tablesRef.current = tablesRef.current.map(table => {
-          const savedPos = savedTablePositionsRef.current!.get(table.id);
-          if (savedPos) {
-            return { ...table, bounds: { ...table.bounds, x: savedPos.x, y: savedPos.y } };
-          }
-          return table;
-        });
-        savedTablePositionsRef.current = null;
-      }
-      
+
       // 🎯 저장된 뷰포트가 있으면 복원
-      if (savedViewportRef.current && engineRef.current) {
+      if (savedViewportRef.current && engineRef.current && !selectedEntityId?.startsWith('rel:')) {
         const viewportManager = engineRef.current.getViewportManager();
         const centerX = (viewportManager.getViewport().bounds.width / 2 - savedViewportRef.current.pan.x) / savedViewportRef.current.zoom;
         const centerY = (viewportManager.getViewport().bounds.height / 2 - savedViewportRef.current.pan.y) / savedViewportRef.current.zoom;
@@ -1451,7 +1384,15 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
       // 모든 관계선 선택 해제 및 opacity 복원
       relationshipsRef.current = relationshipsRef.current.map((rel: any) => ({
         ...rel,
-        isSelected: false,
+        isSelected:
+          selectedEntityId?.startsWith('rel:')
+            ? rel.id === selectedEntityId.replace('rel:', '')
+            : selectedEntityId
+              ? (
+                  matchesRelationshipTableName(rel.fromTable, selectedEntityId) ||
+                  matchesRelationshipTableName(rel.toTable, selectedEntityId)
+                )
+              : false,
         // @ts-ignore - Restoring opacity
         opacity: 1.0,
       }));

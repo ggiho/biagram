@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useEffect, useCallback, useState } from 'react';
+import { Suspense, useRef, useEffect, useCallback, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useTableCenter } from '@/hooks/use-table-center';
 import {
@@ -16,7 +16,7 @@ import {
 } from '@/components/table-center';
 import { SearchCommand } from '@/components/table-center/search-command';
 
-export default function TableCenterPage() {
+function TableCenterPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   
@@ -195,5 +195,29 @@ export default function TableCenterPage() {
         </main>
       </div>
     </div>
+  );
+}
+
+function TableCenterPageFallback() {
+  return (
+    <div className="flex h-screen flex-col bg-background">
+      <div className="h-14 border-b bg-background/95" />
+      <div className="flex flex-1 overflow-hidden">
+        <aside className="w-80 border-r bg-background">
+          <TableListSkeleton />
+        </aside>
+        <main className="flex-1 overflow-y-auto">
+          <EmptyState type="loading" />
+        </main>
+      </div>
+    </div>
+  );
+}
+
+export default function TableCenterPage() {
+  return (
+    <Suspense fallback={<TableCenterPageFallback />}>
+      <TableCenterPageContent />
+    </Suspense>
   );
 }
