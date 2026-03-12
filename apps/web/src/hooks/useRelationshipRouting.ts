@@ -100,8 +100,8 @@ export function useRelationshipRouting() {
         return tableBounds.y + tableBounds.height / 2 + yOffset;
       }
 
-      const headerHeight = 32;
-      const rowHeight = 24;
+      const headerHeight = 40;
+      const rowHeight = 28;
       // Note는 이제 헤더 안에 표시되므로 추가 높이 불필요
       return (
         tableBounds.y +

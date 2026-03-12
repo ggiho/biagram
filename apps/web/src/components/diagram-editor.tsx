@@ -706,6 +706,7 @@ function DiagramEditorContent() {
           open={importDialogOpen}
           onOpenChange={setImportDialogOpen}
           onImportSuccess={handleImportSuccess}
+          currentContent={code}
         />
 
         {/* Export Dialog */}

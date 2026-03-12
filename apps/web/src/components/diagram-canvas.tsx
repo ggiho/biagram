@@ -201,6 +201,11 @@ export function DiagramCanvas({
     zoom: number;
     pan: { x: number; y: number };
   } | null>(null);
+  const savedTablePositionsRef = useRef<Map<
+    string,
+    { x: number; y: number }
+  > | null>(null);
+  const savedTableOrderRef = useRef<string[] | null>(null);
   const selectedEntityIdRef = useRef<string | null>(selectedEntityId);
   const highlightedRelationshipIdRef = useRef<string | null>(
     highlightedRelationshipId
@@ -288,6 +293,118 @@ export function DiagramCanvas({
     // console.log('🎯 DiagramEngine viewport listener called');
     engineRef.current.render();
   }, []); // 빈 dependency - safeRender는 항상 안정적
+
+  const restoreTablePositions = useCallback(() => {
+    if (!savedTablePositionsRef.current) return;
+
+    tablesRef.current = tablesRef.current.map(table => {
+      const savedPosition = savedTablePositionsRef.current?.get(table.id);
+      if (!savedPosition) return table;
+
+      return {
+        ...table,
+        bounds: {
+          ...table.bounds,
+          x: savedPosition.x,
+          y: savedPosition.y,
+        },
+      };
+    });
+  }, []);
+
+  const restoreTableOrder = useCallback(() => {
+    if (!savedTableOrderRef.current) return;
+
+    const orderMap = new Map(
+      savedTableOrderRef.current.map((id, index) => [id, index])
+    );
+
+    tablesRef.current = [...tablesRef.current].sort((a, b) => {
+      const aIndex = orderMap.get(a.id) ?? Number.MAX_SAFE_INTEGER;
+      const bIndex = orderMap.get(b.id) ?? Number.MAX_SAFE_INTEGER;
+      return aIndex - bIndex;
+    });
+  }, []);
+
+  const focusRelationshipTables = useCallback(
+    (fromTable: TableRenderData, toTable: TableRenderData) => {
+      if (!engineRef.current) return;
+
+      if (!savedTablePositionsRef.current) {
+        savedTablePositionsRef.current = new Map();
+        tablesRef.current.forEach(table => {
+          savedTablePositionsRef.current?.set(table.id, {
+            x: table.bounds.x,
+            y: table.bounds.y,
+          });
+        });
+      }
+      if (!savedTableOrderRef.current) {
+        savedTableOrderRef.current = tablesRef.current.map(table => table.id);
+      }
+
+      restoreTablePositions();
+
+      const viewportManager = engineRef.current.getViewportManager();
+      const viewport = viewportManager.getViewport();
+      const targetZoom = 0.85;
+      const centerWorldX = viewport.bounds.width / (2 * targetZoom);
+      const centerWorldY = viewport.bounds.height / (2 * targetZoom);
+      const horizontalGap = 140;
+      const maxHeight = Math.max(
+        fromTable.bounds.height,
+        toTable.bounds.height
+      );
+      const sharedY = centerWorldY - maxHeight / 2;
+
+      const fromTableX =
+        centerWorldX - horizontalGap / 2 - fromTable.bounds.width;
+      const toTableX = centerWorldX + horizontalGap / 2;
+
+      tablesRef.current = tablesRef.current.map(table => {
+        if (table.id === fromTable.id) {
+          return {
+            ...table,
+            bounds: {
+              ...table.bounds,
+              x: fromTableX,
+              y: sharedY,
+            },
+          };
+        }
+
+        if (table.id === toTable.id) {
+          return {
+            ...table,
+            bounds: {
+              ...table.bounds,
+              x: toTableX,
+              y: sharedY,
+            },
+          };
+        }
+
+        return table;
+      });
+
+      const focusedFrom =
+        tablesRef.current.find(table => table.id === fromTable.id) || fromTable;
+      const focusedTo =
+        tablesRef.current.find(table => table.id === toTable.id) || toTable;
+
+      tablesRef.current = [
+        ...tablesRef.current.filter(
+          table => table.id !== fromTable.id && table.id !== toTable.id
+        ),
+        focusedFrom,
+        focusedTo,
+      ];
+
+      viewportManager.zoomTo(targetZoom, false);
+      viewportManager.panTo({ x: centerWorldX, y: centerWorldY }, true);
+    },
+    [restoreTablePositions]
+  );
 
   // 🔄 관계선 재계산 헬퍼 함수 (중복 코드 제거)
   const recalculateRelationships = useCallback(
@@ -688,6 +805,16 @@ export function DiagramCanvas({
             viewportManager.zoomTo(savedViewportRef.current.zoom, true);
             savedViewportRef.current = null;
           }
+          if (savedTablePositionsRef.current) {
+            restoreTablePositions();
+            savedTablePositionsRef.current = null;
+          }
+          if (savedTableOrderRef.current) {
+            restoreTableOrder();
+            savedTableOrderRef.current = null;
+          }
+
+          recalculateRelationships();
 
           // isSelected 업데이트하고 재렌더링
           tablesRef.current = tablesRef.current.map(table => ({
@@ -699,58 +826,6 @@ export function DiagramCanvas({
           // 관계선 클릭 - 관계선 선택 (특별한 ID 형식 사용)
           setSelectedEntityId(`rel:${mouseDownRelationshipId}`);
           setHighlightedRelationshipId(mouseDownRelationshipId); // 사이드바와 동기화
-
-          // 선택된 관계선 찾기
-          const selectedRel: any = relationshipsRef.current.find(
-            (rel: any) => rel.id === mouseDownRelationshipId
-          );
-
-          // 관계와 연결된 테이블들만 하이라이트
-          if (selectedRel) {
-            // 🎯 현재 뷰포트 저장 (복원용)
-            const viewportManager = engine.getViewportManager();
-            const currentViewport = viewportManager.getViewport();
-            if (!savedViewportRef.current) {
-              savedViewportRef.current = {
-                zoom: currentViewport.zoom,
-                pan: { x: currentViewport.pan.x, y: currentViewport.pan.y },
-              };
-            }
-
-            const fromTable = tablesRef.current.find(t =>
-              matchesTableName(t, selectedRel.fromTable)
-            );
-            const toTable = tablesRef.current.find(t =>
-              matchesTableName(t, selectedRel.toTable)
-            );
-
-            tablesRef.current = tablesRef.current.map(table => ({
-              ...table,
-              isSelected:
-                matchesTableName(table, selectedRel.fromTable) ||
-                matchesTableName(table, selectedRel.toTable),
-            }));
-
-            recalculateRelationships({
-              selectedId: mouseDownRelationshipId,
-              highlightedId: mouseDownRelationshipId,
-            });
-
-            if (fromTable && toTable) {
-              viewportManager.fitToRect(
-                getCombinedTableBounds(fromTable, toTable),
-                120,
-                true
-              );
-            }
-          } else {
-            // 관계를 찾지 못한 경우 모든 테이블 선택 해제
-            tablesRef.current = tablesRef.current.map(table => ({
-              ...table,
-              isSelected: false,
-            }));
-          }
-          safeRender();
         } else if (!hasMoved && !mouseDownTableId && !mouseDownRelationshipId) {
           // 배경 클릭 - 선택 해제
           setSelectedEntityId(null);
@@ -772,6 +847,17 @@ export function DiagramCanvas({
             viewportManager.zoomTo(savedViewportRef.current.zoom, true);
             savedViewportRef.current = null;
           }
+
+          if (savedTablePositionsRef.current) {
+            restoreTablePositions();
+            savedTablePositionsRef.current = null;
+          }
+          if (savedTableOrderRef.current) {
+            restoreTableOrder();
+            savedTableOrderRef.current = null;
+          }
+
+          recalculateRelationships();
 
           // 모든 테이블 선택 해제
           tablesRef.current = tablesRef.current.map(table => ({
@@ -1496,14 +1582,25 @@ export function DiagramCanvas({
               pan: { x: currentViewport.pan.x, y: currentViewport.pan.y },
             };
           }
-          viewportManager.fitToRect(
-            getCombinedTableBounds(fromTable, toTable),
-            120,
-            true
-          );
+          focusRelationshipTables(fromTable, toTable);
+          recalculateRelationships({
+            selectedId: relationshipId,
+            highlightedId: highlightedRelationshipIdRef.current,
+          });
         }
       }
     } else {
+      if (savedTablePositionsRef.current) {
+        restoreTablePositions();
+        savedTablePositionsRef.current = null;
+      }
+      if (savedTableOrderRef.current) {
+        restoreTableOrder();
+        savedTableOrderRef.current = null;
+      }
+
+      recalculateRelationships();
+
       // 테이블 선택: 기존 로직
       tablesRef.current = tablesRef.current.map(table => ({
         ...table,
@@ -1529,7 +1626,15 @@ export function DiagramCanvas({
     }
 
     safeRender();
-  }, [selectedEntityId, isReady, safeRender]);
+  }, [
+    focusRelationshipTables,
+    isReady,
+    recalculateRelationships,
+    restoreTableOrder,
+    restoreTablePositions,
+    safeRender,
+    selectedEntityId,
+  ]);
 
   // highlightedRelationshipId 변경 시 관련 없는 테이블 dim 처리 및 뷰포트 이동
   useEffect(() => {
@@ -1580,7 +1685,7 @@ export function DiagramCanvas({
           opacity: rel.id === highlightedRelationshipId ? 1.0 : 0.15,
         }));
 
-        if (fromTable && toTable) {
+        if (fromTable && toTable && !selectedEntityId?.startsWith('rel:')) {
           viewportManager.fitToRect(
             getCombinedTableBounds(fromTable, toTable),
             120,
@@ -1611,6 +1716,20 @@ export function DiagramCanvas({
         savedViewportRef.current = null;
       }
 
+      if (
+        savedTablePositionsRef.current &&
+        !selectedEntityId?.startsWith('rel:')
+      ) {
+        restoreTablePositions();
+        savedTablePositionsRef.current = null;
+      }
+      if (savedTableOrderRef.current && !selectedEntityId?.startsWith('rel:')) {
+        restoreTableOrder();
+        savedTableOrderRef.current = null;
+      }
+
+      recalculateRelationships();
+
       tablesRef.current = tablesRef.current.map(table => ({
         ...table,
         // @ts-ignore - Removing opacity property
@@ -1632,7 +1751,14 @@ export function DiagramCanvas({
     }
 
     safeRender();
-  }, [highlightedRelationshipId, isReady, safeRender]);
+  }, [
+    highlightedRelationshipId,
+    isReady,
+    restoreTableOrder,
+    restoreTablePositions,
+    safeRender,
+    selectedEntityId,
+  ]);
 
   return (
     <div

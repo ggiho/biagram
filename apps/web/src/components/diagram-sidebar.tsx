@@ -500,6 +500,11 @@ export function DiagramSidebar({
                         setHighlightedRelationshipId(
                           isHighlighted ? null : relationshipId
                         );
+                        setSelectedEntityId(
+                          isHighlighted
+                            ? (selectedEntityId ?? selectedTable.name)
+                            : `rel:${relationshipId}`
+                        );
                       }}
                       className={`px-4 py-2 hover:bg-muted/50 cursor-pointer transition-colors ${
                         isHighlighted
