@@ -1,7 +1,14 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback, KeyboardEvent } from 'react';
-import { ChevronDown, ChevronRight, Table, Link, Database } from 'lucide-react';
+import {
+  ChevronDown,
+  ChevronRight,
+  Table,
+  Link,
+  Database,
+  Loader2,
+} from 'lucide-react';
 import type { DatabaseSchema } from '@biagram/shared';
 import { useDiagramEngine } from '@/contexts/diagram-context';
 
@@ -46,6 +53,7 @@ interface SimplifiedSchema {
 
 interface DiagramSidebarProps {
   schema: DatabaseSchema | SimplifiedSchema | null;
+  isLoading?: boolean;
 }
 
 /**
@@ -82,7 +90,7 @@ function AccessibleListItem({
     <div
       role="button"
       tabIndex={0}
-      aria-selected={isSelected}
+      aria-pressed={isSelected || isHighlighted}
       aria-label={ariaLabel}
       onClick={onClick}
       onKeyDown={handleKeyDown}
@@ -93,13 +101,21 @@ function AccessibleListItem({
   );
 }
 
-export function DiagramSidebar({ schema }: DiagramSidebarProps) {
+export function DiagramSidebar({
+  schema,
+  isLoading = false,
+}: DiagramSidebarProps) {
   const diagramContext = useDiagramEngine();
-  const { selectedEntityId, setSelectedEntityId, highlightedRelationshipId, setHighlightedRelationshipId } = diagramContext || {
+  const {
+    selectedEntityId,
+    setSelectedEntityId,
+    highlightedRelationshipId,
+    setHighlightedRelationshipId,
+  } = diagramContext || {
     selectedEntityId: null,
     setSelectedEntityId: () => {},
     highlightedRelationshipId: null,
-    setHighlightedRelationshipId: () => {}
+    setHighlightedRelationshipId: () => {},
   };
 
   const [expandedSections, setExpandedSections] = useState<{
@@ -114,7 +130,7 @@ export function DiagramSidebar({ schema }: DiagramSidebarProps) {
 
   // Refs for table elements to enable scrolling
   const tableRefs = useRef<Map<string, HTMLDivElement>>(new Map());
-  
+
   // Focus management for keyboard navigation
   const [focusedIndex, setFocusedIndex] = useState<number>(-1);
 
@@ -137,75 +153,99 @@ export function DiagramSidebar({ schema }: DiagramSidebarProps) {
   }, [selectedEntityId]);
 
   // Keyboard navigation handler for list
-  const handleListKeyDown = useCallback((
-    e: KeyboardEvent<HTMLDivElement>,
-    items: string[],
-    onSelect: (item: string) => void
-  ) => {
-    if (items.length === 0) return;
+  const handleListKeyDown = useCallback(
+    (
+      e: KeyboardEvent<HTMLDivElement>,
+      items: string[],
+      onSelect: (item: string) => void
+    ) => {
+      if (items.length === 0) return;
 
-    switch (e.key) {
-      case 'ArrowDown':
-        e.preventDefault();
-        setFocusedIndex(prev => (prev + 1) % items.length);
-        break;
-      case 'ArrowUp':
-        e.preventDefault();
-        setFocusedIndex(prev => (prev - 1 + items.length) % items.length);
-        break;
-      case 'Home':
-        e.preventDefault();
-        setFocusedIndex(0);
-        break;
-      case 'End':
-        e.preventDefault();
-        setFocusedIndex(items.length - 1);
-        break;
-      case 'Enter':
-      case ' ':
-        e.preventDefault();
-        if (focusedIndex >= 0 && focusedIndex < items.length) {
-          const item = items[focusedIndex];
-          if (item) onSelect(item);
-        }
-        break;
-    }
-  }, [focusedIndex]);
+      switch (e.key) {
+        case 'ArrowDown':
+          e.preventDefault();
+          setFocusedIndex(prev => (prev + 1) % items.length);
+          break;
+        case 'ArrowUp':
+          e.preventDefault();
+          setFocusedIndex(prev => (prev - 1 + items.length) % items.length);
+          break;
+        case 'Home':
+          e.preventDefault();
+          setFocusedIndex(0);
+          break;
+        case 'End':
+          e.preventDefault();
+          setFocusedIndex(items.length - 1);
+          break;
+        case 'Enter':
+        case ' ':
+          e.preventDefault();
+          if (focusedIndex >= 0 && focusedIndex < items.length) {
+            const item = items[focusedIndex];
+            if (item) onSelect(item);
+          }
+          break;
+      }
+    },
+    [focusedIndex]
+  );
 
   if (!schema) {
     return (
-      <div className="h-full w-full border-l bg-background">
-        <div className="border-b p-4">
-          <h3 className="text-sm font-medium">Schema Overview</h3>
+      <div className="h-full w-full bg-background/95">
+        <div className="border-b border-border/70 p-5">
+          <h3 className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">
+            Schema Overview
+          </h3>
         </div>
         <div className="p-4 text-center text-muted-foreground">
-          <Database className="mx-auto h-8 w-8 mb-2" aria-hidden="true" />
-          <p className="text-sm">No schema loaded</p>
+          {isLoading ? (
+            <>
+              <Loader2
+                className="mx-auto mb-2 h-8 w-8 animate-spin"
+                aria-hidden="true"
+              />
+              <p className="text-sm font-medium text-foreground">
+                Parsing schema…
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Tables and relationships will appear here shortly.
+              </p>
+            </>
+          ) : (
+            <>
+              <Database className="mx-auto mb-2 h-8 w-8" aria-hidden="true" />
+              <p className="text-sm">No schema loaded</p>
+            </>
+          )}
         </div>
       </div>
     );
   }
 
   // Check if viewing table or relationship detail
-  const isTableSelected = selectedEntityId && !selectedEntityId.startsWith('rel:');
-  const isRelationshipSelected = selectedEntityId && selectedEntityId.startsWith('rel:');
+  const isTableSelected =
+    selectedEntityId && !selectedEntityId.startsWith('rel:');
+  const isRelationshipSelected =
+    selectedEntityId && selectedEntityId.startsWith('rel:');
 
   // Render detailed relationship view
   if (isRelationshipSelected) {
     const relationshipId = selectedEntityId.replace('rel:', '');
     const selectedRel = schema.relationships.find(r => r.id === relationshipId);
-    
+
     if (!selectedRel) {
       return renderSchemaOverview();
     }
 
     return (
-      <div className="h-full w-full border-l bg-background flex flex-col">
-        <div className="border-b p-4">
+      <div className="h-full w-full bg-background/95 flex flex-col">
+        <div className="border-b border-border/70 p-5">
           <Button
             variant="ghost"
             size="sm"
-            className="mb-2 h-auto p-1"
+            className="mb-3 h-auto rounded-xl px-2 py-1 text-xs text-muted-foreground hover:bg-muted/70"
             onClick={() => {
               setSelectedEntityId(null);
               setHighlightedRelationshipId(null);
@@ -213,49 +253,64 @@ export function DiagramSidebar({ schema }: DiagramSidebarProps) {
           >
             ← Back to Overview
           </Button>
-          <h3 className="text-sm font-medium">Relationship Details</h3>
+          <h3 className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">
+            Relationship Details
+          </h3>
         </div>
 
-        <div className="flex-1 overflow-y-auto" role="region" aria-label="Relationship details">
+        <div
+          className="flex-1 overflow-y-auto"
+          role="region"
+          aria-label="Relationship details"
+        >
           {/* Relationship Info */}
-          <div className="border-b p-4">
+          <div className="border-b border-border/70 p-5">
             <div className="flex items-center gap-2 mb-3">
               <Link className="h-4 w-4 text-primary" aria-hidden="true" />
-              <span className="font-semibold text-sm">
+              <span className="font-semibold text-sm text-foreground">
                 {selectedRel.fromTable} → {selectedRel.toTable}
               </span>
             </div>
             <div className="text-xs text-muted-foreground space-y-1">
-              <div><span className="font-medium">Type:</span> {selectedRel.type || 'one-to-many'}</div>
+              <div>
+                <span className="font-medium">Type:</span>{' '}
+                {selectedRel.type || 'one-to-many'}
+              </div>
             </div>
           </div>
 
           {/* From Table */}
-          <div className="border-b p-4">
-            <h5 className="text-xs font-medium uppercase text-muted-foreground mb-2">From</h5>
+          <div className="border-b border-border/70 p-5">
+            <h5 className="text-xs font-medium uppercase text-muted-foreground mb-2">
+              From
+            </h5>
             <AccessibleListItem
               onClick={() => setSelectedEntityId(selectedRel.fromTable)}
-              className="p-2 rounded bg-muted/50 cursor-pointer hover:bg-muted transition-colors"
+              className="rounded-2xl border border-border/60 bg-card/80 p-3 shadow-sm cursor-pointer hover:border-primary/20 hover:bg-muted/60 transition-colors"
               ariaLabel={`Go to table ${selectedRel.fromTable}`}
             >
               <div className="font-medium text-sm">{selectedRel.fromTable}</div>
               <div className="text-xs text-muted-foreground">
-                Column: <span className="font-mono">{selectedRel.fromColumn}</span>
+                Column:{' '}
+                <span className="font-mono">{selectedRel.fromColumn}</span>
               </div>
             </AccessibleListItem>
           </div>
 
           {/* To Table */}
-          <div className="border-b p-4">
-            <h5 className="text-xs font-medium uppercase text-muted-foreground mb-2">To</h5>
+          <div className="border-b border-border/70 p-5">
+            <h5 className="text-xs font-medium uppercase text-muted-foreground mb-2">
+              To
+            </h5>
             <AccessibleListItem
               onClick={() => setSelectedEntityId(selectedRel.toTable)}
-              className="p-2 rounded bg-muted/50 cursor-pointer hover:bg-muted transition-colors"
+              className="rounded-2xl border border-border/60 bg-card/80 p-3 shadow-sm cursor-pointer hover:border-primary/20 hover:bg-muted/60 transition-colors"
               ariaLabel={`Go to table ${selectedRel.toTable}`}
             >
               <div className="font-medium text-sm">{selectedRel.toTable}</div>
               <div className="text-xs text-muted-foreground">
-                Column: <span className="font-mono">{selectedRel.toColumn}</span>
+                Column:{' '}
+                <span className="font-mono">{selectedRel.toColumn}</span>
               </div>
             </AccessibleListItem>
           </div>
@@ -270,17 +325,19 @@ export function DiagramSidebar({ schema }: DiagramSidebarProps) {
     const selectedTable = schema.tables.find(t => {
       const tableSchema = (t as any).schema;
       const tableName = t.name;
-      
+
       // 1. selectedEntityId가 스키마.테이블 형식인 경우
       if (selectedEntityId!.includes('.')) {
-        const fullName = tableSchema ? `${tableSchema}.${tableName}` : tableName;
+        const fullName = tableSchema
+          ? `${tableSchema}.${tableName}`
+          : tableName;
         return fullName === selectedEntityId;
       }
-      
+
       // 2. selectedEntityId가 테이블명만인 경우 - 스키마가 없는 테이블만 매칭
       return !tableSchema && tableName === selectedEntityId;
     });
-    
+
     if (!selectedTable) {
       // Table not found, clear selection
       return renderSchemaOverview();
@@ -297,32 +354,44 @@ export function DiagramSidebar({ schema }: DiagramSidebarProps) {
       // selectedName이 스키마.테이블명 형식인 경우
       if (selectedName.includes('.')) {
         const tableName = selectedName.split('.').pop();
-        if (tableName === relationTableName || relationTableName.endsWith(`.${tableName}`)) return true;
+        if (
+          tableName === relationTableName ||
+          relationTableName.endsWith(`.${tableName}`)
+        )
+          return true;
       }
       return false;
     };
 
     const relatedRelationships = schema.relationships.filter(
-      rel => matchesTable(rel.fromTable, selectedEntityId!) || matchesTable(rel.toTable, selectedEntityId!)
+      rel =>
+        matchesTable(rel.fromTable, selectedEntityId!) ||
+        matchesTable(rel.toTable, selectedEntityId!)
     );
 
     return (
-      <div className="h-full w-full border-l bg-background flex flex-col">
-        <div className="border-b p-4">
+      <div className="h-full w-full bg-background/95 flex flex-col">
+        <div className="border-b border-border/70 p-5">
           <Button
             variant="ghost"
             size="sm"
-            className="mb-2 h-auto p-1"
+            className="mb-3 h-auto rounded-xl px-2 py-1 text-xs text-muted-foreground hover:bg-muted/70"
             onClick={() => setSelectedEntityId(null)}
           >
             ← Back to Overview
           </Button>
-          <h3 className="text-sm font-medium">Table Details</h3>
+          <h3 className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">
+            Table Details
+          </h3>
         </div>
 
-        <div className="flex-1 overflow-y-auto" role="region" aria-label="Table details">
+        <div
+          className="flex-1 overflow-y-auto"
+          role="region"
+          aria-label="Table details"
+        >
           {/* Table Info */}
-          <div className="border-b p-4">
+          <div className="border-b border-border/70 p-5">
             <div className="flex items-center gap-2 mb-2">
               <Table className="h-4 w-4 text-primary" aria-hidden="true" />
               <h4 className="font-semibold text-sm">{selectedTable.name}</h4>
@@ -339,13 +408,16 @@ export function DiagramSidebar({ schema }: DiagramSidebarProps) {
 
           {/* All Columns */}
           <div className="border-b">
-            <div className="p-3 bg-muted/50">
-              <h5 className="text-xs font-medium uppercase text-muted-foreground">Columns</h5>
+            <div className="p-3 bg-muted/40">
+              <h5 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                Columns
+              </h5>
             </div>
             <div className="divide-y" role="list" aria-label="Table columns">
-              {selectedTable.columns.map((column) => {
+              {selectedTable.columns.map(column => {
                 const col = column as SimplifiedColumn;
-                const typeName = typeof col.type === 'string' ? col.type : col.type?.name;
+                const typeName =
+                  typeof col.type === 'string' ? col.type : col.type?.name;
                 const isPK = col.primaryKey || col.isPrimaryKey || false;
                 const isFK = col.references || col.isForeignKey || false;
                 const isNotNull = col.isNotNull || false;
@@ -363,11 +435,35 @@ export function DiagramSidebar({ schema }: DiagramSidebarProps) {
                       )}
                     </div>
                     <div className="flex gap-2 items-center mt-1 flex-wrap">
-                      <span className="text-xs text-muted-foreground">{typeName}</span>
-                      {isPK && <span className="text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded" aria-label="Primary Key">PK</span>}
-                      {isFK && <span className="text-xs bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 px-1.5 py-0.5 rounded" aria-label="Foreign Key">FK</span>}
-                      {isNotNull && <span className="text-xs bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300 px-1.5 py-0.5 rounded">NOT NULL</span>}
-                      {isUnique && <span className="text-xs bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 px-1.5 py-0.5 rounded">UNIQUE</span>}
+                      <span className="text-xs text-muted-foreground">
+                        {typeName}
+                      </span>
+                      {isPK && (
+                        <span
+                          className="text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded"
+                          aria-label="Primary Key"
+                        >
+                          PK
+                        </span>
+                      )}
+                      {isFK && (
+                        <span
+                          className="text-xs bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 px-1.5 py-0.5 rounded"
+                          aria-label="Foreign Key"
+                        >
+                          FK
+                        </span>
+                      )}
+                      {isNotNull && (
+                        <span className="text-xs bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300 px-1.5 py-0.5 rounded">
+                          NOT NULL
+                        </span>
+                      )}
+                      {isUnique && (
+                        <span className="text-xs bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 px-1.5 py-0.5 rounded">
+                          UNIQUE
+                        </span>
+                      )}
                     </div>
                   </div>
                 );
@@ -377,39 +473,53 @@ export function DiagramSidebar({ schema }: DiagramSidebarProps) {
 
           {/* Related Relationships */}
           <div>
-            <div className="p-3 bg-muted/50">
-              <h5 className="text-xs font-medium uppercase text-muted-foreground">
+            <div className="p-3 bg-muted/40">
+              <h5 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
                 Relationships ({relatedRelationships.length})
               </h5>
             </div>
             {relatedRelationships.length > 0 ? (
-              <div className="divide-y" role="list" aria-label="Related relationships">
+              <div
+                className="divide-y"
+                role="list"
+                aria-label="Related relationships"
+              >
                 {relatedRelationships.map((rel, index) => {
                   const isOutgoing = rel.fromTable === selectedEntityId;
                   const otherTable = isOutgoing ? rel.toTable : rel.fromTable;
                   const relationshipId = rel.id || `rel-${index}`;
 
-                  const isHighlighted = highlightedRelationshipId === relationshipId;
+                  const isHighlighted =
+                    highlightedRelationshipId === relationshipId;
 
                   return (
                     <AccessibleListItem
                       key={index}
                       isHighlighted={isHighlighted}
                       onClick={() => {
-                        setHighlightedRelationshipId(isHighlighted ? null : relationshipId);
+                        setHighlightedRelationshipId(
+                          isHighlighted ? null : relationshipId
+                        );
                       }}
                       className={`px-4 py-2 hover:bg-muted/50 cursor-pointer transition-colors ${
-                        isHighlighted ? 'bg-primary/10 border-l-2 border-l-primary' : ''
+                        isHighlighted
+                          ? 'bg-primary/10 border-l-2 border-l-primary'
+                          : ''
                       }`}
                       ariaLabel={`${isOutgoing ? 'Outgoing' : 'Incoming'} relationship to ${otherTable}`}
                     >
-                      <div className={`text-xs font-medium ${isHighlighted ? 'text-primary' : ''}`}>
+                      <div
+                        className={`text-xs font-medium ${isHighlighted ? 'text-primary' : ''}`}
+                      >
                         {isOutgoing ? '→' : '←'} {otherTable}
                       </div>
                       <div className="text-xs text-muted-foreground mt-1">
-                        {rel.fromTable}.{rel.fromColumn} → {rel.toTable}.{rel.toColumn}
+                        {rel.fromTable}.{rel.fromColumn} → {rel.toTable}.
+                        {rel.toColumn}
                       </div>
-                      <div className="text-xs text-muted-foreground">{rel.type}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {rel.type}
+                      </div>
                     </AccessibleListItem>
                   );
                 })}
@@ -432,193 +542,243 @@ export function DiagramSidebar({ schema }: DiagramSidebarProps) {
     if (!schema) return null;
 
     return (
-      <div className="h-full w-full border-l bg-background">
-        <div className="border-b p-4">
-          <h3 className="text-sm font-medium">Schema Overview</h3>
-          <p className="text-xs text-muted-foreground mt-1">
-            {schema.tables.length} tables, {schema.relationships.length} relationships
+      <div className="h-full w-full bg-background/95">
+        <div className="border-b border-border/70 p-5">
+          <h3 className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">
+            Schema Overview
+          </h3>
+          <p className="mt-2 text-xs text-muted-foreground">
+            {schema.tables.length} tables, {schema.relationships.length}{' '}
+            relationships
           </p>
         </div>
 
-        <div className="flex-1 overflow-y-auto" role="navigation" aria-label="Schema navigation">
+        <div
+          className="flex-1 overflow-y-auto"
+          role="navigation"
+          aria-label="Schema navigation"
+        >
           {/* Tables Section */}
-          <div className="border-b">
-          <Button
-            variant="ghost"
-            className="w-full justify-start p-4 h-auto"
-            onClick={() => toggleSection('tables')}
-            aria-expanded={expandedSections.tables}
-            aria-controls="tables-list"
-          >
-            {expandedSections.tables ? (
-              <ChevronDown className="h-4 w-4 mr-2" aria-hidden="true" />
-            ) : (
-              <ChevronRight className="h-4 w-4 mr-2" aria-hidden="true" />
-            )}
-            <Table className="h-4 w-4 mr-2" aria-hidden="true" />
-            <span className="text-sm font-medium">Tables ({schema.tables.length})</span>
-          </Button>
-
-          {expandedSections.tables && (
-            <div id="tables-list" className="pb-2 max-h-[40vh] overflow-y-auto" role="list" aria-label="Tables">
-              {schema.tables.map((table, index) => {
-                // 스키마.테이블 형식으로 표시
-                const t = table as SimplifiedTable;
-                const displayName = t.schema ? `${t.schema}.${t.name}` : t.name;
-                const isSelected = selectedEntityId === table.name || selectedEntityId === displayName;
-                return (
-                  <AccessibleListItem
-                    key={displayName}
-                    isSelected={isSelected}
-                    onClick={() => {
-                      setSelectedEntityId(isSelected ? null : displayName);
-                    }}
-                    className={`px-4 py-2 border-l-2 cursor-pointer transition-colors ${
-                      isSelected
-                        ? 'border-l-primary bg-primary/10'
-                        : 'border-l-transparent hover:border-l-primary hover:bg-muted/50'
-                    }`}
-                    ariaLabel={`Table ${displayName}, ${table.columns.length} columns`}
-                  >
-                    <div
-                      ref={(el) => {
-                        if (el) {
-                          tableRefs.current.set(displayName, el);
-                        } else {
-                          tableRefs.current.delete(displayName);
-                        }
-                      }}
-                    >
-                      <div className={`font-medium text-sm ${isSelected ? 'text-primary' : ''}`}>
-                        {displayName}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {table.columns.length} columns
-                      </div>
-                      <div className="mt-1">
-                        {table.columns.slice(0, 3).map((column) => {
-                          // Handle both DatabaseSchema format and SimplifiedSchema format
-                          const col = column as SimplifiedColumn;
-                          const typeName = typeof col.type === 'string' ? col.type : col.type?.name;
-                          const isPK = col.primaryKey || col.isPrimaryKey || false;
-                          const isFK = col.references || col.isForeignKey || false;
-
-                          return (
-                            <div key={column.name} className="text-xs text-muted-foreground">
-                              • {column.name}: {typeName}
-                              {isPK && ' (PK)'}
-                              {isFK && ' (FK)'}
-                            </div>
-                          );
-                        })}
-                        {table.columns.length > 3 && (
-                          <div className="text-xs text-muted-foreground">
-                            ... {table.columns.length - 3} more
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </AccessibleListItem>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* Relationships Section */}
-        <div className="border-b">
-          <Button
-            variant="ghost"
-            className="w-full justify-start p-4 h-auto"
-            onClick={() => toggleSection('relationships')}
-            aria-expanded={expandedSections.relationships}
-            aria-controls="relationships-list"
-          >
-            {expandedSections.relationships ? (
-              <ChevronDown className="h-4 w-4 mr-2" aria-hidden="true" />
-            ) : (
-              <ChevronRight className="h-4 w-4 mr-2" aria-hidden="true" />
-            )}
-            <Link className="h-4 w-4 mr-2" aria-hidden="true" />
-            <span className="text-sm font-medium">Relationships ({schema.relationships.length})</span>
-          </Button>
-
-          {expandedSections.relationships && (
-            <div id="relationships-list" className="pb-2 max-h-[40vh] overflow-y-auto" role="list" aria-label="Relationships">
-              {schema.relationships.map((rel, index) => {
-                const relationshipId = rel.id || `rel-${index}`;
-                const isHighlighted = highlightedRelationshipId === relationshipId;
-
-                return (
-                  <AccessibleListItem
-                    key={index}
-                    isHighlighted={isHighlighted}
-                    onClick={() => {
-                      setHighlightedRelationshipId(isHighlighted ? null : relationshipId);
-                      setSelectedEntityId(isHighlighted ? null : `rel:${relationshipId}`);
-                    }}
-                    className={`px-4 py-2 border-l-2 cursor-pointer transition-colors ${
-                      isHighlighted
-                        ? 'bg-primary/10 border-l-primary'
-                        : 'border-l-transparent hover:border-l-primary hover:bg-muted/50'
-                    }`}
-                    ariaLabel={`Relationship from ${rel.fromTable}.${rel.fromColumn} to ${rel.toTable}.${rel.toColumn}`}
-                  >
-                    <div className={`text-xs font-medium ${isHighlighted ? 'text-primary' : ''}`}>
-                      {rel.fromTable}.{rel.fromColumn} → {rel.toTable}.{rel.toColumn}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {rel.type}
-                    </div>
-                  </AccessibleListItem>
-                );
-              })}
-              {schema.relationships.length === 0 && (
-                <div className="px-4 py-2 text-xs text-muted-foreground">
-                  No relationships defined
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Enums Section */}
-        {schema.enums && schema.enums.length > 0 && (
           <div className="border-b">
             <Button
               variant="ghost"
-              className="w-full justify-start p-4 h-auto"
-              onClick={() => toggleSection('enums')}
-              aria-expanded={expandedSections.enums}
-              aria-controls="enums-list"
+              className="h-auto w-full justify-start px-4 py-4"
+              onClick={() => toggleSection('tables')}
+              aria-expanded={expandedSections.tables}
+              aria-controls="tables-list"
             >
-              {expandedSections.enums ? (
+              {expandedSections.tables ? (
+                <ChevronDown className="mr-2 h-4 w-4" aria-hidden="true" />
+              ) : (
+                <ChevronRight className="mr-2 h-4 w-4" aria-hidden="true" />
+              )}
+              <Table className="mr-2 h-4 w-4" aria-hidden="true" />
+              <span className="text-sm font-medium">
+                Tables ({schema.tables.length})
+              </span>
+            </Button>
+
+            {expandedSections.tables && (
+              <div
+                id="tables-list"
+                className="pb-2 max-h-[40vh] overflow-y-auto"
+                role="list"
+                aria-label="Tables"
+              >
+                {schema.tables.map((table, index) => {
+                  // 스키마.테이블 형식으로 표시
+                  const t = table as SimplifiedTable;
+                  const displayName = t.schema
+                    ? `${t.schema}.${t.name}`
+                    : t.name;
+                  const isSelected =
+                    selectedEntityId === table.name ||
+                    selectedEntityId === displayName;
+                  return (
+                    <AccessibleListItem
+                      key={displayName}
+                      isSelected={isSelected}
+                      onClick={() => {
+                        setSelectedEntityId(isSelected ? null : displayName);
+                      }}
+                      className={`mx-2 rounded-2xl border px-4 py-3 cursor-pointer transition-all ${
+                        isSelected
+                          ? 'border-primary/25 bg-primary/10 shadow-sm'
+                          : 'border-transparent hover:border-border/70 hover:bg-muted/50'
+                      }`}
+                      ariaLabel={`Table ${displayName}, ${table.columns.length} columns`}
+                    >
+                      <div
+                        ref={el => {
+                          if (el) {
+                            tableRefs.current.set(displayName, el);
+                          } else {
+                            tableRefs.current.delete(displayName);
+                          }
+                        }}
+                      >
+                        <div
+                          className={`font-medium text-sm ${isSelected ? 'text-primary' : ''}`}
+                        >
+                          {displayName}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {table.columns.length} columns
+                        </div>
+                        <div className="mt-1">
+                          {table.columns.slice(0, 3).map(column => {
+                            // Handle both DatabaseSchema format and SimplifiedSchema format
+                            const col = column as SimplifiedColumn;
+                            const typeName =
+                              typeof col.type === 'string'
+                                ? col.type
+                                : col.type?.name;
+                            const isPK =
+                              col.primaryKey || col.isPrimaryKey || false;
+                            const isFK =
+                              col.references || col.isForeignKey || false;
+
+                            return (
+                              <div
+                                key={column.name}
+                                className="text-xs text-muted-foreground"
+                              >
+                                • {column.name}: {typeName}
+                                {isPK && ' (PK)'}
+                                {isFK && ' (FK)'}
+                              </div>
+                            );
+                          })}
+                          {table.columns.length > 3 && (
+                            <div className="text-xs text-muted-foreground">
+                              ... {table.columns.length - 3} more
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </AccessibleListItem>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Relationships Section */}
+          <div className="border-b">
+            <Button
+              variant="ghost"
+              className="h-auto w-full justify-start px-4 py-4"
+              onClick={() => toggleSection('relationships')}
+              aria-expanded={expandedSections.relationships}
+              aria-controls="relationships-list"
+            >
+              {expandedSections.relationships ? (
                 <ChevronDown className="h-4 w-4 mr-2" aria-hidden="true" />
               ) : (
                 <ChevronRight className="h-4 w-4 mr-2" aria-hidden="true" />
               )}
-              <Database className="h-4 w-4 mr-2" aria-hidden="true" />
-              <span className="text-sm font-medium">Enums ({schema.enums.length})</span>
+              <Link className="mr-2 h-4 w-4" aria-hidden="true" />
+              <span className="text-sm font-medium">
+                Relationships ({schema.relationships.length})
+              </span>
             </Button>
 
-            {expandedSections.enums && (
-              <div id="enums-list" className="pb-2" role="list" aria-label="Enums">
-                {schema.enums.map((enumDef) => (
-                  <div 
-                    key={enumDef.name} 
-                    className="px-4 py-2 border-l-2 border-l-transparent hover:border-l-primary hover:bg-muted/50 transition-colors"
-                    role="listitem"
-                  >
-                    <div className="font-medium text-sm">{enumDef.name}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {enumDef.values.join(', ')}
-                    </div>
+            {expandedSections.relationships && (
+              <div
+                id="relationships-list"
+                className="pb-2 max-h-[40vh] overflow-y-auto"
+                role="list"
+                aria-label="Relationships"
+              >
+                {schema.relationships.map((rel, index) => {
+                  const relationshipId = rel.id || `rel-${index}`;
+                  const isHighlighted =
+                    highlightedRelationshipId === relationshipId;
+
+                  return (
+                    <AccessibleListItem
+                      key={index}
+                      isHighlighted={isHighlighted}
+                      onClick={() => {
+                        setHighlightedRelationshipId(
+                          isHighlighted ? null : relationshipId
+                        );
+                        setSelectedEntityId(
+                          isHighlighted ? null : `rel:${relationshipId}`
+                        );
+                      }}
+                      className={`mx-2 rounded-2xl border px-4 py-3 cursor-pointer transition-all ${
+                        isHighlighted
+                          ? 'border-primary/25 bg-primary/10 shadow-sm'
+                          : 'border-transparent hover:border-border/70 hover:bg-muted/50'
+                      }`}
+                      ariaLabel={`Relationship from ${rel.fromTable}.${rel.fromColumn} to ${rel.toTable}.${rel.toColumn}`}
+                    >
+                      <div
+                        className={`text-xs font-medium ${isHighlighted ? 'text-primary' : ''}`}
+                      >
+                        {rel.fromTable}.{rel.fromColumn} → {rel.toTable}.
+                        {rel.toColumn}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {rel.type}
+                      </div>
+                    </AccessibleListItem>
+                  );
+                })}
+                {schema.relationships.length === 0 && (
+                  <div className="px-4 py-2 text-xs text-muted-foreground">
+                    No relationships defined
                   </div>
-                ))}
+                )}
               </div>
             )}
           </div>
-        )}
+
+          {/* Enums Section */}
+          {schema.enums && schema.enums.length > 0 && (
+            <div className="border-b">
+              <Button
+                variant="ghost"
+                className="w-full justify-start p-4 h-auto"
+                onClick={() => toggleSection('enums')}
+                aria-expanded={expandedSections.enums}
+                aria-controls="enums-list"
+              >
+                {expandedSections.enums ? (
+                  <ChevronDown className="h-4 w-4 mr-2" aria-hidden="true" />
+                ) : (
+                  <ChevronRight className="h-4 w-4 mr-2" aria-hidden="true" />
+                )}
+                <Database className="h-4 w-4 mr-2" aria-hidden="true" />
+                <span className="text-sm font-medium">
+                  Enums ({schema.enums.length})
+                </span>
+              </Button>
+
+              {expandedSections.enums && (
+                <div
+                  id="enums-list"
+                  className="pb-2"
+                  role="list"
+                  aria-label="Enums"
+                >
+                  {schema.enums.map(enumDef => (
+                    <div
+                      key={enumDef.name}
+                      className="px-4 py-2 border-l-2 border-l-transparent hover:border-l-primary hover:bg-muted/50 transition-colors"
+                      role="listitem"
+                    >
+                      <div className="font-medium text-sm">{enumDef.name}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {enumDef.values.join(', ')}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
     );

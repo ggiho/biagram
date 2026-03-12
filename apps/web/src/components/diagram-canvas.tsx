@@ -2,7 +2,12 @@
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { DiagramEngine } from '@biagram/diagram-engine';
-import type { TableRenderData, ThemeConfig, Table, Relationship } from '@biagram/shared';
+import type {
+  TableRenderData,
+  ThemeConfig,
+  Table,
+  Relationship,
+} from '@biagram/shared';
 import { useDiagramEngine } from '@/contexts/diagram-context';
 import { useTheme } from '@/contexts/theme-context';
 import {
@@ -18,15 +23,21 @@ import { calculateOrthogonalRoute } from '@/lib/edge-routing';
 interface ParsedSchema {
   tables: Table[];
   relationships: Relationship[];
-  enums?: Array<{ name: string; values: Array<{ name: string; note?: string }> }>;
+  enums?: Array<{
+    name: string;
+    values: Array<{ name: string; note?: string }>;
+  }>;
 }
 
 interface DiagramCanvasProps {
   schema: ParsedSchema | null;
   parseError?: string | null;
+  isLoading?: boolean;
   className?: string;
   initialTablePositions?: Record<string, { x: number; y: number }>;
-  onTablePositionsChange?: (positions: Record<string, { x: number; y: number }>) => void;
+  onTablePositionsChange?: (
+    positions: Record<string, { x: number; y: number }>
+  ) => void;
   onTableDoubleClick?: (tableName: string) => void;
 }
 
@@ -42,12 +53,17 @@ function matchesTableName(table: TableRenderData, targetName: string): boolean {
   if (table.name === targetName) return true;
 
   // 3. 스키마 분리해서 매칭
-  const targetParts = targetName.includes('.') ? targetName.split('.') : [undefined, targetName];
+  const targetParts = targetName.includes('.')
+    ? targetName.split('.')
+    : [undefined, targetName];
   const targetSchema = targetParts.length > 1 ? targetParts[0] : undefined;
   const targetTable = targetParts.length > 1 ? targetParts[1] : targetParts[0];
 
-  const tableParts = table.name.includes('.') ? table.name.split('.') : [undefined, table.name];
-  const tableSchema = table.schema || (tableParts.length > 1 ? tableParts[0] : undefined);
+  const tableParts = table.name.includes('.')
+    ? table.name.split('.')
+    : [undefined, table.name];
+  const tableSchema =
+    table.schema || (tableParts.length > 1 ? tableParts[0] : undefined);
   const tableName = tableParts.length > 1 ? tableParts[1] : tableParts[0];
 
   // 스키마와 테이블명 모두 일치해야 함
@@ -65,16 +81,24 @@ function matchesRelationshipTableName(
 ): boolean {
   if (relationshipTableName === targetName) return true;
 
-  const relationshipParts = relationshipTableName.includes('.') ? relationshipTableName.split('.') : [undefined, relationshipTableName];
-  const relationshipSchema = relationshipParts.length > 1 ? relationshipParts[0] : undefined;
-  const relationshipTable = relationshipParts.length > 1 ? relationshipParts[1] : relationshipParts[0];
+  const relationshipParts = relationshipTableName.includes('.')
+    ? relationshipTableName.split('.')
+    : [undefined, relationshipTableName];
+  const relationshipSchema =
+    relationshipParts.length > 1 ? relationshipParts[0] : undefined;
+  const relationshipTable =
+    relationshipParts.length > 1 ? relationshipParts[1] : relationshipParts[0];
 
-  const targetParts = targetName.includes('.') ? targetName.split('.') : [undefined, targetName];
+  const targetParts = targetName.includes('.')
+    ? targetName.split('.')
+    : [undefined, targetName];
   const targetSchema = targetParts.length > 1 ? targetParts[0] : undefined;
   const targetTable = targetParts.length > 1 ? targetParts[1] : targetParts[0];
 
   if (relationshipSchema && targetSchema) {
-    return relationshipSchema === targetSchema && relationshipTable === targetTable;
+    return (
+      relationshipSchema === targetSchema && relationshipTable === targetTable
+    );
   }
 
   return relationshipTable === targetTable;
@@ -86,8 +110,14 @@ function getCombinedTableBounds(
 ): { x: number; y: number; width: number; height: number } {
   const minX = Math.min(firstTable.bounds.x, secondTable.bounds.x);
   const minY = Math.min(firstTable.bounds.y, secondTable.bounds.y);
-  const maxX = Math.max(firstTable.bounds.x + firstTable.bounds.width, secondTable.bounds.x + secondTable.bounds.width);
-  const maxY = Math.max(firstTable.bounds.y + firstTable.bounds.height, secondTable.bounds.y + secondTable.bounds.height);
+  const maxX = Math.max(
+    firstTable.bounds.x + firstTable.bounds.width,
+    secondTable.bounds.x + secondTable.bounds.width
+  );
+  const maxY = Math.max(
+    firstTable.bounds.y + firstTable.bounds.height,
+    secondTable.bounds.y + secondTable.bounds.height
+  );
 
   return {
     x: minX,
@@ -97,7 +127,6 @@ function getCombinedTableBounds(
   };
 }
 
-
 /**
  * 새로운 아키텍처:
  * 1. React가 데이터(tables, relationships) 완전 소유
@@ -105,7 +134,15 @@ function getCombinedTableBounds(
  * 3. 리사이즈/뷰포트 변경 시에도 데이터는 React에 안전하게 보관
  * 4. 모든 렌더링은 React의 현재 데이터를 사용
  */
-export function DiagramCanvas({ schema, parseError, className, initialTablePositions, onTablePositionsChange, onTableDoubleClick }: DiagramCanvasProps) {
+export function DiagramCanvas({
+  schema,
+  parseError,
+  isLoading = false,
+  className,
+  initialTablePositions,
+  onTablePositionsChange,
+  onTableDoubleClick,
+}: DiagramCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const engineRef = useRef<DiagramEngine | null>(null);
@@ -117,8 +154,16 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
   const hasZoomedToFitRef = useRef(false); // zoomToFit 실행 여부 추적
 
   // 🔄 Custom Hooks
-  const { calculateAllRelationships, findTableDataByName, findTableByName } = useRelationshipRouting();
-  const { measureTextWidth, getTableDimensions, assignSchemaColors, calculateGridPositions, collectConnectedColumns, getTableStyle } = useTableLayout();
+  const { calculateAllRelationships, findTableDataByName, findTableByName } =
+    useRelationshipRouting();
+  const {
+    measureTextWidth,
+    getTableDimensions,
+    assignSchemaColors,
+    calculateGridPositions,
+    collectConnectedColumns,
+    getTableStyle,
+  } = useTableLayout();
   const canvasInteraction = useCanvasInteraction();
   const canvasSelection = useCanvasSelection();
 
@@ -131,7 +176,15 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
 
   const [isReady, setIsReady] = useState(false);
   const diagramContext = useDiagramEngine();
-  const { setEngine, showGrid, showComments, selectedEntityId, setSelectedEntityId, highlightedRelationshipId, setHighlightedRelationshipId } = diagramContext || {
+  const {
+    setEngine,
+    showGrid,
+    showComments,
+    selectedEntityId,
+    setSelectedEntityId,
+    highlightedRelationshipId,
+    setHighlightedRelationshipId,
+  } = diagramContext || {
     setEngine: () => {},
     showGrid: true,
     showComments: true,
@@ -142,11 +195,16 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
   };
   const { theme } = useTheme();
   const themeRef = useRef(theme);
-  
+
   // 관계 선택 시 뷰포트 저장 (복원용)
-  const savedViewportRef = useRef<{ zoom: number; pan: { x: number; y: number } } | null>(null);
+  const savedViewportRef = useRef<{
+    zoom: number;
+    pan: { x: number; y: number };
+  } | null>(null);
   const selectedEntityIdRef = useRef<string | null>(selectedEntityId);
-  const highlightedRelationshipIdRef = useRef<string | null>(highlightedRelationshipId);
+  const highlightedRelationshipIdRef = useRef<string | null>(
+    highlightedRelationshipId
+  );
 
   // 테마 ref 항상 최신 상태 유지
   useEffect(() => {
@@ -170,47 +228,52 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
     }
 
     // 테마 설정 생성 (ref에서 가져오기)
-    const themeConfig: ThemeConfig = themeRef.current === 'dark' ? {
-      mode: 'dark',
-      colors: {
-        primary: '#3b82f6',
-        secondary: '#6b7280',
-        background: '#111827',  // 다크 모드 배경
-        surface: '#1f2937',
-        text: '#e5e7eb',
-        textSecondary: '#9ca3af',
-        border: '#374151',
-        accent: '#60a5fa',
-        success: '#10b981',
-        warning: '#f59e0b',
-        error: '#ef4444',
-      },
-      typography: {
-        fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif',
-        fontSize: 14,
-        lineHeight: 1.5,
-      },
-    } : {
-      mode: 'light',
-      colors: {
-        primary: '#3b82f6',
-        secondary: '#6b7280',
-        background: '#ffffff',  // 라이트 모드 배경
-        surface: '#f9fafb',
-        text: '#374151',
-        textSecondary: '#6b7280',
-        border: '#e5e7eb',
-        accent: '#3b82f6',
-        success: '#10b981',
-        warning: '#f59e0b',
-        error: '#ef4444',
-      },
-      typography: {
-        fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif',
-        fontSize: 14,
-        lineHeight: 1.5,
-      },
-    };
+    const themeConfig: ThemeConfig =
+      themeRef.current === 'dark'
+        ? {
+            mode: 'dark',
+            colors: {
+              primary: '#3b82f6',
+              secondary: '#8b9bb5',
+              background: '#09111f',
+              surface: '#111a2d',
+              text: '#e6edf7',
+              textSecondary: '#95a4bd',
+              border: '#23314c',
+              accent: '#7c3aed',
+              success: '#10b981',
+              warning: '#f59e0b',
+              error: '#ef4444',
+            },
+            typography: {
+              fontFamily:
+                'ui-sans-serif, "SF Pro Display", "Segoe UI Variable Display", "Segoe UI", sans-serif',
+              fontSize: 14,
+              lineHeight: 1.5,
+            },
+          }
+        : {
+            mode: 'light',
+            colors: {
+              primary: '#2563eb',
+              secondary: '#64748b',
+              background: '#f4f7fb',
+              surface: '#ffffff',
+              text: '#0f172a',
+              textSecondary: '#516072',
+              border: '#d7e0ea',
+              accent: '#4f46e5',
+              success: '#10b981',
+              warning: '#f59e0b',
+              error: '#ef4444',
+            },
+            typography: {
+              fontFamily:
+                'ui-sans-serif, "SF Pro Display", "Segoe UI Variable Display", "Segoe UI", sans-serif',
+              fontSize: 14,
+              lineHeight: 1.5,
+            },
+          };
 
     // React가 소유한 최신 데이터로 렌더링
     // console.log('🎨 safeRender: calling engine.updateData');
@@ -227,33 +290,36 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
   }, []); // 빈 dependency - safeRender는 항상 안정적
 
   // 🔄 관계선 재계산 헬퍼 함수 (중복 코드 제거)
-  const recalculateRelationships = useCallback((options?: {
-    selectedId?: string | null;
-    highlightedId?: string | null;
-  }) => {
-    if (!schemaRef.current?.relationships) return;
+  const recalculateRelationships = useCallback(
+    (options?: {
+      selectedId?: string | null;
+      highlightedId?: string | null;
+    }) => {
+      if (!schemaRef.current?.relationships) return;
 
-    const selectedRelationshipId =
-      options?.selectedId !== undefined
-        ? options.selectedId
-        : (selectedEntityIdRef.current?.startsWith('rel:')
+      const selectedRelationshipId =
+        options?.selectedId !== undefined
+          ? options.selectedId
+          : selectedEntityIdRef.current?.startsWith('rel:')
             ? selectedEntityIdRef.current.replace('rel:', '')
-            : null);
-    const highlightedId =
-      options?.highlightedId !== undefined
-        ? options.highlightedId
-        : highlightedRelationshipIdRef.current;
+            : null;
+      const highlightedId =
+        options?.highlightedId !== undefined
+          ? options.highlightedId
+          : highlightedRelationshipIdRef.current;
 
-    relationshipsRef.current = calculateAllRelationships(
-      schemaRef.current.relationships,
-      tablesRef.current,
-      schemaRef.current.tables || [],
-      {
-        selectedId: selectedRelationshipId,
-        highlightedId,
-      }
-    );
-  }, [calculateAllRelationships]);
+      relationshipsRef.current = calculateAllRelationships(
+        schemaRef.current.relationships,
+        tablesRef.current,
+        schemaRef.current.tables || [],
+        {
+          selectedId: selectedRelationshipId,
+          highlightedId,
+        }
+      );
+    },
+    [calculateAllRelationships]
+  );
 
   // showGrid 변경 시 엔진에 반영
   useEffect(() => {
@@ -270,28 +336,30 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
   }, [showComments]);
 
   // 캔버스 리사이즈 핸들러
-  const handleCanvasResize = useCallback((width: number, height: number) => {
-    if (!canvasRef.current || !engineRef.current) return;
+  const handleCanvasResize = useCallback(
+    (width: number, height: number) => {
+      if (!canvasRef.current || !engineRef.current) return;
 
-    const dpr = window.devicePixelRatio || 1;
+      const dpr = window.devicePixelRatio || 1;
 
-    // 캔버스 크기 설정
-    canvasRef.current.width = width * dpr;
-    canvasRef.current.height = height * dpr;
-    canvasRef.current.style.width = `${width}px`;
-    canvasRef.current.style.height = `${height}px`;
+      // 캔버스 크기 설정
+      canvasRef.current.width = width * dpr;
+      canvasRef.current.height = height * dpr;
+      canvasRef.current.style.width = `${width}px`;
+      canvasRef.current.style.height = `${height}px`;
 
-    // 뷰포트 업데이트 후 데이터 다시 렌더링
-    engineRef.current.getViewportManager().updateCanvasSize();
+      // 뷰포트 업데이트 후 데이터 다시 렌더링
+      engineRef.current.getViewportManager().updateCanvasSize();
 
-    // 중요: 데이터 다시 적용
-    safeRender();
-  }, [safeRender]);
+      // 중요: 데이터 다시 적용
+      safeRender();
+    },
+    [safeRender]
+  );
 
   // 엔진 초기화 - 한 번만 실행
   useEffect(() => {
     if (!canvasRef.current || !containerRef.current) return;
-
 
     try {
       const engine = new DiagramEngine(canvasRef.current, {
@@ -328,7 +396,7 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
       }
 
       // ResizeObserver 설정
-      const resizeObserver = new ResizeObserver((entries) => {
+      const resizeObserver = new ResizeObserver(entries => {
         const entry = entries[0];
         if (!entry) return;
 
@@ -374,7 +442,10 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
       const DRAG_THRESHOLD = 5; // pixels
 
       // 테이블 히트 테스트
-      const findTableAtPosition = (canvasX: number, canvasY: number): string | null => {
+      const findTableAtPosition = (
+        canvasX: number,
+        canvasY: number
+      ): string | null => {
         const viewport = engine.getViewportManager().getViewport();
 
         // 스크린 좌표를 월드 좌표로 변환
@@ -388,8 +459,12 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
 
           const { x, y, width, height } = table.bounds;
 
-          if (worldX >= x && worldX <= x + width &&
-              worldY >= y && worldY <= y + height) {
+          if (
+            worldX >= x &&
+            worldX <= x + width &&
+            worldY >= y &&
+            worldY <= y + height
+          ) {
             return table.id; // Use table.id (fullTableName with schema) for sidebar matching
           }
         }
@@ -397,7 +472,10 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
       };
 
       // 관계선 히트 테스트 - Orthogonal routing 지원
-      const findRelationshipAtPosition = (canvasX: number, canvasY: number): string | null => {
+      const findRelationshipAtPosition = (
+        canvasX: number,
+        canvasY: number
+      ): string | null => {
         const viewport = engine.getViewportManager().getViewport();
 
         // 스크린 좌표를 월드 좌표로 변환
@@ -406,7 +484,6 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
 
         // Zoom-adjusted hit width (줄인 값)
         const hitWidth = 10 / viewport.zoom;
-
 
         // 모든 관계선에 대해 hit test
         for (const rel of relationshipsRef.current) {
@@ -428,7 +505,14 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
             if (!p1 || !p2) continue;
 
             // 점과 선분 사이의 최단 거리 계산
-            const distance = distanceToSegment(worldX, worldY, p1.x, p1.y, p2.x, p2.y);
+            const distance = distanceToSegment(
+              worldX,
+              worldY,
+              p1.x,
+              p1.y,
+              p2.x,
+              p2.y
+            );
 
             if (distance <= hitWidth) {
               return relData.id;
@@ -441,9 +525,12 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
 
       // 점과 선분 사이의 최단 거리 계산 (helper function)
       const distanceToSegment = (
-        px: number, py: number,
-        x1: number, y1: number,
-        x2: number, y2: number
+        px: number,
+        py: number,
+        x1: number,
+        y1: number,
+        x2: number,
+        y2: number
       ): number => {
         const dx = x2 - x1;
         const dy = y2 - y1;
@@ -462,7 +549,9 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
         const closestY = y1 + t * dy;
 
         // 점과 가장 가까운 점 사이의 거리
-        return Math.sqrt((px - closestX) * (px - closestX) + (py - closestY) * (py - closestY));
+        return Math.sqrt(
+          (px - closestX) * (px - closestX) + (py - closestY) * (py - closestY)
+        );
       };
 
       const handleMouseDown = (e: MouseEvent) => {
@@ -470,12 +559,13 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
         const canvasX = e.clientX - rect.left;
         const canvasY = e.clientY - rect.top;
 
-
         // 관계선 클릭 확인 (먼저 체크)
         const relationshipId = findRelationshipAtPosition(canvasX, canvasY);
 
         // 관계선이 없으면 테이블 클릭 확인
-        const tableId = relationshipId ? null : findTableAtPosition(canvasX, canvasY);
+        const tableId = relationshipId
+          ? null
+          : findTableAtPosition(canvasX, canvasY);
 
         // 초기 상태 기록
         mouseDownPos = { x: e.clientX, y: e.clientY };
@@ -487,7 +577,12 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
         if (tableId && !e.ctrlKey && !e.metaKey && e.button === 0) {
           // 테이블 위에서 마우스다운 - 아직 드래그인지 클릭인지 모름
           e.preventDefault();
-        } else if (relationshipId && !e.ctrlKey && !e.metaKey && e.button === 0) {
+        } else if (
+          relationshipId &&
+          !e.ctrlKey &&
+          !e.metaKey &&
+          e.button === 0
+        ) {
           // 관계선 위에서 마우스다운 - 클릭으로 처리 (드래그 안 함)
           e.preventDefault();
         } else if (e.button === 0 || e.button === 1 || e.ctrlKey || e.metaKey) {
@@ -527,7 +622,9 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
           const worldDeltaY = deltaY / viewport.zoom;
 
           // tablesRef에서 해당 테이블 찾아서 위치 업데이트
-          const tableIndex = tablesRef.current.findIndex(t => t.id === draggedTableId);
+          const tableIndex = tablesRef.current.findIndex(
+            t => t.id === draggedTableId
+          );
           if (tableIndex !== -1 && tablesRef.current[tableIndex]) {
             tablesRef.current[tableIndex]!.bounds.x += worldDeltaX;
             tablesRef.current[tableIndex]!.bounds.y += worldDeltaY;
@@ -574,13 +671,19 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
         if (!hasMoved && mouseDownTableId) {
           setSelectedEntityId(mouseDownTableId);
           setHighlightedRelationshipId(null); // 관계 하이라이트 초기화
-          
+
           // 🎯 저장된 뷰포트가 있으면 복원 (관계 선택 해제 시)
           if (savedViewportRef.current) {
             const viewportManager = engine.getViewportManager();
             // panTo로 위치 이동 후 zoomTo로 줌 복원
-            const centerX = (viewportManager.getViewport().bounds.width / 2 - savedViewportRef.current.pan.x) / savedViewportRef.current.zoom;
-            const centerY = (viewportManager.getViewport().bounds.height / 2 - savedViewportRef.current.pan.y) / savedViewportRef.current.zoom;
+            const centerX =
+              (viewportManager.getViewport().bounds.width / 2 -
+                savedViewportRef.current.pan.x) /
+              savedViewportRef.current.zoom;
+            const centerY =
+              (viewportManager.getViewport().bounds.height / 2 -
+                savedViewportRef.current.pan.y) /
+              savedViewportRef.current.zoom;
             viewportManager.panTo({ x: centerX, y: centerY }, false);
             viewportManager.zoomTo(savedViewportRef.current.zoom, true);
             savedViewportRef.current = null;
@@ -598,7 +701,9 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
           setHighlightedRelationshipId(mouseDownRelationshipId); // 사이드바와 동기화
 
           // 선택된 관계선 찾기
-          const selectedRel: any = relationshipsRef.current.find((rel: any) => rel.id === mouseDownRelationshipId);
+          const selectedRel: any = relationshipsRef.current.find(
+            (rel: any) => rel.id === mouseDownRelationshipId
+          );
 
           // 관계와 연결된 테이블들만 하이라이트
           if (selectedRel) {
@@ -608,22 +713,35 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
             if (!savedViewportRef.current) {
               savedViewportRef.current = {
                 zoom: currentViewport.zoom,
-                pan: { x: currentViewport.pan.x, y: currentViewport.pan.y }
+                pan: { x: currentViewport.pan.x, y: currentViewport.pan.y },
               };
             }
 
-            const fromTable = tablesRef.current.find(t => matchesTableName(t, selectedRel.fromTable));
-            const toTable = tablesRef.current.find(t => matchesTableName(t, selectedRel.toTable));
-            
+            const fromTable = tablesRef.current.find(t =>
+              matchesTableName(t, selectedRel.fromTable)
+            );
+            const toTable = tablesRef.current.find(t =>
+              matchesTableName(t, selectedRel.toTable)
+            );
+
             tablesRef.current = tablesRef.current.map(table => ({
               ...table,
-              isSelected: matchesTableName(table, selectedRel.fromTable) || matchesTableName(table, selectedRel.toTable),
+              isSelected:
+                matchesTableName(table, selectedRel.fromTable) ||
+                matchesTableName(table, selectedRel.toTable),
             }));
 
-            recalculateRelationships({ selectedId: mouseDownRelationshipId, highlightedId: mouseDownRelationshipId });
+            recalculateRelationships({
+              selectedId: mouseDownRelationshipId,
+              highlightedId: mouseDownRelationshipId,
+            });
 
             if (fromTable && toTable) {
-              viewportManager.fitToRect(getCombinedTableBounds(fromTable, toTable), 120, true);
+              viewportManager.fitToRect(
+                getCombinedTableBounds(fromTable, toTable),
+                120,
+                true
+              );
             }
           } else {
             // 관계를 찾지 못한 경우 모든 테이블 선택 해제
@@ -637,13 +755,19 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
           // 배경 클릭 - 선택 해제
           setSelectedEntityId(null);
           setHighlightedRelationshipId(null); // 관계 하이라이트도 초기화
-          
+
           // 🎯 저장된 뷰포트가 있으면 복원
           if (savedViewportRef.current) {
             const viewportManager = engine.getViewportManager();
             // panTo로 위치 이동 후 zoomTo로 줌 복원
-            const centerX = (viewportManager.getViewport().bounds.width / 2 - savedViewportRef.current.pan.x) / savedViewportRef.current.zoom;
-            const centerY = (viewportManager.getViewport().bounds.height / 2 - savedViewportRef.current.pan.y) / savedViewportRef.current.zoom;
+            const centerX =
+              (viewportManager.getViewport().bounds.width / 2 -
+                savedViewportRef.current.pan.x) /
+              savedViewportRef.current.zoom;
+            const centerY =
+              (viewportManager.getViewport().bounds.height / 2 -
+                savedViewportRef.current.pan.y) /
+              savedViewportRef.current.zoom;
             viewportManager.panTo({ x: centerX, y: centerY }, false);
             viewportManager.zoomTo(savedViewportRef.current.zoom, true);
             savedViewportRef.current = null;
@@ -656,10 +780,12 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
           }));
 
           // 모든 관계선 선택 해제
-          relationshipsRef.current = relationshipsRef.current.map((rel: any) => ({
-            ...rel,
-            isSelected: false,
-          }));
+          relationshipsRef.current = relationshipsRef.current.map(
+            (rel: any) => ({
+              ...rel,
+              isSelected: false,
+            })
+          );
           safeRender();
         }
 
@@ -784,7 +910,7 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
       const connectedColumns = new Map<string, Set<string>>(); // tableName -> Set<columnName>
       // 🔗 Ref로 연결된 FK 컬럼 추적 (fromColumn은 논리적 FK) + 참조 테이블 정보
       const fkColumnRefs = new Map<string, Map<string, string>>(); // tableName -> Map<columnName, refTableName>
-      
+
       (schema.relationships || []).forEach((rel: any) => {
         if (!connectedColumns.has(rel.fromTable)) {
           connectedColumns.set(rel.fromTable, new Set());
@@ -794,7 +920,7 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
         }
         connectedColumns.get(rel.fromTable)?.add(rel.fromColumn);
         connectedColumns.get(rel.toTable)?.add(rel.toColumn);
-        
+
         // Ref의 fromColumn은 논리적 FK로 표시 + 참조 테이블 저장
         if (!fkColumnRefs.has(rel.fromTable)) {
           fkColumnRefs.set(rel.fromTable, new Map());
@@ -803,7 +929,12 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
       });
 
       // 🚀 텍스트 너비를 측정하는 헬퍼 함수 (캐싱 최적화)
-      const measureTextWidth = (text: string, fontSize: number, fontFamily: string, fontWeight: string = 'normal'): number => {
+      const measureTextWidth = (
+        text: string,
+        fontSize: number,
+        fontFamily: string,
+        fontWeight: string = 'normal'
+      ): number => {
         if (!canvasRef.current) return text.length * 8; // fallback
 
         // 캐시 키 생성
@@ -853,12 +984,14 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
         '#f43f5e', // rose
         '#0d9488', // teal darker
       ];
-      
+
       let colorIndex = 0;
       (schema.tables || []).forEach((table: any) => {
         if (!table.name) return;
         // Use table.schema if available, otherwise try to extract from name
-        const schemaName = table.schema || (table.name.includes('.') ? table.name.split('.')[0] : undefined);
+        const schemaName =
+          table.schema ||
+          (table.name.includes('.') ? table.name.split('.')[0] : undefined);
         if (schemaName && !schemaColors.has(schemaName)) {
           const color = colorPalette[colorIndex % colorPalette.length];
           if (color) {
@@ -877,14 +1010,18 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
         setIsProcessing(true);
 
         let aborted = false;
-        processingAbortRef.current = () => { aborted = true; };
+        processingAbortRef.current = () => {
+          aborted = true;
+        };
 
         // 🎯 스키마별 테이블 그룹핑 및 초기 위치 계산
         const tablesBySchema = new Map<string, any[]>();
         const noSchemaKey = '__no_schema__';
-        
+
         allTables.forEach((table: any) => {
-          const schemaName = table.schema || (table.name.includes('.') ? table.name.split('.')[0] : undefined);
+          const schemaName =
+            table.schema ||
+            (table.name.includes('.') ? table.name.split('.')[0] : undefined);
           const key = schemaName || noSchemaKey;
           if (!tablesBySchema.has(key)) {
             tablesBySchema.set(key, []);
@@ -895,29 +1032,44 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
         // 각 테이블의 예상 크기 계산 (실제 렌더링 크기와 일치하도록)
         const getTableDimensions = (table: any) => {
           const columnCount = table.columns?.length || 0;
-          // 실제 렌더링: headerHeight(32) + rowHeight(24) * columnCount + padding(12)
-          const height = 32 + (columnCount * 24) + 12;
-          
+          // 실제 렌더링과 맞춤: headerHeight(40) + rowHeight(28) * columnCount
+          const height = 40 + columnCount * 28;
+
           // 테이블명 길이 기반 동적 너비
-          const tableSchema = table.schema || (table.name.includes('.') ? table.name.split('.')[0] : undefined);
-          const tName = table.name.includes('.') ? table.name.split('.')[1] : table.name;
+          const tableSchema =
+            table.schema ||
+            (table.name.includes('.') ? table.name.split('.')[0] : undefined);
+          const tName = table.name.includes('.')
+            ? table.name.split('.')[1]
+            : table.name;
           const fullName = tableSchema ? `${tableSchema}.${tName}` : tName;
-          
+
           // 대략적인 텍스트 너비 계산 (캔버스 없이)
           // 실제 렌더링: maxColumnWidth + padding * 2 + 50, padding = 12
           const estimatedNameWidth = fullName.length * 9; // 평균 문자 너비
-          const maxColWidth = Math.max(...(table.columns || []).map((c: any) => 
-            (`${c.name} ${typeof c.type === 'string' ? c.type : c.type?.name || ''}`).length * 8
-          ), 0);
-          
+          const maxColWidth = Math.max(
+            ...(table.columns || []).map(
+              (c: any) =>
+                `${c.name} ${typeof c.type === 'string' ? c.type : c.type?.name || ''}`
+                  .length * 8
+            ),
+            0
+          );
+
           // 실제 렌더링 공식과 유사하게: max(200, maxWidth + 24 + 50)
-          const width = Math.max(200, Math.max(estimatedNameWidth, maxColWidth) + 74);
+          const width = Math.max(
+            200,
+            Math.max(estimatedNameWidth, maxColWidth) + 74
+          );
           return { width, height };
         };
 
         // 스키마별로 테이블 위치 미리 계산 (저장된 위치 없는 것만)
         // 🎯 가로로 넓게 펼치는 그리드 레이아웃
-        const precomputedPositions = new Map<string, { x: number; y: number }>();
+        const precomputedPositions = new Map<
+          string,
+          { x: number; y: number }
+        >();
         const TABLE_GAP_X = 100; // 테이블 간 가로 여백 (넉넉하게)
         const TABLE_GAP_Y = 80; // 테이블 간 세로 여백 (넉넉하게)
         const START_X = 50;
@@ -960,11 +1112,10 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
           }
 
           precomputedPositions.set(tableName, { x: currentX, y: currentY });
-          
+
           currentX += width + TABLE_GAP_X;
           rowMaxHeight = Math.max(rowMaxHeight, height);
         }
-
 
         const allProcessedTables: TableRenderData[] = [];
 
@@ -977,148 +1128,190 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
           const end = Math.min(start + CHUNK_SIZE, allTables.length);
           const chunk = allTables.slice(start, end);
 
-
           // 청크 처리를 비동기로 (브라우저에 제어권 반환)
           await new Promise(resolve => setTimeout(resolve, 0));
 
-          const processedChunk: TableRenderData[] = chunk.map((table: any, localIndex: number) => {
-            const index = start + localIndex;
-        // 저장된 위치가 있으면 사용, 없으면 미리 계산된 위치 사용
-        const savedPosition = initialTablePositions?.[table.name];
-        const precomputedPosition = precomputedPositions.get(table.name);
-        
-        // 위치 결정: 저장된 위치 > 미리 계산된 위치 > 폴백
-        const defaultX = precomputedPosition?.x ?? (50 + (index % 4) * 320);
-        const defaultY = precomputedPosition?.y ?? (50 + Math.floor(index / 4) * 200);
+          const processedChunk: TableRenderData[] = chunk.map(
+            (table: any, localIndex: number) => {
+              const index = start + localIndex;
+              // 저장된 위치가 있으면 사용, 없으면 미리 계산된 위치 사용
+              const savedPosition = initialTablePositions?.[table.name];
+              const precomputedPosition = precomputedPositions.get(table.name);
 
-        if (savedPosition) {
-        }
+              // 위치 결정: 저장된 위치 > 미리 계산된 위치 > 폴백
+              const defaultX = precomputedPosition?.x ?? 50 + (index % 4) * 320;
+              const defaultY =
+                precomputedPosition?.y ?? 50 + Math.floor(index / 4) * 200;
 
-        // Parse schema.table notation first (needed for width calculation)
-        const tableSchema = table.schema || (table.name.includes('.') ? table.name.split('.')[0] : undefined);
-        const tableName = table.name.includes('.') ? table.name.split('.')[1] : table.name;
-        const fullTableName = tableSchema ? `${tableSchema}.${tableName}` : tableName;
+              if (savedPosition) {
+              }
 
-        // 동적 너비 계산
-        const fontSize = 14;
-        const fontFamily = 'Inter, -apple-system, BlinkMacSystemFont, sans-serif';
-        const padding = 12;
-        
-        // 테이블 이름 너비 (bold) - 전체 이름(스키마.테이블) 사용
-        const tableNameWidth = measureTextWidth(fullTableName, fontSize, fontFamily, 'bold');
-        
-        // 테이블 코멘트가 있으면 헤더에 표시되므로 헤더 너비 계산에 포함
-        const noteText = table.note ? ` ${table.note}` : '';
-        const headerWidth = measureTextWidth(fullTableName + noteText, fontSize - 1, fontFamily);
-        
-        // 모든 컬럼의 최대 너비 계산
-        let maxColumnWidth = Math.max(tableNameWidth, headerWidth);
-        (table.columns || []).forEach((column: any) => {
-          // 컬럼명 + 타입 문자열 + 아이콘/note 공간
-          const columnText = `${column.name} ${column.type || ''}`;
-          const columnWidth = measureTextWidth(columnText, fontSize, fontFamily);
-          maxColumnWidth = Math.max(maxColumnWidth, columnWidth);
-        });
-        
-        // 패딩과 아이콘 공간 추가 (좌우 패딩 + 아이콘 영역)
-        const calculatedWidth = Math.max(200, maxColumnWidth + padding * 2 + 50);
-        const schemaColor = tableSchema ? schemaColors.get(tableSchema) : undefined;
-        
-        return {
-          id: fullTableName, // Use full name with schema for relationship matching
-          name: fullTableName,
-          schema: tableSchema,
-          displayName: fullTableName, // Full name with schema
-          note: table.note,
-          bounds: {
-            x: savedPosition?.x ?? defaultX,
-            y: savedPosition?.y ?? defaultY,
-            width: calculatedWidth,
-            // headerHeight(32) + rowHeight(24) * columnCount + bottomPadding(12)
-            height: 32 + ((table.columns?.length || 0) * 24) + 12,
-          },
-          columns: (table.columns || []).map((column: any) => {
-            const isConnected = connectedColumns.get(table.name)?.has(column.name) || false;
-            // FK 판단: 1) column 자체 FK 속성 2) Ref로 연결된 fromColumn (논리적 FK)
-            const refTable = fkColumnRefs.get(table.name)?.get(column.name) || 
-                             fkColumnRefs.get(fullTableName)?.get(column.name);
-            const isRefFk = !!refTable;
-            
-            // FK가 참조하는 테이블의 스키마 컬러 찾기
-            let fkRefColor: string | undefined;
-            if (isRefFk && refTable) {
-              const refSchema = refTable.includes('.') ? refTable.split('.')[0] : undefined;
-              fkRefColor = refSchema ? schemaColors.get(refSchema) : undefined;
+              // Parse schema.table notation first (needed for width calculation)
+              const tableSchema =
+                table.schema ||
+                (table.name.includes('.')
+                  ? table.name.split('.')[0]
+                  : undefined);
+              const tableName = table.name.includes('.')
+                ? table.name.split('.')[1]
+                : table.name;
+              const fullTableName = tableSchema
+                ? `${tableSchema}.${tableName}`
+                : tableName;
+
+              // 동적 너비 계산
+              const fontSize = 14;
+              const fontFamily =
+                'Inter, -apple-system, BlinkMacSystemFont, sans-serif';
+              const padding = 12;
+
+              // 테이블 이름 너비 (bold) - 전체 이름(스키마.테이블) 사용
+              const tableNameWidth = measureTextWidth(
+                fullTableName,
+                fontSize,
+                fontFamily,
+                'bold'
+              );
+
+              // 테이블 코멘트가 있으면 헤더에 표시되므로 헤더 너비 계산에 포함
+              const noteText = table.note ? ` ${table.note}` : '';
+              const headerWidth = measureTextWidth(
+                fullTableName + noteText,
+                fontSize - 1,
+                fontFamily
+              );
+
+              // 모든 컬럼의 최대 너비 계산
+              let maxColumnWidth = Math.max(tableNameWidth, headerWidth);
+              (table.columns || []).forEach((column: any) => {
+                // 컬럼명 + 타입 문자열 + 아이콘/note 공간
+                const columnText = `${column.name} ${column.type || ''}`;
+                const columnWidth = measureTextWidth(
+                  columnText,
+                  fontSize,
+                  fontFamily
+                );
+                maxColumnWidth = Math.max(maxColumnWidth, columnWidth);
+              });
+
+              // 패딩과 타입 pill 공간 추가
+              const calculatedWidth = Math.max(
+                224,
+                maxColumnWidth + padding * 2 + 76
+              );
+              const schemaColor = tableSchema
+                ? schemaColors.get(tableSchema)
+                : undefined;
+
+              return {
+                id: fullTableName, // Use full name with schema for relationship matching
+                name: fullTableName,
+                schema: tableSchema,
+                displayName: fullTableName, // Full name with schema
+                note: table.note,
+                bounds: {
+                  x: savedPosition?.x ?? defaultX,
+                  y: savedPosition?.y ?? defaultY,
+                  width: calculatedWidth,
+                  // headerHeight(40) + rowHeight(28) * columnCount
+                  height: 40 + (table.columns?.length || 0) * 28,
+                },
+                columns: (table.columns || []).map((column: any) => {
+                  const isConnected =
+                    connectedColumns.get(table.name)?.has(column.name) || false;
+                  // FK 판단: 1) column 자체 FK 속성 2) Ref로 연결된 fromColumn (논리적 FK)
+                  const refTable =
+                    fkColumnRefs.get(table.name)?.get(column.name) ||
+                    fkColumnRefs.get(fullTableName)?.get(column.name);
+                  const isRefFk = !!refTable;
+
+                  // FK가 참조하는 테이블의 스키마 컬러 찾기
+                  let fkRefColor: string | undefined;
+                  if (isRefFk && refTable) {
+                    const refSchema = refTable.includes('.')
+                      ? refTable.split('.')[0]
+                      : undefined;
+                    fkRefColor = refSchema
+                      ? schemaColors.get(refSchema)
+                      : undefined;
+                  }
+
+                  return {
+                    id: column.name,
+                    name: column.name,
+                    type: column.type || 'string',
+                    note: column.note,
+                    isPrimaryKey:
+                      column.isPrimaryKey || column.primaryKey || false,
+                    isForeignKey:
+                      column.isForeignKey || column.foreignKey || isRefFk,
+                    fkRefColor: fkRefColor, // 참조 테이블의 스키마 컬러
+                    isConnected: isConnected, // 관계선 연결 정보
+                    isSelected: false,
+                    isHovered: false,
+                  };
+                }),
+                style:
+                  theme === 'dark'
+                    ? {
+                        backgroundColor: '#0f1a2e',
+                        borderColor: schemaColor || '#32415f',
+                        borderWidth: schemaColor ? 2 : 1,
+                        borderRadius: 18,
+                        headerBackgroundColor: schemaColor || '#1a2b49',
+                        headerTextColor: '#f8fbff',
+                        headerHeight: 40,
+                        textColor: '#e2ebf7',
+                        typeTextColor: '#97a8c4',
+                        noteTextColor: '#7a8ca8',
+                        padding: 16,
+                        rowHeight: 28,
+                        fontSize: 14,
+                        fontFamily:
+                          'ui-sans-serif, "SF Pro Display", "Segoe UI Variable Display", "Segoe UI", sans-serif',
+                        fontWeight: 'normal',
+                        selectedRowColor: '#19396f',
+                        hoveredRowColor: '#16253f',
+                        connectedRowColor: '#132947',
+                        connectedBorderColor: '#60a5fa',
+                        iconSize: 16,
+                        iconSpacing: 10,
+                        shadowColor: '#02061766',
+                        shadowBlur: 22,
+                        schemaColor: schemaColor,
+                      }
+                    : {
+                        backgroundColor: '#ffffff',
+                        borderColor: schemaColor || '#cfdae8',
+                        borderWidth: schemaColor ? 2 : 1,
+                        borderRadius: 18,
+                        headerBackgroundColor: schemaColor || '#edf3fb',
+                        headerTextColor: schemaColor ? '#ffffff' : '#0f172a',
+                        headerHeight: 40,
+                        textColor: '#0f172a',
+                        typeTextColor: '#5f7189',
+                        noteTextColor: '#8292a8',
+                        padding: 16,
+                        rowHeight: 28,
+                        fontSize: 14,
+                        fontFamily:
+                          'ui-sans-serif, "SF Pro Display", "Segoe UI Variable Display", "Segoe UI", sans-serif',
+                        fontWeight: 'normal',
+                        selectedRowColor: '#d9e9ff',
+                        hoveredRowColor: '#f7faff',
+                        connectedRowColor: '#edf5ff',
+                        connectedBorderColor: '#2563eb',
+                        iconSize: 16,
+                        iconSpacing: 10,
+                        shadowColor: '#0f172a24',
+                        shadowBlur: 22,
+                        schemaColor: schemaColor,
+                      },
+                isSelected: false,
+                isHovered: false,
+              };
             }
-            
-            return {
-              id: column.name,
-              name: column.name,
-              type: column.type || 'string',
-              note: column.note,
-              isPrimaryKey: column.isPrimaryKey || column.primaryKey || false,
-              isForeignKey: column.isForeignKey || column.foreignKey || isRefFk,
-              fkRefColor: fkRefColor, // 참조 테이블의 스키마 컬러
-              isConnected: isConnected, // 관계선 연결 정보
-              isSelected: false,
-              isHovered: false,
-            };
-          }),
-        style: theme === 'dark' ? {
-          backgroundColor: '#1f2937',
-          borderColor: schemaColor || '#374151',
-          borderWidth: schemaColor ? 2 : 1,
-          borderRadius: 8,
-          headerBackgroundColor: schemaColor || '#111827',
-          headerTextColor: '#f3f4f6',
-          headerHeight: 32,
-          textColor: '#e5e7eb',
-          typeTextColor: '#9ca3af',
-          noteTextColor: '#6b7280',
-          padding: 12,
-          rowHeight: 24,
-          fontSize: 14,
-          fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif',
-          fontWeight: 'normal',
-          selectedRowColor: '#1e40af',
-          hoveredRowColor: '#374151',
-          connectedRowColor: '#1e3a8a',
-          connectedBorderColor: '#60a5fa',
-          iconSize: 16,
-          iconSpacing: 8,
-          shadowColor: '#00000040',
-          shadowBlur: 4,
-          schemaColor: schemaColor,
-        } : {
-          backgroundColor: '#ffffff',
-          borderColor: schemaColor || '#e5e7eb',
-          borderWidth: schemaColor ? 2 : 1,
-          borderRadius: 8,
-          headerBackgroundColor: schemaColor || '#f9fafb',
-          headerTextColor: schemaColor ? '#ffffff' : '#374151',
-          headerHeight: 32,
-          textColor: '#374151',
-          typeTextColor: '#6b7280',
-          noteTextColor: '#9ca3af',
-          padding: 12,
-          rowHeight: 24,
-          fontSize: 14,
-          fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif',
-          fontWeight: 'normal',
-          selectedRowColor: '#dbeafe',
-          hoveredRowColor: '#f3f4f6',
-          connectedRowColor: '#eff6ff',
-          connectedBorderColor: '#3b82f6',
-          iconSize: 16,
-          iconSpacing: 8,
-          shadowColor: '#00000020',
-          shadowBlur: 4,
-          schemaColor: schemaColor,
-        },
-            isSelected: false,
-            isHovered: false,
-          };
-          });
+          );
 
           // 청크 처리 결과 누적
           allProcessedTables.push(...processedChunk);
@@ -1131,42 +1324,42 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
 
           // 중간 렌더링 수행
           safeRender();
-
         }
 
         return allProcessedTables;
       };
 
       // 청크 기반 처리 시작
-      processTablesInChunks().then(tables => {
-        if (!tables || tables.length === 0) {
+      processTablesInChunks()
+        .then(tables => {
+          if (!tables || tables.length === 0) {
+            setIsProcessing(false);
+            return;
+          }
+
+          // 최종 렌더링
+          safeRender();
+
+          // 🚀 zoomToFit - 모든 데이터 처리 완료 후 실행 (타이밍 최적화)
+          if (!hasZoomedToFitRef.current) {
+            // 약간의 딜레이를 두어 마지막 렌더링이 완료되도록 보장
+            setTimeout(() => {
+              if (engineRef.current) {
+                engineRef.current.zoomToFit(50);
+                hasZoomedToFitRef.current = true;
+                // console.log('🎯 zoomToFit executed after all processing');
+              }
+            }, 50);
+          }
+
           setIsProcessing(false);
-          return;
-        }
-
-
-        // 최종 렌더링
-        safeRender();
-
-        // 🚀 zoomToFit - 모든 데이터 처리 완료 후 실행 (타이밍 최적화)
-        if (!hasZoomedToFitRef.current) {
-          // 약간의 딜레이를 두어 마지막 렌더링이 완료되도록 보장
-          setTimeout(() => {
-            if (engineRef.current) {
-              engineRef.current.zoomToFit(50);
-              hasZoomedToFitRef.current = true;
-              // console.log('🎯 zoomToFit executed after all processing');
-            }
-          }, 50);
-        }
-
-        setIsProcessing(false);
-        processingAbortRef.current = null;
-      }).catch(error => {
-        console.error('❌ [OPTIMIZED] 청크 처리 실패:', error);
-        setIsProcessing(false);
-        processingAbortRef.current = null;
-      });
+          processingAbortRef.current = null;
+        })
+        .catch(error => {
+          console.error('❌ [OPTIMIZED] 청크 처리 실패:', error);
+          setIsProcessing(false);
+          processingAbortRef.current = null;
+        });
     } catch (error) {
       console.error('❌ [NEW] 데이터 업데이트 실패:', error);
     }
@@ -1175,63 +1368,67 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
   // 테마 변경 시에만 스타일 업데이트 및 렌더링 (줌 상태 유지)
   useEffect(() => {
     if (isReady && engineRef.current && tablesRef.current.length > 0) {
-
       // 모든 테이블의 스타일 업데이트 (schemaColor 유지)
       tablesRef.current = tablesRef.current.map(table => {
         const schemaColor = table.style.schemaColor;
-        
-        const baseStyle = theme === 'dark' ? {
-          backgroundColor: '#1f2937',
-          borderColor: schemaColor || '#374151',
-          borderWidth: schemaColor ? 2 : 1,
-          borderRadius: 8,
-          headerBackgroundColor: schemaColor || '#111827',
-          headerTextColor: '#f3f4f6',
-          headerHeight: 32,
-          textColor: '#e5e7eb',
-          typeTextColor: '#9ca3af',
-          noteTextColor: '#6b7280',
-          padding: 12,
-          rowHeight: 24,
-          fontSize: 14,
-          fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif',
-          fontWeight: 'normal' as const,
-          selectedRowColor: '#1e40af',
-          hoveredRowColor: '#374151',
-          connectedRowColor: '#1e3a8a',
-          connectedBorderColor: '#60a5fa',
-          iconSize: 16,
-          iconSpacing: 8,
-          shadowColor: '#00000040',
-          shadowBlur: 4,
-          schemaColor: schemaColor,
-        } : {
-          backgroundColor: '#ffffff',
-          borderColor: schemaColor || '#e5e7eb',
-          borderWidth: schemaColor ? 2 : 1,
-          borderRadius: 8,
-          headerBackgroundColor: schemaColor || '#f9fafb',
-          headerTextColor: schemaColor ? '#ffffff' : '#374151',
-          headerHeight: 32,
-          textColor: '#374151',
-          typeTextColor: '#6b7280',
-          noteTextColor: '#9ca3af',
-          padding: 12,
-          rowHeight: 24,
-          fontSize: 14,
-          fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif',
-          fontWeight: 'normal' as const,
-          selectedRowColor: '#dbeafe',
-          hoveredRowColor: '#f3f4f6',
-          connectedRowColor: '#eff6ff',
-          connectedBorderColor: '#3b82f6',
-          iconSize: 16,
-          iconSpacing: 8,
-          shadowColor: '#00000020',
-          shadowBlur: 4,
-          schemaColor: schemaColor,
-        };
-        
+
+        const baseStyle =
+          theme === 'dark'
+            ? {
+                backgroundColor: '#0f1a2e',
+                borderColor: schemaColor || '#32415f',
+                borderWidth: schemaColor ? 2 : 1,
+                borderRadius: 18,
+                headerBackgroundColor: schemaColor || '#1a2b49',
+                headerTextColor: '#f8fbff',
+                headerHeight: 40,
+                textColor: '#e2ebf7',
+                typeTextColor: '#97a8c4',
+                noteTextColor: '#7a8ca8',
+                padding: 16,
+                rowHeight: 28,
+                fontSize: 14,
+                fontFamily:
+                  'ui-sans-serif, "SF Pro Display", "Segoe UI Variable Display", "Segoe UI", sans-serif',
+                fontWeight: 'normal' as const,
+                selectedRowColor: '#19396f',
+                hoveredRowColor: '#16253f',
+                connectedRowColor: '#132947',
+                connectedBorderColor: '#60a5fa',
+                iconSize: 16,
+                iconSpacing: 10,
+                shadowColor: '#02061766',
+                shadowBlur: 22,
+                schemaColor: schemaColor,
+              }
+            : {
+                backgroundColor: '#ffffff',
+                borderColor: schemaColor || '#cfdae8',
+                borderWidth: schemaColor ? 2 : 1,
+                borderRadius: 18,
+                headerBackgroundColor: schemaColor || '#edf3fb',
+                headerTextColor: schemaColor ? '#ffffff' : '#0f172a',
+                headerHeight: 40,
+                textColor: '#0f172a',
+                typeTextColor: '#5f7189',
+                noteTextColor: '#8292a8',
+                padding: 16,
+                rowHeight: 28,
+                fontSize: 14,
+                fontFamily:
+                  'ui-sans-serif, "SF Pro Display", "Segoe UI Variable Display", "Segoe UI", sans-serif',
+                fontWeight: 'normal' as const,
+                selectedRowColor: '#d9e9ff',
+                hoveredRowColor: '#f7faff',
+                connectedRowColor: '#edf5ff',
+                connectedBorderColor: '#2563eb',
+                iconSize: 16,
+                iconSpacing: 10,
+                shadowColor: '#0f172a24',
+                shadowBlur: 22,
+                schemaColor: schemaColor,
+              };
+
         return {
           ...table,
           style: baseStyle,
@@ -1252,25 +1449,36 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
 
   // selectedEntityId 변경 시 isSelected 업데이트
   useEffect(() => {
-    if (!isReady || !engineRef.current || tablesRef.current.length === 0) return;
-
+    if (!isReady || !engineRef.current || tablesRef.current.length === 0)
+      return;
 
     // 관계선 선택인지 테이블 선택인지 구분
     const isRelationshipSelection = selectedEntityId?.startsWith('rel:');
-    const relationshipId = isRelationshipSelection && selectedEntityId ? selectedEntityId.replace('rel:', '') : null;
+    const relationshipId =
+      isRelationshipSelection && selectedEntityId
+        ? selectedEntityId.replace('rel:', '')
+        : null;
 
     if (isRelationshipSelection && relationshipId) {
       // 관계선 선택: 해당 관계선의 fromTable과 toTable 모두 하이라이트
-      const selectedRel = relationshipsRef.current.find((r: any) => r.id === relationshipId) as any;
+      const selectedRel = relationshipsRef.current.find(
+        (r: any) => r.id === relationshipId
+      ) as any;
 
       if (selectedRel && selectedRel.fromTable && selectedRel.toTable) {
-        const fromTable = tablesRef.current.find((table) => matchesTableName(table, selectedRel.fromTable));
-        const toTable = tablesRef.current.find((table) => matchesTableName(table, selectedRel.toTable));
+        const fromTable = tablesRef.current.find(table =>
+          matchesTableName(table, selectedRel.fromTable)
+        );
+        const toTable = tablesRef.current.find(table =>
+          matchesTableName(table, selectedRel.toTable)
+        );
 
         // 연결된 테이블들 하이라이트
         tablesRef.current = tablesRef.current.map(table => ({
           ...table,
-          isSelected: matchesTableName(table, selectedRel.fromTable) || matchesTableName(table, selectedRel.toTable),
+          isSelected:
+            matchesTableName(table, selectedRel.fromTable) ||
+            matchesTableName(table, selectedRel.toTable),
         }));
 
         // 선택된 관계선만 하이라이트
@@ -1288,25 +1496,29 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
               pan: { x: currentViewport.pan.x, y: currentViewport.pan.y },
             };
           }
-          viewportManager.fitToRect(getCombinedTableBounds(fromTable, toTable), 120, true);
+          viewportManager.fitToRect(
+            getCombinedTableBounds(fromTable, toTable),
+            120,
+            true
+          );
         }
       }
     } else {
       // 테이블 선택: 기존 로직
       tablesRef.current = tablesRef.current.map(table => ({
         ...table,
-        isSelected: selectedEntityId ? matchesTableName(table, selectedEntityId) : false,
+        isSelected: selectedEntityId
+          ? matchesTableName(table, selectedEntityId)
+          : false,
       }));
 
       // 선택된 테이블과 연결된 관계선 하이라이트
       relationshipsRef.current = relationshipsRef.current.map((rel: any) => ({
         ...rel,
-        isSelected: selectedEntityId ?
-          (
-            matchesRelationshipTableName(rel.fromTable, selectedEntityId) ||
+        isSelected: selectedEntityId
+          ? matchesRelationshipTableName(rel.fromTable, selectedEntityId) ||
             matchesRelationshipTableName(rel.toTable, selectedEntityId)
-          ) :
-          false,
+          : false,
       }));
 
       // 🎯 선택된 테이블로 화면 이동 (pan to table)
@@ -1321,23 +1533,32 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
 
   // highlightedRelationshipId 변경 시 관련 없는 테이블 dim 처리 및 뷰포트 이동
   useEffect(() => {
-    if (!isReady || !engineRef.current || tablesRef.current.length === 0) return;
-
+    if (!isReady || !engineRef.current || tablesRef.current.length === 0)
+      return;
 
     if (highlightedRelationshipId) {
       // 하이라이트된 관계선 찾기
-      const highlightedRel: any = relationshipsRef.current.find((r: any) => r.id === highlightedRelationshipId);
+      const highlightedRel: any = relationshipsRef.current.find(
+        (r: any) => r.id === highlightedRelationshipId
+      );
 
       if (highlightedRel) {
-        const fromTable = tablesRef.current.find(t => matchesTableName(t, highlightedRel.fromTable));
-        const toTable = tablesRef.current.find(t => matchesTableName(t, highlightedRel.toTable));
+        const fromTable = tablesRef.current.find(t =>
+          matchesTableName(t, highlightedRel.fromTable)
+        );
+        const toTable = tablesRef.current.find(t =>
+          matchesTableName(t, highlightedRel.toTable)
+        );
 
         const viewportManager = engineRef.current.getViewportManager();
-        if (!savedViewportRef.current && !selectedEntityId?.startsWith('rel:')) {
+        if (
+          !savedViewportRef.current &&
+          !selectedEntityId?.startsWith('rel:')
+        ) {
           const currentViewport = viewportManager.getViewport();
           savedViewportRef.current = {
             zoom: currentViewport.zoom,
-            pan: { x: currentViewport.pan.x, y: currentViewport.pan.y }
+            pan: { x: currentViewport.pan.x, y: currentViewport.pan.y },
           };
         }
         // 다른 테이블들은 dim 처리 (geometry는 유지)
@@ -1345,7 +1566,8 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
           ...table,
           // @ts-ignore - opacity used by renderer
           opacity:
-            matchesTableName(table, highlightedRel.fromTable) || matchesTableName(table, highlightedRel.toTable)
+            matchesTableName(table, highlightedRel.fromTable) ||
+            matchesTableName(table, highlightedRel.toTable)
               ? 1.0
               : 0.3,
         }));
@@ -1359,22 +1581,36 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
         }));
 
         if (fromTable && toTable) {
-          viewportManager.fitToRect(getCombinedTableBounds(fromTable, toTable), 120, true);
+          viewportManager.fitToRect(
+            getCombinedTableBounds(fromTable, toTable),
+            120,
+            true
+          );
         }
       }
     } else {
       // 하이라이트 해제: 모든 테이블 opacity 복원
 
       // 🎯 저장된 뷰포트가 있으면 복원
-      if (savedViewportRef.current && engineRef.current && !selectedEntityId?.startsWith('rel:')) {
+      if (
+        savedViewportRef.current &&
+        engineRef.current &&
+        !selectedEntityId?.startsWith('rel:')
+      ) {
         const viewportManager = engineRef.current.getViewportManager();
-        const centerX = (viewportManager.getViewport().bounds.width / 2 - savedViewportRef.current.pan.x) / savedViewportRef.current.zoom;
-        const centerY = (viewportManager.getViewport().bounds.height / 2 - savedViewportRef.current.pan.y) / savedViewportRef.current.zoom;
+        const centerX =
+          (viewportManager.getViewport().bounds.width / 2 -
+            savedViewportRef.current.pan.x) /
+          savedViewportRef.current.zoom;
+        const centerY =
+          (viewportManager.getViewport().bounds.height / 2 -
+            savedViewportRef.current.pan.y) /
+          savedViewportRef.current.zoom;
         viewportManager.panTo({ x: centerX, y: centerY }, false);
         viewportManager.zoomTo(savedViewportRef.current.zoom, true);
         savedViewportRef.current = null;
       }
-      
+
       tablesRef.current = tablesRef.current.map(table => ({
         ...table,
         // @ts-ignore - Removing opacity property
@@ -1384,15 +1620,12 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
       // 모든 관계선 선택 해제 및 opacity 복원
       relationshipsRef.current = relationshipsRef.current.map((rel: any) => ({
         ...rel,
-        isSelected:
-          selectedEntityId?.startsWith('rel:')
-            ? rel.id === selectedEntityId.replace('rel:', '')
-            : selectedEntityId
-              ? (
-                  matchesRelationshipTableName(rel.fromTable, selectedEntityId) ||
-                  matchesRelationshipTableName(rel.toTable, selectedEntityId)
-                )
-              : false,
+        isSelected: selectedEntityId?.startsWith('rel:')
+          ? rel.id === selectedEntityId.replace('rel:', '')
+          : selectedEntityId
+            ? matchesRelationshipTableName(rel.fromTable, selectedEntityId) ||
+              matchesRelationshipTableName(rel.toTable, selectedEntityId)
+            : false,
         // @ts-ignore - Restoring opacity
         opacity: 1.0,
       }));
@@ -1404,19 +1637,31 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
   return (
     <div
       ref={containerRef}
-      className={className || `relative w-full h-full ${theme === 'dark' ? 'bg-gray-900' : 'bg-white'}`}
+      className={
+        className ||
+        `relative h-full w-full overflow-hidden ${theme === 'dark' ? 'bg-[#09111f]' : 'bg-[#f4f7fb]'}`
+      }
       style={{ minHeight: '400px' }}
     >
+      <div
+        className={`pointer-events-none absolute inset-0 ${
+          theme === 'dark'
+            ? 'bg-[radial-gradient(circle_at_top_left,rgba(124,58,237,0.16),transparent_24%),radial-gradient(circle_at_top_right,rgba(37,99,235,0.14),transparent_22%)]'
+            : 'bg-[radial-gradient(circle_at_top_left,rgba(79,70,229,0.08),transparent_24%),radial-gradient(circle_at_top_right,rgba(37,99,235,0.08),transparent_22%)]'
+        }`}
+      />
       <canvas
         ref={canvasRef}
-        className="w-full h-full"
+        className="h-full w-full"
         style={{ display: 'block' }}
       />
 
       {!isReady && (
         <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-75 dark:bg-gray-900 dark:bg-opacity-75">
           <div className="text-center">
-            <div className="text-gray-400 text-lg mb-2">🔄 Loading diagram engine...</div>
+            <div className="text-gray-400 text-lg mb-2">
+              🔄 Loading diagram engine...
+            </div>
           </div>
         </div>
       )}
@@ -1450,18 +1695,40 @@ export function DiagramCanvas({ schema, parseError, className, initialTablePosit
         </div>
       )}
 
-      {/* 📊 빈 스키마 표시 (에러가 없을 때만) */}
-      {!parseError && isReady && !isProcessing && (!schema || !schema.tables || schema.tables.length === 0) && (
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <div className="text-center text-gray-500 dark:text-gray-400">
-            <div className="text-lg mb-2">📊 No tables to display</div>
-            <p className="text-sm">Add some DBML code to see your diagram</p>
+      {/* ⏳ DBML 파싱 중 */}
+      {!parseError &&
+        isReady &&
+        !isProcessing &&
+        isLoading &&
+        (!schema || !schema.tables || schema.tables.length === 0) && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div className="rounded-3xl border border-border/70 bg-background/85 px-6 py-5 text-center shadow-xl backdrop-blur-xl">
+              <div className="mx-auto mb-3 h-10 w-10 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
+              <div className="text-sm font-semibold text-foreground">
+                Parsing diagram…
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Generating tables and relationship routes from your DBML
+              </p>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+
+      {/* 📊 빈 스키마 표시 (에러가 없을 때만) */}
+      {!parseError &&
+        isReady &&
+        !isProcessing &&
+        !isLoading &&
+        (!schema || !schema.tables || schema.tables.length === 0) && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div className="text-center text-gray-500 dark:text-gray-400">
+              <div className="text-lg mb-2">📊 No tables to display</div>
+              <p className="text-sm">Add some DBML code to see your diagram</p>
+            </div>
+          </div>
+        )}
     </div>
   );
 }
 
 export default DiagramCanvas;
-;

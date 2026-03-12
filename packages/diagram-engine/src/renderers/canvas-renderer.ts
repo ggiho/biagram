@@ -41,7 +41,10 @@ export class CanvasRenderer {
   private tableLayer?: HTMLCanvasElement;
   private relationshipLayer?: HTMLCanvasElement;
 
-  constructor(canvas: HTMLCanvasElement, options?: { enableSVGOverlay?: boolean }) {
+  constructor(
+    canvas: HTMLCanvasElement,
+    options?: { enableSVGOverlay?: boolean }
+  ) {
     this.canvas = canvas;
     this.devicePixelRatio = window.devicePixelRatio || 1;
 
@@ -76,7 +79,14 @@ export class CanvasRenderer {
     showGrid?: boolean;
     showComments?: boolean;
   }): void {
-    const { tables, relationships, viewport, theme, showGrid = true, showComments = true } = data;
+    const {
+      tables,
+      relationships,
+      viewport,
+      theme,
+      showGrid = true,
+      showComments = true,
+    } = data;
 
     // console.log('🖼️ CanvasRenderer.render() called with:');
     // console.log('🖼️ Tables to render:', tables.length);
@@ -85,11 +95,11 @@ export class CanvasRenderer {
     // console.log('🖼️ Canvas dimensions:', this.canvas.width, 'x', this.canvas.height);
 
     // Force render during viewport changes to prevent disappearing
-    const isViewportChanging = this.lastViewport && (
-      Math.abs(viewport.pan.x - this.lastViewport.pan.x) > 0.001 ||
-      Math.abs(viewport.pan.y - this.lastViewport.pan.y) > 0.001 ||
-      Math.abs(viewport.zoom - this.lastViewport.zoom) > 0.001
-    );
+    const isViewportChanging =
+      this.lastViewport &&
+      (Math.abs(viewport.pan.x - this.lastViewport.pan.x) > 0.001 ||
+        Math.abs(viewport.pan.y - this.lastViewport.pan.y) > 0.001 ||
+        Math.abs(viewport.zoom - this.lastViewport.zoom) > 0.001);
 
     if (isViewportChanging) {
       console.log('🖱️ Viewport change detected (pan or zoom), forcing render');
@@ -97,10 +107,12 @@ export class CanvasRenderer {
     }
 
     // Early exit if nothing changed AND we have valid data to compare
-    if (!this.isDirty &&
-        this.lastViewport &&
-        tables.length > 0 &&
-        this.viewportEquals(viewport, this.lastViewport)) {
+    if (
+      !this.isDirty &&
+      this.lastViewport &&
+      tables.length > 0 &&
+      this.viewportEquals(viewport, this.lastViewport)
+    ) {
       // console.log('🖼️ Early exit - no changes detected');
       return;
     }
@@ -134,10 +146,10 @@ export class CanvasRenderer {
     // 1. 선택되지 않은 관계선 먼저 렌더링
     const unselectedRelationships = relationships.filter(r => !r.isSelected);
     const selectedRelationships = relationships.filter(r => r.isSelected);
-    
+
     this.renderRelationships(unselectedRelationships, viewport);
     this.renderTables(tables, viewport, showComments);
-    
+
     // 2. 선택된 관계선은 테이블 위에 렌더링
     this.renderRelationships(selectedRelationships, viewport);
 
@@ -178,7 +190,11 @@ export class CanvasRenderer {
   /**
    * Render database tables
    */
-  private renderTables(tables: TableRenderData[], viewport: ViewportState, showComments: boolean = true): void {
+  private renderTables(
+    tables: TableRenderData[],
+    viewport: ViewportState,
+    showComments: boolean = true
+  ): void {
     // console.log('🏢 renderTables() called with:', tables.length, 'tables');
 
     // DISABLE CULLING: Always render all tables to ensure visibility
@@ -197,7 +213,11 @@ export class CanvasRenderer {
   /**
    * Render a single table
    */
-  private renderTable(table: TableRenderData, zoom: number, showComments: boolean = true): void {
+  private renderTable(
+    table: TableRenderData,
+    zoom: number,
+    showComments: boolean = true
+  ): void {
     const { bounds, style, isSelected, isHovered } = table;
     const { x, y, width, height } = bounds;
     const tableNote = (table as any).note;
@@ -214,7 +234,7 @@ export class CanvasRenderer {
 
     // Get opacity from table (default to 1.0 if not set)
     const opacity = (table as any).opacity ?? 1.0;
-    
+
     // opacity가 0이면 렌더링 스킵
     if (opacity <= 0) {
       return;
@@ -223,6 +243,7 @@ export class CanvasRenderer {
     // Level of detail based on zoom
     const showDetails = zoom > 0.5;
     const showIcons = zoom > 0.8;
+    const isDark = this.currentTheme?.mode === 'dark';
 
     // Draw table background with shadow
     this.ctx.save();
@@ -234,14 +255,29 @@ export class CanvasRenderer {
     if (style.shadowBlur > 0) {
       this.ctx.shadowColor = style.shadowColor;
       this.ctx.shadowBlur = style.shadowBlur;
-      this.ctx.shadowOffsetX = 2;
-      this.ctx.shadowOffsetY = 2;
+      this.ctx.shadowOffsetX = 0;
+      this.ctx.shadowOffsetY = 10;
     }
 
     // Background
     this.ctx.fillStyle = style.backgroundColor;
     this.roundRect(x, y, width, height, style.borderRadius);
     this.ctx.fill();
+
+    // Subtle inner highlight for premium card depth
+    this.ctx.strokeStyle = this.addAlpha(
+      isDark ? '#ffffff' : style.backgroundColor,
+      isDark ? 0.06 : 0.55
+    );
+    this.ctx.lineWidth = 1;
+    this.roundRect(
+      x + 0.5,
+      y + 0.5,
+      width - 1,
+      height - 1,
+      style.borderRadius - 1
+    );
+    this.ctx.stroke();
 
     // Reset shadow
     this.ctx.shadowColor = 'transparent';
@@ -264,8 +300,52 @@ export class CanvasRenderer {
 
     // Header
     this.ctx.fillStyle = style.headerBackgroundColor;
-    this.roundRect(x, y, width, style.headerHeight, style.borderRadius, true, false);
+    this.roundRect(
+      x,
+      y,
+      width,
+      style.headerHeight,
+      style.borderRadius,
+      true,
+      false
+    );
     this.ctx.fill();
+
+    // Header gloss
+    const headerGradient = this.ctx.createLinearGradient(
+      x,
+      y,
+      x,
+      y + style.headerHeight
+    );
+    headerGradient.addColorStop(
+      0,
+      this.addAlpha('#ffffff', isDark ? 0.1 : 0.55)
+    );
+    headerGradient.addColorStop(
+      0.45,
+      this.addAlpha('#ffffff', isDark ? 0.03 : 0.18)
+    );
+    headerGradient.addColorStop(1, this.addAlpha('#ffffff', 0));
+    this.ctx.fillStyle = headerGradient;
+    this.roundRect(
+      x + 1,
+      y + 1,
+      width - 2,
+      style.headerHeight - 1,
+      Math.max(style.borderRadius - 1, 0),
+      true,
+      false
+    );
+    this.ctx.fill();
+
+    // Header divider for stronger card structure
+    this.ctx.strokeStyle = this.addAlpha(style.borderColor, 0.55);
+    this.ctx.lineWidth = 1;
+    this.ctx.beginPath();
+    this.ctx.moveTo(x + 1, y + style.headerHeight + 0.5);
+    this.ctx.lineTo(x + width - 1, y + style.headerHeight + 0.5);
+    this.ctx.stroke();
 
     // Header text - zoom-level adaptive rendering
     if (showDetails) {
@@ -275,23 +355,36 @@ export class CanvasRenderer {
       this.ctx.textAlign = 'left';
       this.ctx.textBaseline = 'middle';
       const headerY = y + style.headerHeight / 2;
-      this.ctx.fillText(table.name, x + style.padding, headerY);
+      const tableNameX = x + style.padding + 10;
+
+      // schema/status accent dot
+      this.ctx.beginPath();
+      this.ctx.fillStyle =
+        (style as any).schemaColor ||
+        (style as any).connectedBorderColor ||
+        style.borderColor;
+      this.ctx.arc(x + style.padding, headerY, 3.5, 0, Math.PI * 2);
+      this.ctx.fill();
+
+      this.ctx.fillStyle = style.headerTextColor;
+      this.ctx.fillText(table.name, tableNameX, headerY);
 
       // Table note (comment) next to table name in header
       if (showComments && tableNote) {
         const tableNameWidth = this.ctx.measureText(table.name).width;
-        const noteX = x + style.padding + tableNameWidth + 8; // 8px gap after table name
-        const maxNoteWidth = width - style.padding * 2 - tableNameWidth - 12;
-        
-        if (maxNoteWidth > 30) { // Only show if there's enough space
+        const noteX = tableNameX + tableNameWidth + 10;
+        const maxNoteWidth = width - (noteX - x) - style.padding;
+
+        if (maxNoteWidth > 30) {
+          // Only show if there's enough space
           this.ctx.font = `normal ${style.fontSize - 1}px ${style.fontFamily}`;
           // 헤더 텍스트 색상을 기반으로 약간 투명하게 (0.7 opacity)
           this.ctx.fillStyle = this.addAlpha(style.headerTextColor, 0.7);
-          
+
           // Truncate note if too long
           let noteText = tableNote;
           let noteWidth = this.ctx.measureText(noteText).width;
-          
+
           if (noteWidth > maxNoteWidth) {
             while (noteWidth > maxNoteWidth && noteText.length > 3) {
               noteText = noteText.substring(0, noteText.length - 1);
@@ -299,14 +392,13 @@ export class CanvasRenderer {
             }
             noteText = noteText + '...';
           }
-          
+
           this.ctx.fillText(noteText, noteX, headerY);
         }
       }
     } else {
       // Low zoom: centered, larger table name
       // Use appropriate text color based on theme background
-      const isDark = this.currentTheme?.mode === 'dark';
       this.ctx.fillStyle = isDark ? '#f3f4f6' : '#1f2937'; // Light text for dark mode, dark text for light mode
       const largeFontSize = (style.fontSize + 2) * 1.5;
       this.ctx.font = `bold ${largeFontSize}px ${style.fontFamily}`;
@@ -322,7 +414,15 @@ export class CanvasRenderer {
       // Note is now in header, no extra space needed
 
       for (const column of table.columns) {
-        this.renderColumn(column, x, currentY, width, style, showIcons, showComments);
+        this.renderColumn(
+          column,
+          x,
+          currentY,
+          width,
+          style,
+          showIcons,
+          showComments
+        );
         currentY += style.rowHeight;
       }
     }
@@ -342,17 +442,24 @@ export class CanvasRenderer {
     showIcons: boolean,
     showComments: boolean = true
   ): void {
-    const { isSelected, isHovered, isConnected, isPrimaryKey, isForeignKey, fkRefColor } = column;
+    const {
+      isSelected,
+      isHovered,
+      isConnected,
+      isPrimaryKey,
+      isForeignKey,
+      fkRefColor,
+    } = column;
     const isDark = this.currentTheme?.mode === 'dark';
 
     // 🎨 PK 배경 하이라이트 색상
     const pkBgColor = isDark ? '#422006' : '#fef3c7'; // amber-50 / amber-900
     const pkBorderColor = isDark ? '#f59e0b' : '#d97706'; // amber-500 / amber-600
-    
+
     // 🔗 FK 색상: 참조 테이블 스키마 컬러 또는 기본 하늘색
     const defaultFkBgColor = isDark ? '#083344' : '#e0f2fe'; // sky-50 / sky-950
     const defaultFkBorderColor = isDark ? '#38bdf8' : '#0284c7'; // sky-400 / sky-600
-    
+
     // fkRefColor가 있으면 그 색상 기반으로, 없으면 기본 하늘색
     let fkBgColor = defaultFkBgColor;
     let fkBorderColor = defaultFkBorderColor;
@@ -362,34 +469,78 @@ export class CanvasRenderer {
       fkBgColor = this.lightenColor(fkRefColor, isDark ? 0.15 : 0.85);
     }
 
+    const rowInsetX = x + 6;
+    const rowInsetWidth = width - 12;
+    const rowInsetY = y + 1;
+    const rowInsetHeight = style.rowHeight - 2;
+    const rowRadius = Math.max(Math.min(style.borderRadius - 8, 10), 6);
+
     // Row background - 우선순위: selected > hovered > connected > PK > FK
     if (isSelected) {
       this.ctx.fillStyle = style.selectedRowColor;
-      this.ctx.fillRect(x, y, width, style.rowHeight);
+      this.roundRect(
+        rowInsetX,
+        rowInsetY,
+        rowInsetWidth,
+        rowInsetHeight,
+        rowRadius
+      );
+      this.ctx.fill();
     } else if (isHovered) {
       this.ctx.fillStyle = style.hoveredRowColor;
-      this.ctx.fillRect(x, y, width, style.rowHeight);
+      this.roundRect(
+        rowInsetX,
+        rowInsetY,
+        rowInsetWidth,
+        rowInsetHeight,
+        rowRadius
+      );
+      this.ctx.fill();
     } else if (isConnected) {
       // 연결된 컬럼 하이라이트 (테마별 색상)
       this.ctx.fillStyle = (style as any).connectedRowColor || '#eff6ff';
-      this.ctx.fillRect(x, y, width, style.rowHeight);
+      this.roundRect(
+        rowInsetX,
+        rowInsetY,
+        rowInsetWidth,
+        rowInsetHeight,
+        rowRadius
+      );
+      this.ctx.fill();
       // 왼쪽 테두리 강조
       this.ctx.fillStyle = (style as any).connectedBorderColor || '#3b82f6';
-      this.ctx.fillRect(x, y, 3, style.rowHeight);
+      this.roundRect(x + 7, y + 5, 4, style.rowHeight - 10, 2);
+      this.ctx.fill();
     } else if (isPrimaryKey) {
       // 🔑 PK 배경 하이라이트 (amber/gold)
       this.ctx.fillStyle = pkBgColor;
-      this.ctx.fillRect(x, y, width, style.rowHeight);
+      this.roundRect(
+        rowInsetX,
+        rowInsetY,
+        rowInsetWidth,
+        rowInsetHeight,
+        rowRadius
+      );
+      this.ctx.fill();
       // 왼쪽 테두리 강조
       this.ctx.fillStyle = pkBorderColor;
-      this.ctx.fillRect(x, y, 3, style.rowHeight);
+      this.roundRect(x + 7, y + 5, 4, style.rowHeight - 10, 2);
+      this.ctx.fill();
     } else if (isForeignKey) {
       // 🔗 FK 배경 하이라이트 (참조 테이블 스키마 컬러 or 하늘색)
       this.ctx.fillStyle = fkBgColor;
-      this.ctx.fillRect(x, y, width, style.rowHeight);
+      this.roundRect(
+        rowInsetX,
+        rowInsetY,
+        rowInsetWidth,
+        rowInsetHeight,
+        rowRadius
+      );
+      this.ctx.fill();
       // 왼쪽 테두리 강조
       this.ctx.fillStyle = fkBorderColor;
-      this.ctx.fillRect(x, y, 3, style.rowHeight);
+      this.roundRect(x + 7, y + 5, 4, style.rowHeight - 10, 2);
+      this.ctx.fill();
     }
 
     let iconX = x + style.padding;
@@ -397,18 +548,41 @@ export class CanvasRenderer {
     // Icons (only at higher zoom levels)
     // 아이콘과 텍스트 간격을 최소화 (1px 고정)
     const tightSpacing = 1;
-    
+
     if (showIcons) {
       if (isPrimaryKey) {
-        this.drawKeyIcon(iconX, y + style.rowHeight / 2, style.iconSize, pkBorderColor);
+        this.drawKeyIcon(
+          iconX,
+          y + style.rowHeight / 2,
+          style.iconSize,
+          pkBorderColor
+        );
         iconX += style.iconSize + tightSpacing;
       }
 
       if (isForeignKey) {
-        this.drawForeignKeyIcon(iconX, y + style.rowHeight / 2, style.iconSize, fkBorderColor);
+        this.drawForeignKeyIcon(
+          iconX,
+          y + style.rowHeight / 2,
+          style.iconSize,
+          fkBorderColor
+        );
         iconX += style.iconSize + tightSpacing;
       }
     }
+
+    // Subtle row divider
+    this.ctx.save();
+    this.ctx.strokeStyle = this.addAlpha(
+      style.borderColor,
+      isDark ? 0.28 : 0.35
+    );
+    this.ctx.lineWidth = 1;
+    this.ctx.beginPath();
+    this.ctx.moveTo(x + style.padding, y + style.rowHeight + 0.5);
+    this.ctx.lineTo(x + width - style.padding, y + style.rowHeight + 0.5);
+    this.ctx.stroke();
+    this.ctx.restore();
 
     // Column name - PK는 bold 처리
     const fontWeight = isPrimaryKey ? 'bold' : style.fontWeight;
@@ -426,12 +600,12 @@ export class CanvasRenderer {
       const noteX = iconX + columnNameWidth + 8; // 8px gap
       this.ctx.font = `normal ${style.fontSize - 2}px ${style.fontFamily}`;
       this.ctx.fillStyle = (style as any).noteTextColor || style.typeTextColor;
-      
+
       // Truncate note if too long
-      const maxNoteWidth = width - (noteX - x) - style.padding - 60; // Reserve space for type
+      const maxNoteWidth = width - (noteX - x) - style.padding - 110; // Reserve space for type pill
       let noteText = column.note;
       let noteWidth = this.ctx.measureText(noteText).width;
-      
+
       if (noteWidth > maxNoteWidth) {
         while (noteWidth > maxNoteWidth && noteText.length > 3) {
           noteText = noteText.substring(0, noteText.length - 1);
@@ -439,23 +613,55 @@ export class CanvasRenderer {
         }
         noteText = noteText + '...';
       }
-      
+
       this.ctx.fillText(noteText, noteX, textY);
     }
 
-    // Data type (right-aligned)
-    this.ctx.fillStyle = style.typeTextColor;
-    this.ctx.font = `normal ${style.fontSize - 1}px ${style.fontFamily}`;
-    this.ctx.textAlign = 'right';
-
+    // Data type pill (right-aligned)
     const typeText = column.type;
-    this.ctx.fillText(typeText, x + width - style.padding, textY);
+    this.ctx.font = `600 ${style.fontSize - 2}px ${style.fontFamily}`;
+    const typeTextWidth = this.ctx.measureText(typeText).width;
+    const typePillWidth = Math.min(
+      Math.max(typeTextWidth + 16, 52),
+      width * 0.35
+    );
+    const typePillHeight = 18;
+    const typePillX = x + width - style.padding - typePillWidth;
+    const typePillY = y + (style.rowHeight - typePillHeight) / 2;
+
+    this.ctx.fillStyle = this.addAlpha(
+      isDark ? '#ffffff' : style.borderColor,
+      isDark ? 0.08 : 0.7
+    );
+    this.roundRect(typePillX, typePillY, typePillWidth, typePillHeight, 9);
+    this.ctx.fill();
+
+    this.ctx.strokeStyle = this.addAlpha(
+      style.borderColor,
+      isDark ? 0.24 : 0.5
+    );
+    this.ctx.lineWidth = 1;
+    this.roundRect(typePillX, typePillY, typePillWidth, typePillHeight, 9);
+    this.ctx.stroke();
+
+    this.ctx.fillStyle = style.typeTextColor;
+    this.ctx.font = `600 ${style.fontSize - 2}px ${style.fontFamily}`;
+    this.ctx.textAlign = 'center';
+    this.ctx.textBaseline = 'middle';
+    this.ctx.fillText(
+      typeText,
+      typePillX + typePillWidth / 2,
+      typePillY + typePillHeight / 2
+    );
   }
 
   /**
    * Render relationships
    */
-  private renderRelationships(relationships: RelationshipRenderData[], viewport: ViewportState): void {
+  private renderRelationships(
+    relationships: RelationshipRenderData[],
+    viewport: ViewportState
+  ): void {
     for (const relationship of relationships) {
       this.renderRelationship(relationship);
     }
@@ -466,17 +672,17 @@ export class CanvasRenderer {
    */
   private renderRelationship(relationship: RelationshipRenderData): void {
     const { path, style, isSelected, isHovered, type } = relationship;
-    
+
     // @ts-ignore - opacity가 추가될 수 있음
     const opacity = (relationship as any).opacity;
-    
+
     // opacity가 0이면 렌더링 스킵
     if (opacity !== undefined && opacity <= 0) {
       return;
     }
 
     this.ctx.save();
-    
+
     // opacity 적용
     if (opacity !== undefined && opacity < 1) {
       this.ctx.globalAlpha = opacity;
@@ -505,7 +711,7 @@ export class CanvasRenderer {
 
     // Draw path with rounded corners at control points
     this.ctx.beginPath();
-    
+
     if (path.controlPoints && path.controlPoints.length >= 2) {
       // Draw orthogonal path with rounded corners
       this.drawRoundedOrthogonalPath(path, 8); // 8px corner radius
@@ -540,12 +746,11 @@ export class CanvasRenderer {
   /**
    * Draw orthogonal path with rounded corners
    */
-  private drawRoundedOrthogonalPath(path: RelationshipRenderData['path'], cornerRadius: number): void {
-    const points = [
-      path.start,
-      ...(path.controlPoints || []),
-      path.end,
-    ];
+  private drawRoundedOrthogonalPath(
+    path: RelationshipRenderData['path'],
+    cornerRadius: number
+  ): void {
+    const points = [path.start, ...(path.controlPoints || []), path.end];
 
     if (points.length < 2 || !points[0]) return;
 
@@ -599,7 +804,7 @@ export class CanvasRenderer {
 
   /**
    * Draw Crow's Foot notation at relationship ends
-   * 
+   *
    * Notation types:
    * - 'one': Single line (|)
    * - 'many': Crow's foot (⋀)
@@ -658,12 +863,11 @@ export class CanvasRenderer {
   /**
    * Get path direction at start or end
    */
-  private getPathDirectionAt(path: RelationshipRenderData['path'], position: 'start' | 'end'): number {
-    const points = [
-      path.start,
-      ...(path.controlPoints || []),
-      path.end,
-    ];
+  private getPathDirectionAt(
+    path: RelationshipRenderData['path'],
+    position: 'start' | 'end'
+  ): number {
+    const points = [path.start, ...(path.controlPoints || []), path.end];
 
     if (points.length < 2) return 0;
 
@@ -765,19 +969,19 @@ export class CanvasRenderer {
   /**
    * Draw subtle flowing dot animation along the relationship line (only when selected/hovered)
    */
-  private drawFlowingDots(path: RelationshipRenderData['path'], color: string): void {
+  private drawFlowingDots(
+    path: RelationshipRenderData['path'],
+    color: string
+  ): void {
     const animationPeriod = 1500; // 1.5 seconds for smoother flow
     const dotCount = 3;
     const dotSize = 2.5;
 
     // Calculate animation progress (0 to 1)
-    const progress = (this.animationTimestamp % animationPeriod) / animationPeriod;
+    const progress =
+      (this.animationTimestamp % animationPeriod) / animationPeriod;
 
-    const points = [
-      path.start,
-      ...(path.controlPoints || []),
-      path.end,
-    ];
+    const points = [path.start, ...(path.controlPoints || []), path.end];
 
     // Calculate total path length
     const segmentLengths: number[] = [];
@@ -800,7 +1004,7 @@ export class CanvasRenderer {
     for (let i = 0; i < dotCount; i++) {
       const offset = (progress + i / dotCount) % 1;
       const targetDistance = offset * totalLength;
-      
+
       let accumulatedLength = 0;
       let dotX = path.start.x;
       let dotY = path.start.y;
@@ -808,9 +1012,10 @@ export class CanvasRenderer {
       for (let j = 0; j < segmentLengths.length; j++) {
         const segmentLength = segmentLengths[j] || 0;
         if (accumulatedLength + segmentLength >= targetDistance) {
-          const segmentOffset = segmentLength > 0 
-            ? (targetDistance - accumulatedLength) / segmentLength 
-            : 0;
+          const segmentOffset =
+            segmentLength > 0
+              ? (targetDistance - accumulatedLength) / segmentLength
+              : 0;
           const p1 = points[j];
           const p2 = points[j + 1];
           if (p1 && p2) {
@@ -824,7 +1029,7 @@ export class CanvasRenderer {
 
       // Draw dot with slight glow effect
       this.ctx.save();
-      this.ctx.globalAlpha = 0.8 - (i * 0.2); // Fade trailing dots
+      this.ctx.globalAlpha = 0.8 - i * 0.2; // Fade trailing dots
       this.ctx.fillStyle = color;
       this.ctx.beginPath();
       this.ctx.arc(dotX, dotY, dotSize, 0, Math.PI * 2);
@@ -836,7 +1041,12 @@ export class CanvasRenderer {
   /**
    * Draw an arrow at the end of a relationship
    */
-  private drawArrow(point: Position2D, direction: number, size: number, color: string): void {
+  private drawArrow(
+    point: Position2D,
+    direction: number,
+    size: number,
+    color: string
+  ): void {
     this.ctx.save();
 
     this.ctx.fillStyle = color;
@@ -914,7 +1124,13 @@ export class CanvasRenderer {
       case 'key':
         // Draw a simple key icon
         this.ctx.beginPath();
-        this.ctx.arc(centerX - halfSize / 2, centerY, halfSize / 3, 0, Math.PI * 2);
+        this.ctx.arc(
+          centerX - halfSize / 2,
+          centerY,
+          halfSize / 3,
+          0,
+          Math.PI * 2
+        );
         this.ctx.stroke();
 
         this.ctx.beginPath();
@@ -930,8 +1146,20 @@ export class CanvasRenderer {
       case 'link':
         // Draw a simple link icon
         this.ctx.beginPath();
-        this.ctx.arc(centerX - halfSize / 2, centerY - halfSize / 2, halfSize / 3, 0, Math.PI * 2);
-        this.ctx.arc(centerX + halfSize / 2, centerY + halfSize / 2, halfSize / 3, 0, Math.PI * 2);
+        this.ctx.arc(
+          centerX - halfSize / 2,
+          centerY - halfSize / 2,
+          halfSize / 3,
+          0,
+          Math.PI * 2
+        );
+        this.ctx.arc(
+          centerX + halfSize / 2,
+          centerY + halfSize / 2,
+          halfSize / 3,
+          0,
+          Math.PI * 2
+        );
         this.ctx.stroke();
 
         this.ctx.beginPath();
@@ -961,14 +1189,26 @@ export class CanvasRenderer {
 
     // 열쇠 머리 (원형, 채움)
     this.ctx.beginPath();
-    this.ctx.arc(centerX - halfSize * 0.3, centerY, halfSize * 0.35, 0, Math.PI * 2);
+    this.ctx.arc(
+      centerX - halfSize * 0.3,
+      centerY,
+      halfSize * 0.35,
+      0,
+      Math.PI * 2
+    );
     this.ctx.fill();
 
     // 열쇠 머리 내부 구멍
     this.ctx.save();
     this.ctx.globalCompositeOperation = 'destination-out';
     this.ctx.beginPath();
-    this.ctx.arc(centerX - halfSize * 0.3, centerY, halfSize * 0.15, 0, Math.PI * 2);
+    this.ctx.arc(
+      centerX - halfSize * 0.3,
+      centerY,
+      halfSize * 0.15,
+      0,
+      Math.PI * 2
+    );
     this.ctx.fill();
     this.ctx.restore();
 
@@ -992,7 +1232,12 @@ export class CanvasRenderer {
   /**
    * Draw a Foreign Key icon (🔗 chain link)
    */
-  private drawForeignKeyIcon(x: number, y: number, size: number, color: string): void {
+  private drawForeignKeyIcon(
+    x: number,
+    y: number,
+    size: number,
+    color: string
+  ): void {
     this.ctx.save();
 
     const halfSize = size / 2;
@@ -1007,14 +1252,30 @@ export class CanvasRenderer {
     const link1X = centerX - halfSize * 0.25;
     const link1Y = centerY - halfSize * 0.15;
     this.ctx.beginPath();
-    this.ctx.ellipse(link1X, link1Y, halfSize * 0.35, halfSize * 0.22, -Math.PI / 4, 0, Math.PI * 2);
+    this.ctx.ellipse(
+      link1X,
+      link1Y,
+      halfSize * 0.35,
+      halfSize * 0.22,
+      -Math.PI / 4,
+      0,
+      Math.PI * 2
+    );
     this.ctx.stroke();
 
     // 두 번째 링크 (오른쪽 아래)
     const link2X = centerX + halfSize * 0.25;
     const link2Y = centerY + halfSize * 0.15;
     this.ctx.beginPath();
-    this.ctx.ellipse(link2X, link2Y, halfSize * 0.35, halfSize * 0.22, -Math.PI / 4, 0, Math.PI * 2);
+    this.ctx.ellipse(
+      link2X,
+      link2Y,
+      halfSize * 0.35,
+      halfSize * 0.22,
+      -Math.PI / 4,
+      0,
+      Math.PI * 2
+    );
     this.ctx.stroke();
 
     this.ctx.restore();
@@ -1187,14 +1448,26 @@ export class CanvasRenderer {
       this.ctx.lineTo(x, y + height - radius);
       this.ctx.arcTo(x, y + height, x + radius, y + height, radius);
       this.ctx.lineTo(x + width - radius, y + height);
-      this.ctx.arcTo(x + width, y + height, x + width, y + height - radius, radius);
+      this.ctx.arcTo(
+        x + width,
+        y + height,
+        x + width,
+        y + height - radius,
+        radius
+      );
       this.ctx.lineTo(x + width, y);
     } else {
       this.ctx.moveTo(x + radius, y);
       this.ctx.lineTo(x + width - radius, y);
       this.ctx.arcTo(x + width, y, x + width, y + radius, radius);
       this.ctx.lineTo(x + width, y + height - radius);
-      this.ctx.arcTo(x + width, y + height, x + width - radius, y + height, radius);
+      this.ctx.arcTo(
+        x + width,
+        y + height,
+        x + width - radius,
+        y + height,
+        radius
+      );
       this.ctx.lineTo(x + radius, y + height);
       this.ctx.arcTo(x, y + height, x, y + height - radius, radius);
       this.ctx.lineTo(x, y + radius);
@@ -1210,7 +1483,10 @@ export class CanvasRenderer {
    * CRITICAL: rect is in WORLD coordinates, viewport.bounds is in SCREEN coordinates
    * We must transform rect to screen space before comparison
    */
-  private isRectangleVisible(rect: Rectangle2D, viewport: ViewportState): boolean {
+  private isRectangleVisible(
+    rect: Rectangle2D,
+    viewport: ViewportState
+  ): boolean {
     // Transform world rectangle to screen rectangle
     const screenRect = {
       x: rect.x * viewport.zoom + viewport.pan.x,
@@ -1275,19 +1551,20 @@ export class CanvasRenderer {
   private lightenColor(hex: string, factor: number): string {
     // Remove # if present
     const cleanHex = hex.replace('#', '');
-    
+
     // Parse RGB
     const r = parseInt(cleanHex.substring(0, 2), 16);
     const g = parseInt(cleanHex.substring(2, 4), 16);
     const b = parseInt(cleanHex.substring(4, 6), 16);
-    
+
     // Lighten: blend with white (255)
     const newR = Math.round(r + (255 - r) * factor);
     const newG = Math.round(g + (255 - g) * factor);
     const newB = Math.round(b + (255 - b) * factor);
-    
+
     // Convert back to hex
-    const toHex = (n: number) => Math.min(255, Math.max(0, n)).toString(16).padStart(2, '0');
+    const toHex = (n: number) =>
+      Math.min(255, Math.max(0, n)).toString(16).padStart(2, '0');
     return `#${toHex(newR)}${toHex(newG)}${toHex(newB)}`;
   }
 

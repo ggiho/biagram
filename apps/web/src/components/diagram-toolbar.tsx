@@ -23,7 +23,19 @@ import { useTheme } from '@/contexts/theme-context';
 export function DiagramToolbar() {
   const [currentZoom, setCurrentZoom] = useState(100);
   const [mounted, setMounted] = useState(false);
-  const { engine, selectedTool, setSelectedTool, showGrid, setShowGrid, showComments, setShowComments, onUndo, onRedo, canUndo, canRedo } = useDiagramEngine();
+  const {
+    engine,
+    selectedTool,
+    setSelectedTool,
+    showGrid,
+    setShowGrid,
+    showComments,
+    setShowComments,
+    onUndo,
+    onRedo,
+    canUndo,
+    canRedo,
+  } = useDiagramEngine();
   const { theme, toggleTheme } = useTheme();
 
   // Prevent hydration mismatch for theme icon
@@ -104,10 +116,11 @@ export function DiagramToolbar() {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Input/Textarea 등 입력 요소에 포커스가 있으면 단축키 무시
       const activeElement = document.activeElement;
-      const isInputFocused = activeElement instanceof HTMLInputElement ||
+      const isInputFocused =
+        activeElement instanceof HTMLInputElement ||
         activeElement instanceof HTMLTextAreaElement ||
         activeElement?.getAttribute('contenteditable') === 'true';
-      
+
       if (isInputFocused) {
         return;
       }
@@ -151,8 +164,8 @@ export function DiagramToolbar() {
   }, [onRedo]);
 
   return (
-    <div className="flex h-12 items-center justify-between border-b bg-background px-4">
-      <div className="flex items-center gap-2">
+    <div className="flex h-14 items-center justify-between border-b border-border/70 bg-background/90 px-4 backdrop-blur-xl">
+      <div className="flex items-center gap-3">
         {/* Tool Selection - Commented out: clicking canvas already pans, dragging objects moves them */}
         {/* <div className="flex rounded-md border">
           <Button
@@ -178,17 +191,21 @@ export function DiagramToolbar() {
         </div> */}
 
         {/* Zoom Controls */}
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 rounded-2xl border border-border/70 bg-card/80 px-2 py-1 shadow-sm">
           <Button
             variant="ghost"
             size="sm"
             onClick={handleZoomOut}
             aria-label="Zoom out"
             title="Zoom out - Decrease diagram zoom level"
+            className="h-8 w-8 rounded-xl text-muted-foreground hover:bg-background hover:text-foreground"
           >
             <ZoomOut className="h-4 w-4" />
           </Button>
-          <span className="text-sm text-muted-foreground" aria-label={`Current zoom level: ${currentZoom}%`}>
+          <span
+            className="min-w-[3.75rem] text-center text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400"
+            aria-label={`Current zoom level: ${currentZoom}%`}
+          >
             {currentZoom}%
           </span>
           <Button
@@ -197,6 +214,7 @@ export function DiagramToolbar() {
             onClick={handleZoomIn}
             aria-label="Zoom in"
             title="Zoom in - Increase diagram zoom level"
+            className="h-8 w-8 rounded-xl text-muted-foreground hover:bg-background hover:text-foreground"
           >
             <ZoomIn className="h-4 w-4" />
           </Button>
@@ -206,6 +224,7 @@ export function DiagramToolbar() {
             onClick={handleZoomToFit}
             aria-label="Zoom to fit"
             title="Zoom to fit - Auto-adjust zoom to fit all diagram elements (Shift+1)"
+            className="h-8 w-8 rounded-xl text-muted-foreground hover:bg-background hover:text-foreground"
           >
             <Maximize className="h-4 w-4" />
           </Button>
@@ -215,6 +234,7 @@ export function DiagramToolbar() {
             onClick={handleResetView}
             aria-label="Reset view"
             title="Reset view - Return to default zoom and position (Shift+0)"
+            className="h-8 w-8 rounded-xl text-muted-foreground hover:bg-background hover:text-foreground"
           >
             <Home className="h-4 w-4" />
           </Button>
@@ -223,7 +243,7 @@ export function DiagramToolbar() {
 
       <div className="flex items-center gap-2">
         {/* Undo/Redo */}
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 rounded-2xl border border-border/70 bg-card/80 px-2 py-1 shadow-sm">
           <Button
             variant="ghost"
             size="sm"
@@ -231,6 +251,7 @@ export function DiagramToolbar() {
             disabled={!canUndo}
             aria-label="Undo"
             title="Undo - Undo the last action (Cmd/Ctrl+Z)"
+            className="h-8 w-8 rounded-xl text-muted-foreground hover:bg-background hover:text-foreground"
           >
             <RotateCcw className="h-4 w-4" />
           </Button>
@@ -241,6 +262,7 @@ export function DiagramToolbar() {
             disabled={!canRedo}
             aria-label="Redo"
             title="Redo - Redo the last undone action (Cmd/Ctrl+Shift+Z)"
+            className="h-8 w-8 rounded-xl text-muted-foreground hover:bg-background hover:text-foreground"
           >
             <RotateCw className="h-4 w-4" />
           </Button>
@@ -253,6 +275,7 @@ export function DiagramToolbar() {
           onClick={() => setShowGrid(!showGrid)}
           aria-label={showGrid ? 'Hide grid' : 'Show grid'}
           title={showGrid ? 'Hide grid' : 'Show grid'}
+          className="h-9 rounded-2xl px-3 shadow-sm"
         >
           <Grid className="h-4 w-4" />
         </Button>
@@ -264,6 +287,7 @@ export function DiagramToolbar() {
           onClick={() => setShowComments(!showComments)}
           aria-label={showComments ? 'Hide comments' : 'Show comments'}
           title={showComments ? 'Hide comments' : 'Show comments'}
+          className="h-9 rounded-2xl px-3 shadow-sm"
         >
           <MessageSquare className="h-4 w-4" />
         </Button>
@@ -273,11 +297,24 @@ export function DiagramToolbar() {
           variant="ghost"
           size="sm"
           onClick={toggleTheme}
-          aria-label={mounted && theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-          title={mounted && theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+          aria-label={
+            mounted && theme === 'dark'
+              ? 'Switch to light mode'
+              : 'Switch to dark mode'
+          }
+          title={
+            mounted && theme === 'dark'
+              ? 'Switch to light mode'
+              : 'Switch to dark mode'
+          }
+          className="h-9 w-9 rounded-2xl border border-border/70 bg-card/80 text-muted-foreground shadow-sm hover:bg-background hover:text-foreground"
         >
           {mounted ? (
-            theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />
+            theme === 'dark' ? (
+              <Sun className="h-4 w-4" />
+            ) : (
+              <Moon className="h-4 w-4" />
+            )
           ) : (
             <div className="h-4 w-4" />
           )}
